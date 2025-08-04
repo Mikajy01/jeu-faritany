@@ -26,8 +26,10 @@ function App() {
 
   useEffect(() => {
     // Initialize socket connection
-    socketRef.current = io('http://192.168.56.67:5555');
-
+    socketRef.current = io("http://192.168.56.67:5555", {
+  transports: ["websocket", "polling"] // Forcer les transports
+});
+// Exemple côté client
     socketRef.current.on('connect', () => {
       setConnectionStatus('Connected to server');
       addLogEntry("Connected to server");
@@ -57,6 +59,7 @@ function App() {
     });
 
     socketRef.current.on('moveMade', (data) => {
+      console.log('Move made:', data);
       setGameState(prev => ({
         ...prev,
         ...data.gameState
@@ -64,7 +67,6 @@ function App() {
       
       // Draw the new state
       drawBoard();
-      
       if (data.capturedStones.length > 0) {
         addLogEntry(`Player ${data.move.player} captured ${data.capturedStones.length} stones!`);
       }
