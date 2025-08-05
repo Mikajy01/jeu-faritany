@@ -29,13 +29,21 @@ class GameRoom {
             scores: { player1: 0, player2: 0 },
             gameActive: false,
             gameId: this.generateGameId(),
-            capturedStones: new Set(),
-            territories: []
+            deadStones: new Set(),
+            capturedAreas: []  // Nouvelle propriété pour les zones capturées
         };
     }
 
     generateGameId() {
         return Math.random().toString(36).substr(2, 9);
+    }
+
+    // Nouvelle méthode pour obtenir l'état effectif d'une case
+    getEffectiveCellState(index) {
+        if (this.gameState.deadStones.has(index)) {
+            return 0;  // Case considérée comme vide si pierre morte
+        }
+        return this.gameState.grid[index];
     }
 
     addPlayer(socketId, playerNumber) {
@@ -58,63 +66,146 @@ class GameRoom {
     }
 
     makeMove(index, player) {
-        if (!this.gameState.gameActive) return { success: false, reason: 'Game not active' };
-        if (this.gameState.currentPlayer !== player) return { success: false, reason: 'Not your turn' };
-        if (this.gameState.grid[index] !== 0) return { success: false, reason: 'Position occupied' };
+    if (!this.gameState.gameActive) return { success: false, reason: 'Game not active' };
+    if (this.gameState.currentPlayer !== player) return { success: false, reason: 'Not your turn' };
+    if (this.gameState.grid[index] !== 0) return { success: false, reason: 'Position occupied' };
 
-        // Placer la pierre
-        this.gameState.grid[index] = player;
+    // Placer la pierre temporairement
+    this.gameState.grid[index] = player;
 
-        // Vérifier les captures
-        const capturedStones = this.checkCaptures(index, player);
-        
-        // Mettre à jour le score
-        if (capturedStones.length > 0) {
-            this.gameState.scores[`player${player}`] += capturedStones.length;
-            capturedStones.forEach(stone => this.gameState.capturedStones.add(stone));
-        }
+    // Vérifier les captures classiques adjacentes
+    const capturedStones = this.checkCaptures(index, player);
 
-        // Vérifier les territoires
-        const newTerritories = this.findTerritories();
-        this.updateTerritories(newTerritories);
+    // Marquer les pierres capturées comme mortes
+    capturedStones.forEach(stoneIndex => {
+        this.gameState.deadStones.add(stoneIndex);
+    });
 
-        // Changer de joueur
-        this.gameState.currentPlayer = player === 1 ? 2 : 1;
-
-        return {
-            success: true,
-            gameState: this.gameState,
-            move: { index, player },
-            capturedStones,
-            territories: newTerritories
-        };
+    // Vérifier si le coup est suicidaire
+    if (this.isSuicideMove(index, player)) {
+        // Annuler le coup
+        this.gameState.grid[index] = 0;
+        // Retirer les marques de pierres mortes
+        capturedStones.forEach(stoneIndex => {
+            this.gameState.deadStones.delete(stoneIndex);
+        });
+        return { success: false, reason: 'Suicide move not allowed' };
     }
+
+    // === [NOUVEAU] Détecter les zones entièrement encerclées et capturer les pions adverses isolés dedans
+    const extraCapturedStones = [];
+    const territories = this.findTerritories();
+    const ownedTerritories = territories.filter(t => t.owner === player);
+
+    ownedTerritories.forEach(t => {
+        t.points.forEach(index => {
+            const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            directions.forEach(([dx, dy]) => {
+                const adjIndex = this.getAdjacentIndex(index, dx, dy);
+                if (adjIndex !== null) {
+                    const cell = this.getEffectiveCellState(adjIndex);
+                    if (cell !== 0 && cell !== player && !this.gameState.deadStones.has(adjIndex)) {
+                        const group = this.findConnectedGroup(adjIndex, cell);
+                        if (this.hasNoLiberties(group, cell)) {
+                            extraCapturedStones.push(...group);
+                        }
+                    }
+                }
+            });
+        });
+    });
+
+    // Supprimer doublons et ajouter à deadStones
+    const newCaptures = [...new Set(extraCapturedStones)].filter(i => !this.gameState.deadStones.has(i));
+    newCaptures.forEach(i => this.gameState.deadStones.add(i));
+    capturedStones.push(...newCaptures);
+
+    // Mettre à jour le score
+    if (capturedStones.length > 0) {
+        this.gameState.scores[`player${player}`] += capturedStones.length;
+    }
+
+    // Mettre à jour les zones capturées
+    this.updateCapturedAreas();
+
+    // Changer de joueur
+    this.gameState.currentPlayer = player === 1 ? 2 : 1;
+
+    console.log('capturedAreas: ', this.gameState.capturedAreas);
+
+    return {
+        success: true,
+        gameState: this.getSerializableGameState(),
+        move: { index, player },
+        capturedStones,
+        enclosedAreas: this.gameState.capturedAreas // Pour affichage/animation
+    };
+}
+
 
     checkCaptures(index, player) {
         const opponent = player === 1 ? 2 : 1;
-        const capturedStones = new Set();
+        const capturedStones = [];
         const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 
         // Vérifier les groupes adverses adjacents
         for (const [dx, dy] of directions) {
             const adjIndex = this.getAdjacentIndex(index, dx, dy);
-            if (adjIndex !== null && this.gameState.grid[adjIndex] === opponent) {
-                const groupInfo = this.findGroupWithLiberties(adjIndex);
-                if (groupInfo.liberties === 0) {
-                    groupInfo.stones.forEach(stone => capturedStones.add(stone));
+            if (adjIndex !== null && this.getEffectiveCellState(adjIndex) === opponent) {
+                const group = this.findConnectedGroup(adjIndex, opponent);
+                if (this.hasNoLiberties(group, opponent)) {
+                    capturedStones.push(...group);
                 }
             }
         }
 
-        // Vérifier si le coup joué se capture lui-même (interdit)
-        const selfGroup = this.findGroupWithLiberties(index);
-        if (selfGroup.liberties === 0) {
-            // Coup suicide - annuler le coup
-            this.gameState.grid[index] = 0;
-            return { success: false, reason: 'Suicide move not allowed' };
+        return [...new Set(capturedStones)];
+    }
+
+    isSuicideMove(index, player) {
+        const group = this.findConnectedGroup(index, player);
+        return this.hasNoLiberties(group, player);
+    }
+
+    findConnectedGroup(startIndex, player) {
+        const visited = new Set();
+        const stack = [startIndex];
+        const group = [];
+
+        while (stack.length > 0) {
+            const currentIndex = stack.pop();
+            if (visited.has(currentIndex)) continue;
+            visited.add(currentIndex);
+
+            if (this.getEffectiveCellState(currentIndex) !== player) continue;
+
+            group.push(currentIndex);
+
+            const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            for (const [dx, dy] of directions) {
+                const adjIndex = this.getAdjacentIndex(currentIndex, dx, dy);
+                if (adjIndex !== null && !visited.has(adjIndex)) {
+                    stack.push(adjIndex);
+                }
+            }
         }
 
-        return Array.from(capturedStones);
+        return group;
+    }
+
+    hasNoLiberties(group, player) {
+        const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+
+        for (const stoneIndex of group) {
+            for (const [dx, dy] of directions) {
+                const adjIndex = this.getAdjacentIndex(stoneIndex, dx, dy);
+                if (adjIndex !== null && this.getEffectiveCellState(adjIndex) === 0) {
+                    return false; // Liberté trouvée
+                }
+            }
+        }
+
+        return true; // Aucune liberté
     }
 
     getAdjacentIndex(index, dx, dy) {
@@ -130,39 +221,38 @@ class GameRoom {
         return newRow * this.gridSize + newCol;
     }
 
-    findGroupWithLiberties(startIndex) {
-        const player = this.gameState.grid[startIndex];
-        if (player === 0) return { stones: [], liberties: 0 };
+    // Méthode pour sérialiser l'état du jeu
+    getSerializableGameState() {
+        return {
+            grid: [...this.gameState.grid],
+            currentPlayer: this.gameState.currentPlayer,
+            scores: { ...this.gameState.scores },
+            gameActive: this.gameState.gameActive,
+            gameId: this.gameState.gameId,
+            deadStones: Array.from(this.gameState.deadStones),
+            capturedAreas: [...this.gameState.capturedAreas] // Inclure les zones capturées
+        };
+    }
 
-        const visited = new Set();
-        const queue = [startIndex];
-        const group = [];
-        let liberties = 0;
+    // Méthode pour calculer le score final
+    calculateFinalScore() {
+        const territories = this.findTerritories();
+        let player1Territory = 0;
+        let player2Territory = 0;
 
-        while (queue.length > 0) {
-            const currentIndex = queue.shift();
-            if (visited.has(currentIndex)) continue;
-            visited.add(currentIndex);
-
-            if (this.gameState.grid[currentIndex] === 0) {
-                liberties++;
-                continue;
+        territories.forEach(territory => {
+            if (territory.owner === 1) {
+                player1Territory += territory.points.length;
+            } else if (territory.owner === 2) {
+                player2Territory += territory.points.length;
             }
+        });
 
-            if (this.gameState.grid[currentIndex] !== player) continue;
-
-            group.push(currentIndex);
-
-            const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-            for (const [dx, dy] of directions) {
-                const adjIndex = this.getAdjacentIndex(currentIndex, dx, dy);
-                if (adjIndex !== null && !visited.has(adjIndex)) {
-                    queue.push(adjIndex);
-                }
-            }
-        }
-
-        return { stones: group, liberties };
+        return {
+            player1: this.gameState.scores.player1 + player1Territory,
+            player2: this.gameState.scores.player2 + player2Territory,
+            territories
+        };
     }
 
     findTerritories() {
@@ -170,13 +260,10 @@ class GameRoom {
         const territories = [];
 
         for (let i = 0; i < this.gridSize * this.gridSize; i++) {
-            if (this.gameState.grid[i] === 0 && !visited.has(i)) {
-                const territoryInfo = this.exploreTerritory(i, visited);
-                if (territoryInfo.isEnclosed) {
-                    territories.push({
-                        player: territoryInfo.enclosingPlayer,
-                        points: territoryInfo.area
-                    });
+            if (this.getEffectiveCellState(i) === 0 && !visited.has(i)) {
+                const territory = this.exploreTerritory(i, visited);
+                if (territory.owner !== null) {
+                    territories.push(territory);
                 }
             }
         }
@@ -186,61 +273,50 @@ class GameRoom {
 
     exploreTerritory(startIndex, visited) {
         const queue = [startIndex];
-        const area = [];
-        let isEnclosed = true;
-        let enclosingPlayer = null;
+        const points = [];
         const boundaryPlayers = new Set();
+        const boundaryStones = new Set(); // Nouveau: stocke les pierres frontières
 
         while (queue.length > 0) {
             const currentIndex = queue.shift();
             if (visited.has(currentIndex)) continue;
             visited.add(currentIndex);
 
-            if (this.gameState.grid[currentIndex] !== 0) continue;
+            if (this.getEffectiveCellState(currentIndex) !== 0) continue;
 
-            area.push(currentIndex);
+            points.push(currentIndex);
 
             const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
             for (const [dx, dy] of directions) {
                 const adjIndex = this.getAdjacentIndex(currentIndex, dx, dy);
-                if (adjIndex === null) {
-                    isEnclosed = false;
-                } else {
-                    const adjValue = this.gameState.grid[adjIndex];
+                if (adjIndex !== null) {
+                    const adjValue = this.getEffectiveCellState(adjIndex);
                     if (adjValue === 0 && !visited.has(adjIndex)) {
                         queue.push(adjIndex);
                     } else if (adjValue !== 0) {
-                        // Vérifier que la pierre n'est pas capturée
-                        if (!this.gameState.capturedStones.has(adjIndex)) {
-                            boundaryPlayers.add(adjValue);
-                        }
+                        boundaryPlayers.add(adjValue);
+                        boundaryStones.add(adjIndex); // Enregistrer la pierre frontière
                     }
                 }
             }
         }
 
-        // Un territoire est valide seulement s'il est entouré par un seul joueur
+        let owner = null;
         if (boundaryPlayers.size === 1) {
-            enclosingPlayer = boundaryPlayers.values().next().value;
-        } else {
-            isEnclosed = false;
+            owner = boundaryPlayers.values().next().value;
         }
 
-        return { area, isEnclosed, enclosingPlayer };
+        return {
+            points,
+            owner,
+            stones: Array.from(boundaryStones) // Retourner les pierres frontières
+        };
     }
 
-    updateTerritories(newTerritories) {
-        // Réinitialiser les territoires précédents
-        this.gameState.territories = [];
-
-        // Ajouter les nouveaux territoires valides
-        for (const territory of newTerritories) {
-            if (territory.player) {
-                this.gameState.territories.push(territory);
-                // Mettre à jour le score
-                this.gameState.scores[`player${territory.player}`] += territory.points.length;
-            }
-        }
+    // Nouvelle méthode pour mettre à jour les zones capturées
+    updateCapturedAreas() {
+        const territories = this.findTerritories();
+        this.gameState.capturedAreas = territories.filter(t => t.owner !== null);
     }
 }
 
@@ -253,7 +329,6 @@ io.on('connection', (socket) => {
         let gameRoom;
         let playerNumber;
 
-        // Chercher une salle avec un joueur seul
         for (const [roomId, room] of gameRooms) {
             if (room.players.size === 1) {
                 gameRoom = room;
@@ -262,30 +337,26 @@ io.on('connection', (socket) => {
             }
         }
 
-        // Si aucune salle disponible, créer une nouvelle salle
         if (!gameRoom) {
             gameRoom = new GameRoom();
             playerNumber = 1;
             gameRooms.set(gameRoom.gameState.gameId, gameRoom);
         }
 
-        // Ajouter le joueur à la salle
         gameRoom.addPlayer(socket.id, playerNumber);
         socket.join(gameRoom.gameState.gameId);
         socket.gameRoomId = gameRoom.gameState.gameId;
         socket.playerNumber = playerNumber;
 
-        // Envoyer les informations au joueur
         socket.emit('gameJoined', {
             playerId: playerNumber,
-            gameState: gameRoom.gameState,
+            gameState: gameRoom.getSerializableGameState(),
             playerCount: gameRoom.players.size
         });
 
-        // Si deux joueurs sont connectés, démarrer le jeu
         if (gameRoom.players.size === 2) {
             io.to(gameRoom.gameState.gameId).emit('gameStart', {
-                gameState: gameRoom.gameState
+                gameState: gameRoom.getSerializableGameState()
             });
         }
     });
@@ -299,14 +370,21 @@ io.on('connection', (socket) => {
 
         if (result.success) {
             io.to(socket.gameRoomId).emit('moveMade', {
-                gameState: gameRoom.gameState,
+                gameState: result.gameState,
                 move: result.move,
-                capturedStones: result.capturedStones,
-                territories: result.territories
+                capturedStones: result.capturedStones
             });
         } else {
             socket.emit('moveError', { reason: result.reason });
         }
+    });
+
+    socket.on('calculateScore', () => {
+        const gameRoom = gameRooms.get(socket.gameRoomId);
+        if (!gameRoom) return;
+
+        const finalScore = gameRoom.calculateFinalScore();
+        io.to(socket.gameRoomId).emit('finalScore', finalScore);
     });
 
     socket.on('resetGame', () => {
@@ -315,7 +393,7 @@ io.on('connection', (socket) => {
 
         gameRoom.resetGame();
         io.to(socket.gameRoomId).emit('gameReset', {
-            gameState: gameRoom.gameState
+            gameState: gameRoom.getSerializableGameState()
         });
     });
 
