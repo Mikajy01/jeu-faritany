@@ -164,23 +164,6 @@ class GameRoom {
     // Placer temporairement la pierre
     this.gameState.grid[key] = player;
 
-    // Vérifier les captures classiques
-    // const capturedStones = this.checkCaptures(x, y, player);
-
-    // Marquer les pierres capturées comme mortes
-    // capturedStones.forEach((stoneKey) => {
-    //   this.gameState.deadStones.add(stoneKey);
-    // });
-
-    // Vérifier si le coup est suicidaire
-    // if (this.isSuicideMove(x, y, player)) {
-    //   // Annuler le coup
-    //   delete this.gameState.grid[key];
-    //   capturedStones.forEach((stoneKey) => {
-    //     this.gameState.deadStones.delete(stoneKey);
-    //   });
-    //   return { success: false, reason: "Suicide move not allowed" };
-    // }
 
     const extraCapturedStones = [];
     const cycles = this.findCycles(x, y, player);
@@ -336,71 +319,7 @@ class GameRoom {
     return { minX, maxX, minY, maxY };
   }
 
-  checkCaptures(x, y, player) {
-    const opponent = player === 1 ? 2 : 1;
-    const capturedStones = new Set();
-    const adjacents = this.getAdjacentCoords(x, y);
-
-    for (const adj of adjacents) {
-      const adjKey = this.coordToKey(adj.x, adj.y);
-      if (this.getCellState(adj.x, adj.y) === opponent) {
-        const group = this.findConnectedGroup(adj.x, adj.y, opponent);
-        if (this.hasNoLiberties(group)) {
-          group.forEach((stone) => {
-            capturedStones.add(this.coordToKey(stone.x, stone.y));
-          });
-        }
-      }
-    }
-
-    return [...capturedStones];
-  }
-
-  isSuicideMove(x, y, player) {
-    const group = this.findConnectedGroup(x, y, player);
-    return this.hasNoLiberties(group);
-  }
-
-  findConnectedGroup(startX, startY, player) {
-    const visited = new Set();
-    const stack = [{ x: startX, y: startY }];
-    const group = [];
-
-    while (stack.length > 0) {
-      const current = stack.pop();
-      const currentKey = this.coordToKey(current.x, current.y);
-
-      if (visited.has(currentKey)) continue;
-      visited.add(currentKey);
-
-      if (this.getCellState(current.x, current.y) !== player) continue;
-
-      group.push({ x: current.x, y: current.y });
-
-      const adjacents = this.getAdjacentCoords(current.x, current.y);
-      for (const adj of adjacents) {
-        const adjKey = this.coordToKey(adj.x, adj.y);
-        if (!visited.has(adjKey)) {
-          stack.push(adj);
-        }
-      }
-    }
-
-    return group;
-  }
-
-  hasNoLiberties(group) {
-    for (const stone of group) {
-      const adjacents = this.getAdjacentCoords(stone.x, stone.y);
-      for (const adj of adjacents) {
-        if (this.getCellState(adj.x, adj.y) === 0) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
+  
   getSerializableGameState() {
     return {
       grid: { ...this.gameState.grid },
