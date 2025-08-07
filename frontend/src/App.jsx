@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+
 import io from 'socket.io-client';
-import './App.css';
 
 function App() {
   const [gameState, setGameState] = useState({
@@ -17,6 +17,7 @@ function App() {
     "Bienvenue dans le jeu faritany !",
     "Placez vos points pour entourer les points et zones adverses."
   ]);
+  const [hoveredCoord, setHoveredCoord] = useState(null);
 
   const canvasRef = useRef(null);
   const socketRef = useRef(null);
@@ -34,7 +35,7 @@ function App() {
 
   useEffect(() => {
     // Initialiser la connexion socket
-    socketRef.current = io("http://192.168.56.67:5555", {
+    socketRef.current = io("http://localhost:5555", {
       transports: ["websocket", "polling"]
     });
 
@@ -164,7 +165,7 @@ function App() {
 
   useEffect(() => {
     drawBoard();
-  }, [gameState]);
+  }, [gameState, hoveredCoord]);
 
   const addLogEntry = (message) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -207,6 +208,24 @@ function App() {
       ctx.moveTo(padding + i * cellSize, padding);
       ctx.lineTo(padding + i * cellSize, height - padding);
       ctx.stroke();
+    }
+
+    // Dessiner l'effet de survol
+    if (hoveredCoord && gameState.gameActive && gameState.playerId === gameState.currentPlayer) {
+      const coordKey = coordToKey(hoveredCoord.x, hoveredCoord.y);
+      if (!gameState.grid.has(coordKey)) {
+        const x = padding + hoveredCoord.x * cellSize;
+        const y = padding + hoveredCoord.y * cellSize;
+        
+        // Cercle de survol
+        ctx.beginPath();
+        ctx.arc(x, y, stoneRadius + 2, 0, Math.PI * 2);
+        ctx.fillStyle = gameState.currentPlayer === 1 ? 'rgba(231, 76, 60, 0.3)' : 'rgba(52, 152, 219, 0.3)';
+        ctx.fill();
+        ctx.strokeStyle = gameState.currentPlayer === 1 ? '#e74c3c' : '#3498db';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
     }
 
     // Dessiner les zones capturées et les murs de prison
@@ -436,79 +455,156 @@ function App() {
     socketRef.current.emit('makeMove', { x: col, y: row });
   };
 
+  const handleCanvasMouseMove = (e) => {
+    if (!gameState.gameActive || gameState.playerId !== gameState.currentPlayer) {
+      setHoveredCoord(null);
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left - padding;
+    const y = e.clientY - rect.top - padding;
+
+    if (x < 0 || y < 0) {
+      setHoveredCoord(null);
+      return;
+    }
+
+    const col = Math.round(x / cellSize);
+    const row = Math.round(y / cellSize);
+
+    if (col < 0 || col >= gridSize || row < 0 || row >= gridSize) {
+      setHoveredCoord(null);
+      return;
+    }
+
+    setHoveredCoord({ x: col, y: row });
+  };
+
+  const handleCanvasMouseLeave = () => {
+    setHoveredCoord(null);
+  };
+
   const resetGame = () => {
     if (socketRef.current) {
       socketRef.current.emit('resetGame');
     }
   };
 
+  const getConnectionStatusColor = () => {
+    if (connectionStatus.includes('Connecté')) return 'text-green-600 bg-green-100';
+    if (connectionStatus.includes('Erreur') || connectionStatus.includes('Déconnecté')) return 'text-red-600 bg-red-100';
+    return 'text-yellow-600 bg-yellow-100';
+  };
+
   return (
-    <div className="app-container">
-      <div className="game-info">
-        <h1>Jeu Faritany</h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 p-4">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Panel d'informations */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-slate-200">
+            <h1 className="text-2xl font-bold text-slate-800 mb-4 text-center">Jeu Faritany</h1>
 
-        <div className={`connection-status ${connectionStatus.includes('Connecté') ? 'connected' :
-            connectionStatus.includes('Erreur') || connectionStatus.includes('Déconnecté') ? 'disconnected' :
-              'waiting'
-          }`}>
-          {connectionStatus}
+            <div className={`text-sm font-medium px-3 py-2 rounded-lg text-center mb-4 ${getConnectionStatusColor()}`}>
+              {connectionStatus}
+            </div>
+
+            <div className="space-y-3">
+              <div className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
+                gameState.currentPlayer === 1 ? 'border-red-400 bg-red-50 shadow-md' : 'border-slate-200 bg-slate-50'
+              }`}>
+                <span className="font-medium text-slate-700">Joueur 1</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-red-500"></div>
+                  <span className="font-bold text-lg text-slate-800">{gameState.scores.player1}</span>
+                </div>
+              </div>
+              
+              <div className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
+                gameState.currentPlayer === 2 ? 'border-blue-400 bg-blue-50 shadow-md' : 'border-slate-200 bg-slate-50'
+              }`}>
+                <span className="font-medium text-slate-700">Joueur 2</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-blue-500"></div>
+                  <span className="font-bold text-lg text-slate-800">{gameState.scores.player2}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 p-3 bg-slate-100 rounded-lg text-center">
+              <span className="text-slate-700 font-medium">
+                {!gameState.gameActive
+                  ? "En attente d'un adversaire..."
+                  : gameState.playerId === gameState.currentPlayer
+                    ? 'À votre tour !'
+                    : "En attente de l'adversaire..."}
+              </span>
+            </div>
+
+            <button 
+              onClick={resetGame}
+              className="w-full mt-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md"
+            >
+              Nouvelle Partie
+            </button>
+          </div>
+
+          {/* Coordonnées de survol */}
+          {hoveredCoord && (
+            <div className="bg-white rounded-xl shadow-lg p-4 border border-slate-200">
+              <h3 className="font-semibold text-slate-800 mb-2">🎯 Position du curseur</h3>
+              <div className="bg-slate-100 rounded-lg p-3 text-center">
+                <span className="font-mono text-lg text-slate-700">
+                  ({hoveredCoord.x}, {hoveredCoord.y})
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Journal de jeu */}
+          <div className="bg-white rounded-xl shadow-lg p-4 border border-slate-200">
+            <h3 className="font-semibold text-slate-800 mb-3">📋 Journal de Jeu</h3>
+            <div className="max-h-64 overflow-y-auto space-y-1">
+              {gameLog.map((entry, index) => (
+                <div key={index} className="text-xs text-slate-600 p-2 bg-slate-50 rounded border-l-2 border-slate-300">
+                  {entry}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="player-info">
-          <div className={`player ${gameState.currentPlayer === 1 ? 'active' : ''}`}>
-            <div>Joueur 1</div>
-            <div style={{ color: '#e74c3c' }}>●</div>
-            <div className="score">{gameState.scores.player1}</div>
-          </div>
-          <div className={`player ${gameState.currentPlayer === 2 ? 'active' : ''}`}>
-            <div>Joueur 2</div>
-            <div style={{ color: '#3498db' }}>●</div>
-            <div className="score">{gameState.scores.player2}</div>
-          </div>
-        </div>
+        {/* Plateau de jeu */}
+        <div className="lg:col-span-2">
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-slate-200">
+            <h2 className="text-xl font-semibold text-slate-800 mb-4 text-center">Plateau de Jeu</h2>
+            
+            <div className="flex justify-center">
+              <canvas
+                ref={canvasRef}
+                onClick={handleCanvasClick}
+                onMouseMove={handleCanvasMouseMove}
+                onMouseLeave={handleCanvasMouseLeave}
+                className="bg-amber-50 rounded-xl border-2 border-slate-300 cursor-crosshair shadow-inner"
+              />
+            </div>
 
-        <div className="status">
-          {!gameState.gameActive
-            ? "En attente d'un adversaire..."
-            : gameState.playerId === gameState.currentPlayer
-              ? 'À votre tour !'
-              : "En attente de l'adversaire..."}
-        </div>
-
-        <button onClick={resetGame}>Nouvelle Partie</button>
-
-        <h3>📋 Journal de Jeu</h3>
-        <div className="game-log">
-          {gameLog.map((entry, index) => (
-            <div key={index} className="log-entry">{entry}</div>
-          ))}
-        </div>
-      </div>
-
-      <div className="game-board">
-        <h2>Plateau de Jeu</h2>
-        <canvas
-          ref={canvasRef}
-          onClick={handleCanvasClick}
-          style={{
-            backgroundColor: '#f8f9fa',
-            borderRadius: '10px',
-            border: '2px solid #333',
-            cursor: 'crosshair'
-          }}
-        />
-        <div className="legend">
-          <div className="legend-item">
-            <div className="legend-color" style={{ backgroundColor: 'rgba(231, 76, 60, 0.2)' }}></div>
-            <span>Zone prison (Joueur 1)</span>
-          </div>
-          <div className="legend-item">
-            <div className="legend-color" style={{ backgroundColor: 'rgba(52, 152, 219, 0.2)' }}></div>
-            <span>Zone prison (Joueur 2)</span>
-          </div>
-          <div className="legend-item">
-            <div className="legend-line" style={{ borderTop: '2px dashed #e74c3c' }}></div>
-            <span>Barreaux diagonaux</span>
+            {/* Légende */}
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+              <div className="flex items-center gap-2 p-2 bg-red-50 rounded-lg border border-red-200">
+                <div className="w-4 h-4 bg-red-500 bg-opacity-20 border border-red-300 rounded"></div>
+                <span className="text-red-700 font-medium">Zone prison (Joueur 1)</span>
+              </div>
+              <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="w-4 h-4 bg-blue-500 bg-opacity-20 border border-blue-300 rounded"></div>
+                <span className="text-blue-700 font-medium">Zone prison (Joueur 2)</span>
+              </div>
+              <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="w-4 h-0 border-t-2 border-dashed border-slate-400"></div>
+                <span className="text-slate-700 font-medium">Barreaux diagonaux</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
