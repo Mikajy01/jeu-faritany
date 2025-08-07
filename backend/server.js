@@ -2,6 +2,8 @@ const express = require("express");
 const http = require("http");
 const socketIo = require("socket.io");
 const path = require("path");
+const inside = require("point-in-polygon-hao");
+const pointInPolygon = require("point-in-polygon");
 
 const app = express();
 const server = http.createServer(app);
@@ -163,22 +165,22 @@ class GameRoom {
     this.gameState.grid[key] = player;
 
     // Vérifier les captures classiques
-    const capturedStones = this.checkCaptures(x, y, player);
+    // const capturedStones = this.checkCaptures(x, y, player);
 
     // Marquer les pierres capturées comme mortes
-    capturedStones.forEach((stoneKey) => {
-      this.gameState.deadStones.add(stoneKey);
-    });
+    // capturedStones.forEach((stoneKey) => {
+    //   this.gameState.deadStones.add(stoneKey);
+    // });
 
     // Vérifier si le coup est suicidaire
-    if (this.isSuicideMove(x, y, player)) {
-      // Annuler le coup
-      delete this.gameState.grid[key];
-      capturedStones.forEach((stoneKey) => {
-        this.gameState.deadStones.delete(stoneKey);
-      });
-      return { success: false, reason: "Suicide move not allowed" };
-    }
+    // if (this.isSuicideMove(x, y, player)) {
+    //   // Annuler le coup
+    //   delete this.gameState.grid[key];
+    //   capturedStones.forEach((stoneKey) => {
+    //     this.gameState.deadStones.delete(stoneKey);
+    //   });
+    //   return { success: false, reason: "Suicide move not allowed" };
+    // }
 
     const extraCapturedStones = [];
     const cycles = this.findCycles(x, y, player);
@@ -216,44 +218,123 @@ class GameRoom {
       success: true,
       gameState: this.getSerializableGameState(),
       move: { x, y, player },
-      capturedStones: [...capturedStones, ...extraCapturedStones],
+      capturedStones: [...extraCapturedStones],
       capturedAreas: this.gameState.capturedAreas,
     };
   }
 
   captureInsideCycle(cycle, player) {
-  const opponent = player === 1 ? 2 : 1;
-  const captured = new Set();
-  const polygon = cycle.map(({ x, y }) => [x + 0.5, y + 0.5]); // centrer sur la case
-  const size = this.gridSize;
+    console.log(typeof player, player);
+    const opponent = player === 1 ? 2 : 1;
+    const captured = new Set();
 
-  const isInside = (x, y) => {
-    const px = x + 0.5, py = y + 0.5;
-    let crossings = 0;
-    for (let i = 0; i < polygon.length; i++) {
-      const [x1, y1] = polygon[i];
-      const [x2, y2] = polygon[(i + 1) % polygon.length];
-      if ((y1 <= py && py < y2 || y2 <= py && py < y1) &&
-          (px - x1) * (y2 - y1) < (x2 - x1) * (py - y1)) {
-        crossings++;
-      }
+    // Validation du cycle
+    if (!cycle || cycle.length < 3) {
+      console.log("Cycle invalide ou trop court");
+      return Array.from(captured);
     }
-    return crossings % 2 === 1;
-  };
 
-  for (let x = 0; x < size; x++) {
-    for (let y = 0; y < size; y++) {
-      if (
-        this.getCellState(x, y) === opponent &&
-        isInside(x, y)
+    try {
+      // Convertir au format GeoJSON requis par point-in-polygon-hao
+      // Le polygone doit être fermé (premier point = dernier point)
+      const polygonCoords = cycle.map((point) => [point.x, point.y]);
+
+      // S'assurer que le polygone est fermé selon les specs GeoJSON
+      const first = polygonCoords[0];
+      const last = polygonCoords[polygonCoords.length - 1];
+      if (first[0] !== last[0] || first[1] !== last[1]) {
+        polygonCoords.push([first[0], first[1]]);
+      }
+
+      // Format GeoJSON: array de "linear rings" (polygone principal + éventuels trous)
+      const polygon = polygonCoords; // Pas de trous dans notre cas
+
+      // Optimisation : calculer les limites du polygone pour réduire la zone de test
+      const bounds = this.getPolygonBounds(cycle);
+
+      console.log(
+        `Recherche de captures dans la zone: (${bounds.minX},${bounds.minY}) à (${bounds.maxX},${bounds.maxY})`
+      );
+      let pointAnalysed = [];
+      // Parcourir seulement la zone d'intérêt
+      for (
+        let x = Math.max(0, bounds.minX);
+        x <= Math.min(this.gridSize**2 - 1, bounds.maxX);
+        x++
       ) {
-        captured.add(this.coordToKey(x, y));
+        for (
+          let y = Math.max(0, bounds.minY);
+          y <= Math.min(this.gridSize**2 - 1, bounds.maxY);
+          y++
+        ) {
+          pointAnalysed.push([x, y]);
+          // Vérifier si c'est une pierre adverse
+          if (this.getCellState(x, y) === opponent) {
+            // Utiliser point-in-polygon-hao
+            // Retourne: true (inside), false (outside), 0 (on boundary)
+            console.log("rayCasting sur point:", x, y);
+            console.log("polygone:", polygon);
+            const result = this.rayCasting([x, y], polygon);
+
+            if (result === true) {
+              // Seulement si strictement à l'intérieur
+              const key = this.coordToKey(x, y);
+              captured.add(key);
+              console.log(`Pierre adverse capturée en (${x}, ${y})`);
+            } else if (result === 0) {
+              console.log(
+                `Pierre adverse sur le bord en (${x}, ${y}) - non capturée`
+              );
+            }
+          } else {
+            console.log(`Aucune pierre adverse en (${x}, ${y}), ${this.getCellState(x, y)}`);
+          }
+        }
       }
+      console.log("Points analysés:", pointAnalysed);
+      console.log(`Nombre de points analysés: ${pointAnalysed.length}`);
+      console.log(`Nombre de pierres capturées: ${captured.size}`);
+      console.log(`Total de pierres capturées par le cycle: ${captured.size}`);
+    } catch (error) {
+      console.error("Erreur lors du calcul des captures par cycle:", error);
+      console.error("Cycle problématique:", cycle);
     }
+
+    return Array.from(captured);
   }
 
-  return Array.from(captured);
+  rayCasting(point, polygon) {
+    let intersections = 0;
+    const [x, y] = point;
+
+    for (let k = 0; k < polygon.length - 1; k++) {
+        const [x1, y1] = polygon[k];
+        const [x2, y2] = polygon[k + 1];
+
+        if ((y < y1) !== (y < y2) &&
+            x < ((x2 - x1) * (y - y1)) / (y2 - y1) + x1) {
+            intersections++;
+        }
+    }
+    return intersections % 2 === 1;
 }
+
+  // Calculer les limites du polygone
+  getPolygonBounds(polygon) {
+    let minX = polygon[0].x,
+      maxX = polygon[0].x;
+    let minY = polygon[0].y,
+      maxY = polygon[0].y;
+
+    for (const point of polygon) {
+      minX = Math.min(minX, point.x);
+      maxX = Math.max(maxX, point.x);
+      minY = Math.min(minY, point.y);
+      maxY = Math.max(maxY, point.y);
+    }
+
+    return { minX, maxX, minY, maxY };
+  }
 
   checkCaptures(x, y, player) {
     const opponent = player === 1 ? 2 : 1;

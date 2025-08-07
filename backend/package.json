@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "express": "^4.18.2",
+    "point-in-polygon": "^1.1.0",
+    "point-in-polygon-hao": "^1.2.4",
     "socket.io": "^4.7.5"
   },
   "devDependencies": {
