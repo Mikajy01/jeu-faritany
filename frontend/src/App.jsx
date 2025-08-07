@@ -4,7 +4,7 @@ import './App.css';
 
 function App() {
   const [gameState, setGameState] = useState({
-    grid: Array(19 * 19).fill(0),
+    grid: new Map(), // Changé en Map pour stocker {x,y} -> player
     currentPlayer: 1,
     scores: { player1: 0, player2: 0 },
     move: null,
@@ -25,6 +25,13 @@ function App() {
   const stoneRadius = 5;
   const padding = 30;
 
+  // Utilitaire pour convertir coordonnées en clé string
+  const coordToKey = (x, y) => `${x},${y}`;
+  const keyToCoord = (key) => {
+    const [x, y] = key.split(',').map(Number);
+    return { x, y };
+  };
+
   useEffect(() => {
     // Initialiser la connexion socket
     socketRef.current = io("http://192.168.56.67:5555", {
@@ -38,11 +45,21 @@ function App() {
     });
 
     socketRef.current.on('gameJoined', (data) => {
+      // Convertir le grid reçu du serveur
+      const gridMap = new Map();
+      if (data.gameState.grid) {
+        Object.entries(data.gameState.grid).forEach(([key, value]) => {
+          if (value !== 0) {
+            gridMap.set(key, value);
+          }
+        });
+      }
+      
       setGameState(prev => ({
         ...prev,
         playerId: data.playerId,
         gameActive: data.gameState.gameActive,
-        grid: data.gameState.grid,
+        grid: gridMap,
         scores: data.gameState.scores,
         currentPlayer: data.gameState.currentPlayer,
       }));
@@ -50,38 +67,71 @@ function App() {
     });
 
     socketRef.current.on('gameStart', (data) => {
+      const gridMap = new Map();
+      if (data.gameState.grid) {
+        Object.entries(data.gameState.grid).forEach(([key, value]) => {
+          if (value !== 0) {
+            gridMap.set(key, value);
+          }
+        });
+      }
+
       setGameState(prev => ({
         ...prev,
         gameActive: true,
-        ...data.gameState
+        grid: gridMap,
+        scores: data.gameState.scores,
+        currentPlayer: data.gameState.currentPlayer,
+        capturedAreas: data.gameState.capturedAreas || []
       }));
       addLogEntry("Jeu démarré !");
       setConnectionStatus('Partie en cours');
     });
 
     socketRef.current.on('moveMade', (data) => {
+      const gridMap = new Map();
+      if (data.gameState.grid) {
+        Object.entries(data.gameState.grid).forEach(([key, value]) => {
+          if (value !== 0) {
+            gridMap.set(key, value);
+          }
+        });
+      }
+
       setGameState(prev => ({
         ...prev,
-        ...data.gameState,
+        grid: gridMap,
+        scores: data.gameState.scores,
+        currentPlayer: data.gameState.currentPlayer,
+        capturedAreas: data.gameState.capturedAreas || [],
         move: data.move
       }));
-      const capturedArea = data.gameState.capturedAreas[data.gameState.capturedAreas.length - 1];
+      
       drawBoard();
 
       if (data.capturedStones.length > 0) {
         addLogEntry(`Le joueur ${data.move.player} a capturé ${data.capturedStones.length} pierres !`);
       }
 
-      // if (capturedArea) {
-      //   flashEnclosedArea(capturedArea.stones, capturedArea.owner);
-      // }
       addLogEntry(`Tour du joueur ${data.gameState.currentPlayer === 1 ? 2 : 1}`);
     });
 
     socketRef.current.on('gameReset', (data) => {
+      const gridMap = new Map();
+      if (data.gameState.grid) {
+        Object.entries(data.gameState.grid).forEach(([key, value]) => {
+          if (value !== 0) {
+            gridMap.set(key, value);
+          }
+        });
+      }
+
       setGameState(prev => ({
         ...prev,
-        ...data.gameState
+        grid: gridMap,
+        scores: data.gameState.scores,
+        currentPlayer: data.gameState.currentPlayer,
+        capturedAreas: data.gameState.capturedAreas || []
       }));
       addLogEntry("Jeu réinitialisé !");
       drawBoard();
@@ -121,47 +171,9 @@ function App() {
     setGameLog(prev => [...prev.slice(-50), `${timestamp}: ${message}`]);
   };
 
-  // const flashEnclosedArea = (enclosedAreas, player) => {
-  //   const canvas = canvasRef.current;
-  //   if (!canvas) return;
-
-  //   const ctx = canvas.getContext('2d');
-  //   const color = player === 1 ? 'rgba(231, 76, 60, 0.5)' : 'rgba(52, 152, 219, 0.5)';
-
-  //   enclosedAreas.forEach(area => {
-  //     ctx.fillStyle = color;
-  //     ctx.beginPath();
-
-  //     area.forEach((point, i) => {
-  //       const row = Math.floor(point / gridSize);
-  //       const col = point % gridSize;
-  //       const x = padding + col * cellSize;
-  //       const y = padding + row * cellSize;
-
-  //       if (i === 0) {
-  //         ctx.moveTo(x, y);
-  //       } else {
-  //         ctx.lineTo(x, y);
-  //       }
-  //     });
-
-  //     ctx.closePath();
-  //     ctx.fill();
-  //   });
-
-  //   setTimeout(() => {
-  //     drawBoard();
-  //   }, 500);
-  // };
-
   // Fonction pour vérifier si deux pierres sont connectées diagonalement
-  const areStonesDiagonallyConnected = (stone1, stone2) => {
-    const row1 = Math.floor(stone1 / gridSize);
-    const col1 = stone1 % gridSize;
-    const row2 = Math.floor(stone2 / gridSize);
-    const col2 = stone2 % gridSize;
-
-    return Math.abs(row1 - row2) === 1 && Math.abs(col1 - col2) === 1;
+  const areStonesDiagonallyConnected = (coord1, coord2) => {
+    return Math.abs(coord1.x - coord2.x) === 1 && Math.abs(coord1.y - coord2.y) === 1;
   };
 
   const drawBoard = () => {
@@ -203,11 +215,9 @@ function App() {
       ctx.fillStyle = area.owner === 1 ? 'rgba(231, 76, 60, 0.2)' : 'rgba(52, 152, 219, 0.2)';
       ctx.beginPath();
 
-      area.stones.forEach((point, i) => {
-        const row = Math.floor(point / gridSize);
-        const col = point % gridSize;
-        const x = padding + col * cellSize;
-        const y = padding + row * cellSize;
+      area.stones.forEach((coord, i) => {
+        const x = padding + coord.x * cellSize;
+        const y = padding + coord.y * cellSize;
 
         if (i === 0) {
           ctx.moveTo(x, y);
@@ -219,7 +229,6 @@ function App() {
       ctx.closePath();
       ctx.fill();
 
-
       ctx.setLineDash([]); // Réinitialiser le style de ligne
 
       // Dessiner les connexions entre les pierres (barreaux de prison)
@@ -230,25 +239,19 @@ function App() {
       ctx.setLineDash([5, 3]); // Ligne pointillée pour les diagonales
 
       area.stones.forEach((stone, i) => {
-        const row = Math.floor(stone / gridSize);
-        const col = stone % gridSize;
-
         // Vérifier les connexions diagonales
         for (let j = i + 1; j < area.stones.length; j++) {
           const otherStone = area.stones[j];
 
           if (areStonesDiagonallyConnected(stone, otherStone)) {
-            const otherRow = Math.floor(otherStone / gridSize);
-            const otherCol = otherStone % gridSize;
-
             ctx.beginPath();
             ctx.moveTo(
-              padding + col * cellSize,
-              padding + row * cellSize
+              padding + stone.x * cellSize,
+              padding + stone.y * cellSize
             );
             ctx.lineTo(
-              padding + otherCol * cellSize,
-              padding + otherRow * cellSize
+              padding + otherStone.x * cellSize,
+              padding + otherStone.y * cellSize
             );
             ctx.stroke();
           }
@@ -259,24 +262,22 @@ function App() {
 
       // Dessiner les connexions orthogonales
       area.stones.forEach(stone => {
-        const row = Math.floor(stone / gridSize);
-        const col = stone % gridSize;
         const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 
-        directions.forEach(([dr, dc]) => {
-          const adjRow = row + dr;
-          const adjCol = col + dc;
-          if (adjRow >= 0 && adjRow < gridSize && adjCol >= 0 && adjCol < gridSize) {
-            const adjIndex = adjRow * gridSize + adjCol;
-            if (gameState.grid[adjIndex] === area.owner) {
+        directions.forEach(([dx, dy]) => {
+          const adjX = stone.x + dx;
+          const adjY = stone.y + dy;
+          if (adjX >= 0 && adjX < gridSize && adjY >= 0 && adjY < gridSize) {
+            const adjKey = coordToKey(adjX, adjY);
+            if (gameState.grid.get(adjKey) === area.owner) {
               ctx.beginPath();
               ctx.moveTo(
-                padding + col * cellSize,
-                padding + row * cellSize
+                padding + stone.x * cellSize,
+                padding + stone.y * cellSize
               );
               ctx.lineTo(
-                padding + adjCol * cellSize,
-                padding + adjRow * cellSize
+                padding + adjX * cellSize,
+                padding + adjY * cellSize
               );
               ctx.stroke();
             }
@@ -286,15 +287,15 @@ function App() {
     });
 
     // Dessiner les pierres
-    gameState.grid.forEach((player, index) => {
-      if (player === 0) return;
-      const row = Math.floor(index / gridSize);
-      const col = index % gridSize;
-      const x = padding + col * cellSize;
-      const y = padding + row * cellSize;
+    gameState.grid.forEach((player, coordKey) => {
+      const coord = keyToCoord(coordKey);
+      const x = padding + coord.x * cellSize;
+      const y = padding + coord.y * cellSize;
 
       // Vérifier si c'est la dernière pierre jouée
-      const isLastMove = gameState.move && gameState.move.index === index;
+      const isLastMove = gameState.move && 
+        gameState.move.x === coord.x && 
+        gameState.move.y === coord.y;
 
       // Animation de pulsation pour le dernier coup
       const time = Date.now() * 0.003;
@@ -429,8 +430,10 @@ function App() {
 
     if (col < 0 || col >= gridSize || row < 0 || row >= gridSize) return;
 
-    const index = row * gridSize + col;
-    socketRef.current.emit('makeMove', { index });
+    const coordKey = coordToKey(col, row);
+    if (gameState.grid.has(coordKey)) return; // Position occupée
+
+    socketRef.current.emit('makeMove', { x: col, y: row });
   };
 
   const resetGame = () => {

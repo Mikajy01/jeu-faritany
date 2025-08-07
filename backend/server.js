@@ -24,13 +24,13 @@ class GameRoom {
 
     resetGame() {
         this.gameState = {
-            grid: Array(this.gridSize * this.gridSize).fill(0),
+            grid: {}, // Changé en objet pour stocker { "x,y": player }
             currentPlayer: 1,
             scores: { player1: 0, player2: 0 },
             gameActive: false,
             gameId: this.generateGameId(),
             deadStones: new Set(),
-            capturedAreas: []  // Nouvelle propriété pour les zones capturées
+            capturedAreas: []
         };
     }
 
@@ -38,12 +38,39 @@ class GameRoom {
         return Math.random().toString(36).substr(2, 9);
     }
 
-    // Nouvelle méthode pour obtenir l'état effectif d'une case
-    getEffectiveCellState(index) {
-        if (this.gameState.deadStones.has(index)) {
-            return 0;  // Case considérée comme vide si pierre morte
+    // Méthode pour convertir les coordonnées en clé
+    coordToKey(x, y) {
+        return `${x},${y}`;
+    }
+
+    // Méthode pour vérifier si une coordonnée est valide
+    isValidCoord(x, y) {
+        return x >= 0 && x < this.gridSize && y >= 0 && y < this.gridSize;
+    }
+
+    // Méthode pour obtenir les coordonnées adjacentes
+    getAdjacentCoords(x, y) {
+        const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+        const adjacents = [];
+        
+        for (const [dx, dy] of directions) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (this.isValidCoord(nx, ny)) {
+                adjacents.push({ x: nx, y: ny });
+            }
         }
-        return this.gameState.grid[index];
+        
+        return adjacents;
+    }
+
+    // Méthode pour obtenir l'état d'une cellule
+    getCellState(x, y) {
+        const key = this.coordToKey(x, y);
+        if (this.gameState.deadStones.has(key)) {
+            return 0;
+        }
+        return this.gameState.grid[key] || 0;
     }
 
     addPlayer(socketId, playerNumber) {
@@ -65,127 +92,126 @@ class GameRoom {
         return this.players.get(socketId);
     }
 
-    makeMove(index, player) {
-    if (!this.gameState.gameActive) return { success: false, reason: 'Game not active' };
-    if (this.gameState.currentPlayer !== player) return { success: false, reason: 'Not your turn' };
-    if (this.gameState.grid[index] !== 0) return { success: false, reason: 'Position occupied' };
+    makeMove(x, y, player) {
+        if (!this.gameState.gameActive) return { success: false, reason: 'Game not active' };
+        if (this.gameState.currentPlayer !== player) return { success: false, reason: 'Not your turn' };
+        
+        const key = this.coordToKey(x, y);
+        if (this.gameState.grid[key] !== undefined) return { success: false, reason: 'Position occupied' };
 
-    // Placer la pierre temporairement
-    this.gameState.grid[index] = player;
+        // Placer temporairement la pierre
+        this.gameState.grid[key] = player;
 
-    // Vérifier les captures classiques adjacentes
-    const capturedStones = this.checkCaptures(index, player);
+        // Vérifier les captures classiques
+        const capturedStones = this.checkCaptures(x, y, player);
 
-    // Marquer les pierres capturées comme mortes
-    capturedStones.forEach(stoneIndex => {
-        this.gameState.deadStones.add(stoneIndex);
-    });
-
-    // Vérifier si le coup est suicidaire
-    if (this.isSuicideMove(index, player)) {
-        // Annuler le coup
-        this.gameState.grid[index] = 0;
-        // Retirer les marques de pierres mortes
-        capturedStones.forEach(stoneIndex => {
-            this.gameState.deadStones.delete(stoneIndex);
+        // Marquer les pierres capturées comme mortes
+        capturedStones.forEach(stoneKey => {
+            this.gameState.deadStones.add(stoneKey);
         });
-        return { success: false, reason: 'Suicide move not allowed' };
-    }
 
-    // === [NOUVEAU] Détecter les zones entièrement encerclées et capturer les pions adverses isolés dedans
-    const extraCapturedStones = [];
-    const territories = this.findTerritories();
-    const ownedTerritories = territories.filter(t => t.owner === player);
+        // Vérifier si le coup est suicidaire
+        if (this.isSuicideMove(x, y, player)) {
+            // Annuler le coup
+            delete this.gameState.grid[key];
+            capturedStones.forEach(stoneKey => {
+                this.gameState.deadStones.delete(stoneKey);
+            });
+            return { success: false, reason: 'Suicide move not allowed' };
+        }
 
-    ownedTerritories.forEach(t => {
-        t.points.forEach(index => {
-            const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-            directions.forEach(([dx, dy]) => {
-                const adjIndex = this.getAdjacentIndex(index, dx, dy);
-                if (adjIndex !== null) {
-                    const cell = this.getEffectiveCellState(adjIndex);
-                    if (cell !== 0 && cell !== player && !this.gameState.deadStones.has(adjIndex)) {
-                        const group = this.findConnectedGroup(adjIndex, cell);
-                        if (this.hasNoLiberties(group, cell)) {
-                            extraCapturedStones.push(...group);
+        // Détecter les zones entièrement encerclées
+        const extraCapturedStones = [];
+        const territories = this.findTerritories();
+        const ownedTerritories = territories.filter(t => t.owner === player);
+
+        ownedTerritories.forEach(t => {
+            t.points.forEach(point => {
+                const adjacents = this.getAdjacentCoords(point.x, point.y);
+                adjacents.forEach(adj => {
+                    const adjKey = this.coordToKey(adj.x, adj.y);
+                    const cell = this.getCellState(adj.x, adj.y);
+                    if (cell !== 0 && cell !== player && !this.gameState.deadStones.has(adjKey)) {
+                        const group = this.findConnectedGroup(adj.x, adj.y, cell);
+                        if (this.hasNoLiberties(group)) {
+                            extraCapturedStones.push(...group.map(c => this.coordToKey(c.x, c.y)));
                         }
                     }
-                }
+                });
             });
         });
-    });
 
-    // Supprimer doublons et ajouter à deadStones
-    const newCaptures = [...new Set(extraCapturedStones)].filter(i => !this.gameState.deadStones.has(i));
-    newCaptures.forEach(i => this.gameState.deadStones.add(i));
-    capturedStones.push(...newCaptures);
+        // Supprimer les doublons et ajouter à deadStones
+        const newCaptures = [...new Set(extraCapturedStones)].filter(i => !this.gameState.deadStones.has(i));
+        newCaptures.forEach(i => this.gameState.deadStones.add(i));
+        
+        // Mettre à jour le score
+        const totalCaptured = capturedStones.length + newCaptures.length;
+        if (totalCaptured > 0) {
+            this.gameState.scores[`player${player}`] += totalCaptured;
+        }
 
-    // Mettre à jour le score
-    if (capturedStones.length > 0) {
-        this.gameState.scores[`player${player}`] += capturedStones.length;
+        // Mettre à jour les zones capturées
+        this.updateCapturedAreas();
+
+        // Changer de joueur
+        this.gameState.currentPlayer = player === 1 ? 2 : 1;
+
+        return {
+            success: true,
+            gameState: this.getSerializableGameState(),
+            move: { x, y, player },
+            capturedStones: [...capturedStones, ...newCaptures],
+            capturedAreas: this.gameState.capturedAreas
+        };
     }
 
-    // Mettre à jour les zones capturées
-    this.updateCapturedAreas();
-
-    // Changer de joueur
-    this.gameState.currentPlayer = player === 1 ? 2 : 1;
-
-    console.log('capturedAreas: ', this.gameState.capturedAreas);
-
-    return {
-        success: true,
-        gameState: this.getSerializableGameState(),
-        move: { index, player },
-        capturedStones,
-        enclosedAreas: this.gameState.capturedAreas // Pour affichage/animation
-    };
-}
-
-
-    checkCaptures(index, player) {
+    checkCaptures(x, y, player) {
         const opponent = player === 1 ? 2 : 1;
-        const capturedStones = [];
-        const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+        const capturedStones = new Set();
+        const adjacents = this.getAdjacentCoords(x, y);
 
-        // Vérifier les groupes adverses adjacents
-        for (const [dx, dy] of directions) {
-            const adjIndex = this.getAdjacentIndex(index, dx, dy);
-            if (adjIndex !== null && this.getEffectiveCellState(adjIndex) === opponent) {
-                const group = this.findConnectedGroup(adjIndex, opponent);
-                if (this.hasNoLiberties(group, opponent)) {
-                    capturedStones.push(...group);
+        for (const adj of adjacents) {
+            const adjKey = this.coordToKey(adj.x, adj.y);
+            if (this.getCellState(adj.x, adj.y) === opponent) {
+                const group = this.findConnectedGroup(adj.x, adj.y, opponent);
+                if (this.hasNoLiberties(group)) {
+                    group.forEach(stone => {
+                        capturedStones.add(this.coordToKey(stone.x, stone.y));
+                    });
                 }
             }
         }
 
-        return [...new Set(capturedStones)];
+        return [...capturedStones];
     }
 
-    isSuicideMove(index, player) {
-        const group = this.findConnectedGroup(index, player);
-        return this.hasNoLiberties(group, player);
+    isSuicideMove(x, y, player) {
+        const group = this.findConnectedGroup(x, y, player);
+        return this.hasNoLiberties(group);
     }
 
-    findConnectedGroup(startIndex, player) {
+    findConnectedGroup(startX, startY, player) {
         const visited = new Set();
-        const stack = [startIndex];
+        const stack = [{ x: startX, y: startY }];
         const group = [];
 
         while (stack.length > 0) {
-            const currentIndex = stack.pop();
-            if (visited.has(currentIndex)) continue;
-            visited.add(currentIndex);
+            const current = stack.pop();
+            const currentKey = this.coordToKey(current.x, current.y);
+            
+            if (visited.has(currentKey)) continue;
+            visited.add(currentKey);
 
-            if (this.getEffectiveCellState(currentIndex) !== player) continue;
+            if (this.getCellState(current.x, current.y) !== player) continue;
 
-            group.push(currentIndex);
+            group.push({ x: current.x, y: current.y });
 
-            const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-            for (const [dx, dy] of directions) {
-                const adjIndex = this.getAdjacentIndex(currentIndex, dx, dy);
-                if (adjIndex !== null && !visited.has(adjIndex)) {
-                    stack.push(adjIndex);
+            const adjacents = this.getAdjacentCoords(current.x, current.y);
+            for (const adj of adjacents) {
+                const adjKey = this.coordToKey(adj.x, adj.y);
+                if (!visited.has(adjKey)) {
+                    stack.push(adj);
                 }
             }
         }
@@ -193,48 +219,30 @@ class GameRoom {
         return group;
     }
 
-    hasNoLiberties(group, player) {
-        const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-
-        for (const stoneIndex of group) {
-            for (const [dx, dy] of directions) {
-                const adjIndex = this.getAdjacentIndex(stoneIndex, dx, dy);
-                if (adjIndex !== null && this.getEffectiveCellState(adjIndex) === 0) {
-                    return false; // Liberté trouvée
+    hasNoLiberties(group) {
+        for (const stone of group) {
+            const adjacents = this.getAdjacentCoords(stone.x, stone.y);
+            for (const adj of adjacents) {
+                if (this.getCellState(adj.x, adj.y) === 0) {
+                    return false;
                 }
             }
         }
-
-        return true; // Aucune liberté
+        return true;
     }
 
-    getAdjacentIndex(index, dx, dy) {
-        const row = Math.floor(index / this.gridSize);
-        const col = index % this.gridSize;
-        const newRow = row + dy;
-        const newCol = col + dx;
-
-        if (newRow < 0 || newRow >= this.gridSize || newCol < 0 || newCol >= this.gridSize) {
-            return null;
-        }
-
-        return newRow * this.gridSize + newCol;
-    }
-
-    // Méthode pour sérialiser l'état du jeu
     getSerializableGameState() {
         return {
-            grid: [...this.gameState.grid],
+            grid: { ...this.gameState.grid },
             currentPlayer: this.gameState.currentPlayer,
             scores: { ...this.gameState.scores },
             gameActive: this.gameState.gameActive,
             gameId: this.gameState.gameId,
             deadStones: Array.from(this.gameState.deadStones),
-            capturedAreas: [...this.gameState.capturedAreas] // Inclure les zones capturées
+            capturedAreas: [...this.gameState.capturedAreas]
         };
     }
 
-    // Méthode pour calculer le score final
     calculateFinalScore() {
         const territories = this.findTerritories();
         let player1Territory = 0;
@@ -259,11 +267,14 @@ class GameRoom {
         const visited = new Set();
         const territories = [];
 
-        for (let i = 0; i < this.gridSize * this.gridSize; i++) {
-            if (this.getEffectiveCellState(i) === 0 && !visited.has(i)) {
-                const territory = this.exploreTerritory(i, visited);
-                if (territory.owner !== null) {
-                    territories.push(territory);
+        for (let x = 0; x < this.gridSize; x++) {
+            for (let y = 0; y < this.gridSize; y++) {
+                const key = this.coordToKey(x, y);
+                if (this.getCellState(x, y) === 0 && !visited.has(key)) {
+                    const territory = this.exploreTerritory(x, y, visited);
+                    if (territory.owner !== null) {
+                        territories.push(territory);
+                    }
                 }
             }
         }
@@ -271,32 +282,33 @@ class GameRoom {
         return territories;
     }
 
-    exploreTerritory(startIndex, visited) {
-        const queue = [startIndex];
+    exploreTerritory(startX, startY, visited) {
+        const queue = [{ x: startX, y: startY }];
         const points = [];
         const boundaryPlayers = new Set();
-        const boundaryStones = new Set(); // Nouveau: stocke les pierres frontières
+        const boundaryStones = new Set();
 
         while (queue.length > 0) {
-            const currentIndex = queue.shift();
-            if (visited.has(currentIndex)) continue;
-            visited.add(currentIndex);
+            const current = queue.shift();
+            const currentKey = this.coordToKey(current.x, current.y);
+            
+            if (visited.has(currentKey)) continue;
+            visited.add(currentKey);
 
-            if (this.getEffectiveCellState(currentIndex) !== 0) continue;
+            if (this.getCellState(current.x, current.y) !== 0) continue;
 
-            points.push(currentIndex);
+            points.push({ x: current.x, y: current.y });
 
-            const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-            for (const [dx, dy] of directions) {
-                const adjIndex = this.getAdjacentIndex(currentIndex, dx, dy);
-                if (adjIndex !== null) {
-                    const adjValue = this.getEffectiveCellState(adjIndex);
-                    if (adjValue === 0 && !visited.has(adjIndex)) {
-                        queue.push(adjIndex);
-                    } else if (adjValue !== 0) {
-                        boundaryPlayers.add(adjValue);
-                        boundaryStones.add(adjIndex); // Enregistrer la pierre frontière
-                    }
+            const adjacents = this.getAdjacentCoords(current.x, current.y);
+            for (const adj of adjacents) {
+                const adjKey = this.coordToKey(adj.x, adj.y);
+                const adjValue = this.getCellState(adj.x, adj.y);
+                
+                if (adjValue === 0 && !visited.has(adjKey)) {
+                    queue.push(adj);
+                } else if (adjValue !== 0) {
+                    boundaryPlayers.add(adjValue);
+                    boundaryStones.add(adjKey);
                 }
             }
         }
@@ -309,11 +321,13 @@ class GameRoom {
         return {
             points,
             owner,
-            stones: Array.from(boundaryStones) // Retourner les pierres frontières
+            stones: Array.from(boundaryStones).map(key => {
+                const [x, y] = key.split(',').map(Number);
+                return { x, y };
+            })
         };
     }
 
-    // Nouvelle méthode pour mettre à jour les zones capturées
     updateCapturedAreas() {
         const territories = this.findTerritories();
         this.gameState.capturedAreas = territories.filter(t => t.owner !== null);
@@ -366,13 +380,14 @@ io.on('connection', (socket) => {
         if (!gameRoom) return;
 
         const playerNumber = gameRoom.getPlayerNumber(socket.id);
-        const result = gameRoom.makeMove(data.index, playerNumber);
+        const result = gameRoom.makeMove(data.x, data.y, playerNumber);
 
         if (result.success) {
             io.to(socket.gameRoomId).emit('moveMade', {
                 gameState: result.gameState,
                 move: result.move,
-                capturedStones: result.capturedStones
+                capturedStones: result.capturedStones,
+                capturedAreas: result.capturedAreas
             });
         } else {
             socket.emit('moveError', { reason: result.reason });
