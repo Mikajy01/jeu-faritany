@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-
+import { Stage, Layer, Line, Circle, Group, Rect, Text } from 'react-konva';
 import io from 'socket.io-client';
 
 function App() {
   const [gameState, setGameState] = useState({
-    grid: new Map(), // Changé en Map pour stocker {x,y} -> player
+    grid: new Map(),
     currentPlayer: 1,
     scores: { player1: 0, player2: 0 },
     move: null,
@@ -18,19 +18,45 @@ function App() {
     "Placez vos points pour entourer les points et zones adverses."
   ]);
   const [hoveredCoord, setHoveredCoord] = useState(null);
+  const [animationFrame, setAnimationFrame] = useState(0);
 
-  const canvasRef = useRef(null);
   const socketRef = useRef(null);
+  const stageRef = useRef(null);
   const gridSize = 19;
   const cellSize = 30;
-  const stoneRadius = 5;
+  const stoneRadius = 4;
   const padding = 30;
+  const stageWidth = gridSize * cellSize + padding * 2;
+  const stageHeight = gridSize * cellSize + padding * 2;
 
-  // Utilitaire pour convertir coordonnées en clé string
+  // Animation frame pour les effets
+  useEffect(() => {
+    const animate = () => {
+      setAnimationFrame(prev => prev + 1);
+      requestAnimationFrame(animate);
+    };
+    const animationId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationId);
+  }, []);
+
+  // Utilitaires pour coordonnées
   const coordToKey = (x, y) => `${x},${y}`;
   const keyToCoord = (key) => {
     const [x, y] = key.split(',').map(Number);
     return { x, y };
+  };
+
+  const pixelToGrid = (x, y) => {
+    const gridX = Math.round((x - padding) / cellSize);
+    const gridY = Math.round((y - padding) / cellSize);
+    return { x: gridX, y: gridY };
+  };
+
+  const gridToPixel = (gridX, gridY) => {
+    return {
+      x: padding + gridX * cellSize,
+      y: padding + gridY * cellSize
+    };
   };
 
   useEffect(() => {
@@ -46,7 +72,6 @@ function App() {
     });
 
     socketRef.current.on('gameJoined', (data) => {
-      // Convertir le grid reçu du serveur
       const gridMap = new Map();
       if (data.gameState.grid) {
         Object.entries(data.gameState.grid).forEach(([key, value]) => {
@@ -107,8 +132,6 @@ function App() {
         capturedAreas: data.gameState.capturedAreas || [],
         move: data.move
       }));
-      
-      drawBoard();
 
       if (data.capturedStones.length > 0) {
         addLogEntry(`Le joueur ${data.move.player} a capturé ${data.capturedStones.length} pierres !`);
@@ -135,7 +158,6 @@ function App() {
         capturedAreas: data.gameState.capturedAreas || []
       }));
       addLogEntry("Jeu réinitialisé !");
-      drawBoard();
     });
 
     socketRef.current.on('playerDisconnected', () => {
@@ -163,326 +185,47 @@ function App() {
     };
   }, []);
 
-  useEffect(() => {
-    drawBoard();
-  }, [gameState, hoveredCoord]);
-
   const addLogEntry = (message) => {
     const timestamp = new Date().toLocaleTimeString();
     setGameLog(prev => [...prev.slice(-50), `${timestamp}: ${message}`]);
   };
 
-  // Fonction pour vérifier si deux pierres sont connectées diagonalement
   const areStonesDiagonallyConnected = (coord1, coord2) => {
     return Math.abs(coord1.x - coord2.x) === 1 && Math.abs(coord1.y - coord2.y) === 1;
   };
 
-  const drawBoard = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    const width = gridSize * cellSize + padding * 2;
-    const height = gridSize * cellSize + padding * 2;
-
-    // Définir la taille du canvas
-    canvas.width = width;
-    canvas.height = height;
-
-    // Effacer le canvas
-    ctx.clearRect(0, 0, width, height);
-
-    // Dessiner la grille
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1;
-
-    for (let i = 0; i < gridSize; i++) {
-      // Lignes horizontales
-      ctx.beginPath();
-      ctx.moveTo(padding, padding + i * cellSize);
-      ctx.lineTo(width - padding, padding + i * cellSize);
-      ctx.stroke();
-
-      // Lignes verticales
-      ctx.beginPath();
-      ctx.moveTo(padding + i * cellSize, padding);
-      ctx.lineTo(padding + i * cellSize, height - padding);
-      ctx.stroke();
-    }
-
-    // Dessiner l'effet de survol
-    if (hoveredCoord && gameState.gameActive && gameState.playerId === gameState.currentPlayer) {
-      const coordKey = coordToKey(hoveredCoord.x, hoveredCoord.y);
-      if (!gameState.grid.has(coordKey)) {
-        const x = padding + hoveredCoord.x * cellSize;
-        const y = padding + hoveredCoord.y * cellSize;
-        
-        // Cercle de survol
-        ctx.beginPath();
-        ctx.arc(x, y, stoneRadius + 2, 0, Math.PI * 2);
-        ctx.fillStyle = gameState.currentPlayer === 1 ? 'rgba(231, 76, 60, 0.3)' : 'rgba(52, 152, 219, 0.3)';
-        ctx.fill();
-        ctx.strokeStyle = gameState.currentPlayer === 1 ? '#e74c3c' : '#3498db';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
-    }
-
-    // Dessiner les zones capturées et les murs de prison
-    gameState.capturedAreas.forEach(area => {
-      // Dessiner l'arrière-plan de la zone enfermée
-      ctx.fillStyle = area.owner === 1 ? 'rgba(231, 76, 60, 0.2)' : 'rgba(52, 152, 219, 0.2)';
-      ctx.beginPath();
-
-      area.stones.forEach((coord, i) => {
-        const x = padding + coord.x * cellSize;
-        const y = padding + coord.y * cellSize;
-
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
-      });
-
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.setLineDash([]); // Réinitialiser le style de ligne
-
-      // Dessiner les connexions entre les pierres (barreaux de prison)
-      ctx.strokeStyle = area.owner === 1 ? '#e74c3c' : '#3498db';
-      ctx.lineWidth = 2;
-
-      // Dessiner les connexions diagonales
-      ctx.setLineDash([5, 3]); // Ligne pointillée pour les diagonales
-
-      area.stones.forEach((stone, i) => {
-        // Vérifier les connexions diagonales
-        for (let j = i + 1; j < area.stones.length; j++) {
-          const otherStone = area.stones[j];
-
-          if (areStonesDiagonallyConnected(stone, otherStone)) {
-            ctx.beginPath();
-            ctx.moveTo(
-              padding + stone.x * cellSize,
-              padding + stone.y * cellSize
-            );
-            ctx.lineTo(
-              padding + otherStone.x * cellSize,
-              padding + otherStone.y * cellSize
-            );
-            ctx.stroke();
-          }
-        }
-      });
-
-      ctx.setLineDash([]); // Réinitialiser à la ligne pleine
-
-      // Dessiner les connexions orthogonales
-      area.stones.forEach(stone => {
-        const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-
-        directions.forEach(([dx, dy]) => {
-          const adjX = stone.x + dx;
-          const adjY = stone.y + dy;
-          if (adjX >= 0 && adjX < gridSize && adjY >= 0 && adjY < gridSize) {
-            const adjKey = coordToKey(adjX, adjY);
-            if (gameState.grid.get(adjKey) === area.owner) {
-              ctx.beginPath();
-              ctx.moveTo(
-                padding + stone.x * cellSize,
-                padding + stone.y * cellSize
-              );
-              ctx.lineTo(
-                padding + adjX * cellSize,
-                padding + adjY * cellSize
-              );
-              ctx.stroke();
-            }
-          }
-        });
-      });
-    });
-
-    // Dessiner les pierres
-    gameState.grid.forEach((player, coordKey) => {
-      const coord = keyToCoord(coordKey);
-      const x = padding + coord.x * cellSize;
-      const y = padding + coord.y * cellSize;
-
-      // Vérifier si c'est la dernière pierre jouée
-      const isLastMove = gameState.move && 
-        gameState.move.x === coord.x && 
-        gameState.move.y === coord.y;
-
-      // Animation de pulsation pour le dernier coup
-      const time = Date.now() * 0.003;
-      const pulseScale = isLastMove ? 1 + Math.sin(time) * 0.1 : 1;
-      const glowIntensity = isLastMove ? (Math.sin(time * 2) * 0.3 + 0.7) : 0;
-
-      // Couleurs améliorées
-      const colors = {
-        1: {
-          shadow: '#8b1538',
-          main: '#e74c3c',
-          highlight: '#ff6b7a',
-          glow: '#ff4757'
-        },
-        2: {
-          shadow: '#1e3a5f',
-          main: '#3498db',
-          highlight: '#74b9ff',
-          glow: '#00cec9'
-        }
-      };
-
-      const playerColors = colors[player];
-
-      // Halo de surbrillance (pour le dernier coup)
-      if (isLastMove) {
-        ctx.save();
-
-        // Halo externe
-        const gradient = ctx.createRadialGradient(x, y - 2, 0, x, y - 2, stoneRadius * 2.5);
-        gradient.addColorStop(0, `${playerColors.glow}${Math.floor(glowIntensity * 80).toString(16).padStart(2, '0')}`);
-        gradient.addColorStop(0.4, `${playerColors.glow}${Math.floor(glowIntensity * 40).toString(16).padStart(2, '0')}`);
-        gradient.addColorStop(1, `${playerColors.glow}00`);
-
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(x, y - 2, stoneRadius * 2.5 * pulseScale, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.restore();
-      }
-
-      // Ombre de la pierre (plus subtile)
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(x, y, stoneRadius * pulseScale, 0, Math.PI * 2);
-      ctx.fillStyle = playerColors.shadow;
-      ctx.globalAlpha = 0.6;
-      ctx.fill();
-      ctx.restore();
-
-      // Pierre principale avec dégradé
-      ctx.save();
-      const stoneGradient = ctx.createRadialGradient(
-        x - stoneRadius * 0.3, y - 2 - stoneRadius * 0.3, 0,
-        x, y - 2, stoneRadius
-      );
-      stoneGradient.addColorStop(0, playerColors.highlight);
-      stoneGradient.addColorStop(0.7, playerColors.main);
-      stoneGradient.addColorStop(1, playerColors.shadow);
-
-      ctx.beginPath();
-      ctx.arc(x, y - 2, stoneRadius * pulseScale, 0, Math.PI * 2);
-      ctx.fillStyle = stoneGradient;
-      ctx.fill();
-
-      // Reflet sur la pierre
-      const reflectGradient = ctx.createRadialGradient(
-        x - stoneRadius * 0.4, y - 2 - stoneRadius * 0.4, 0,
-        x - stoneRadius * 0.4, y - 2 - stoneRadius * 0.4, stoneRadius * 0.6
-      );
-      reflectGradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
-      reflectGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-
-      ctx.beginPath();
-      ctx.arc(x - stoneRadius * 0.4, y - 2 - stoneRadius * 0.4, stoneRadius * 0.6, 0, Math.PI * 2);
-      ctx.fillStyle = reflectGradient;
-      ctx.fill();
-
-      ctx.restore();
-
-      // Anneau de surbrillance moderne (pour le dernier coup)
-      if (isLastMove) {
-        ctx.save();
-
-        // Anneau principal
-        ctx.beginPath();
-        ctx.arc(x, y - 2, (stoneRadius + 6) * pulseScale, 0, Math.PI * 2);
-        ctx.arc(x, y - 2, (stoneRadius + 2) * pulseScale, 0, Math.PI * 2, true);
-
-        const ringGradient = ctx.createRadialGradient(x, y - 2, stoneRadius, x, y - 2, stoneRadius + 8);
-        ringGradient.addColorStop(0, `${playerColors.glow}${Math.floor(glowIntensity * 200).toString(16).padStart(2, '0')}`);
-        ringGradient.addColorStop(1, `${playerColors.glow}${Math.floor(glowIntensity * 100).toString(16).padStart(2, '0')}`);
-
-        ctx.fillStyle = ringGradient;
-        ctx.fill();
-
-        // Points de surbrillance qui tournent
-        const numDots = 8;
-        const rotationSpeed = time * 0.5;
-
-        for (let i = 0; i < numDots; i++) {
-          const angle = (i / numDots) * Math.PI * 2 + rotationSpeed;
-          const dotX = x + Math.cos(angle) * (stoneRadius + 8) * pulseScale;
-          const dotY = y - 2 + Math.sin(angle) * (stoneRadius + 8) * pulseScale;
-
-          ctx.beginPath();
-          ctx.arc(dotX, dotY, 2 * glowIntensity, 0, Math.PI * 2);
-          ctx.fillStyle = `${playerColors.glow}${Math.floor(glowIntensity * 255).toString(16).padStart(2, '0')}`;
-          ctx.shadowColor = playerColors.glow;
-          ctx.shadowBlur = 8 * glowIntensity;
-          ctx.fill();
-        }
-
-        ctx.restore();
-      }
-    });
-  };
-
-  const handleCanvasClick = (e) => {
+  const handleStageClick = (e) => {
     if (!gameState.gameActive || gameState.playerId !== gameState.currentPlayer) return;
 
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left - padding;
-    const y = e.clientY - rect.top - padding;
+    const pos = e.target.getStage().getPointerPosition();
+    const gridCoord = pixelToGrid(pos.x, pos.y);
 
-    if (x < 0 || y < 0) return;
+    if (gridCoord.x < 0 || gridCoord.x >= gridSize || gridCoord.y < 0 || gridCoord.y >= gridSize) return;
 
-    const col = Math.round(x / cellSize);
-    const row = Math.round(y / cellSize);
+    const coordKey = coordToKey(gridCoord.x, gridCoord.y);
+    if (gameState.grid.has(coordKey)) return;
 
-    if (col < 0 || col >= gridSize || row < 0 || row >= gridSize) return;
-
-    const coordKey = coordToKey(col, row);
-    if (gameState.grid.has(coordKey)) return; // Position occupée
-
-    socketRef.current.emit('makeMove', { x: col, y: row });
+    socketRef.current.emit('makeMove', { x: gridCoord.x, y: gridCoord.y });
   };
 
-  const handleCanvasMouseMove = (e) => {
+  const handleStageMouseMove = (e) => {
     if (!gameState.gameActive || gameState.playerId !== gameState.currentPlayer) {
       setHoveredCoord(null);
       return;
     }
 
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left - padding;
-    const y = e.clientY - rect.top - padding;
+    const pos = e.target.getStage().getPointerPosition();
+    const gridCoord = pixelToGrid(pos.x, pos.y);
 
-    if (x < 0 || y < 0) {
+    if (gridCoord.x < 0 || gridCoord.x >= gridSize || gridCoord.y < 0 || gridCoord.y >= gridSize) {
       setHoveredCoord(null);
       return;
     }
 
-    const col = Math.round(x / cellSize);
-    const row = Math.round(y / cellSize);
-
-    if (col < 0 || col >= gridSize || row < 0 || row >= gridSize) {
-      setHoveredCoord(null);
-      return;
-    }
-
-    setHoveredCoord({ x: col, y: row });
+    setHoveredCoord(gridCoord);
   };
 
-  const handleCanvasMouseLeave = () => {
+  const handleStageMouseLeave = () => {
     setHoveredCoord(null);
   };
 
@@ -496,6 +239,250 @@ function App() {
     if (connectionStatus.includes('Connecté')) return 'text-green-600 bg-green-100';
     if (connectionStatus.includes('Erreur') || connectionStatus.includes('Déconnecté')) return 'text-red-600 bg-red-100';
     return 'text-yellow-600 bg-yellow-100';
+  };
+
+  // Composants Konva
+  const GridLines = () => {
+    const lines = [];
+    
+    // Lignes horizontales
+    for (let i = 0; i < gridSize; i++) {
+      lines.push(
+        <Line
+          key={`h-${i}`}
+          points={[padding, padding + i * cellSize, stageWidth - padding, padding + i * cellSize]}
+          stroke="#4a5568"
+          strokeWidth={1}
+          opacity={0.6}
+        />
+      );
+    }
+    
+    // Lignes verticales
+    for (let i = 0; i < gridSize; i++) {
+      lines.push(
+        <Line
+          key={`v-${i}`}
+          points={[padding + i * cellSize, padding, padding + i * cellSize, stageHeight - padding]}
+          stroke="#4a5568"
+          strokeWidth={1}
+          opacity={0.6}
+        />
+      );
+    }
+    
+    return <>{lines}</>;
+  };
+
+  const HoverEffect = () => {
+    if (!hoveredCoord || !gameState.gameActive || gameState.playerId !== gameState.currentPlayer) return null;
+    
+    const coordKey = coordToKey(hoveredCoord.x, hoveredCoord.y);
+    if (gameState.grid.has(coordKey)) return null;
+
+    const pixel = gridToPixel(hoveredCoord.x, hoveredCoord.y);
+    const pulseScale = 1 + Math.sin(animationFrame * 0.2) * 0.1;
+    const alpha = 0.3 + Math.sin(animationFrame * 0.15) * 0.2;
+
+    return (
+      <Group>
+        <Circle
+          x={pixel.x}
+          y={pixel.y}
+          radius={(stoneRadius + 4) * pulseScale}
+          fill={gameState.currentPlayer === 1 ? '#e74c3c' : '#3498db'}
+          opacity={alpha}
+        />
+        <Circle
+          x={pixel.x}
+          y={pixel.y}
+          radius={stoneRadius}
+          stroke={gameState.currentPlayer === 1 ? '#e74c3c' : '#3498db'}
+          strokeWidth={2}
+          opacity={0.8}
+        />
+      </Group>
+    );
+  };
+
+  const CapturedAreas = () => {
+    return gameState.capturedAreas.map((area, areaIndex) => {
+      const color = area.owner === 1 ? '#e74c3c' : '#3498db';
+      const fillColor = area.owner === 1 ? 'rgba(231, 76, 60, 0.15)' : 'rgba(52, 152, 219, 0.15)';
+      
+      return (
+        <Group key={`area-${areaIndex}`}>
+          {/* Zone de remplissage */}
+          {area.stones.length > 2 && (
+            <Line
+              points={area.stones.flatMap(coord => {
+                const pixel = gridToPixel(coord.x, coord.y);
+                return [pixel.x, pixel.y];
+              })}
+              closed
+              fill={fillColor}
+              stroke={color}
+              strokeWidth={1}
+              opacity={0.3}
+            />
+          )}
+          
+          {/* Connexions orthogonales */}
+          {area.stones.map((stone, stoneIndex) => {
+            const connections = [];
+            const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            
+            directions.forEach(([dx, dy]) => {
+              const adjX = stone.x + dx;
+              const adjY = stone.y + dy;
+              if (adjX >= 0 && adjX < gridSize && adjY >= 0 && adjY < gridSize) {
+                const adjKey = coordToKey(adjX, adjY);
+                if (gameState.grid.get(adjKey) === area.owner) {
+                  const pixel1 = gridToPixel(stone.x, stone.y);
+                  const pixel2 = gridToPixel(adjX, adjY);
+                  connections.push(
+                    <Line
+                      key={`conn-${stoneIndex}-${dx}-${dy}`}
+                      points={[pixel1.x, pixel1.y, pixel2.x, pixel2.y]}
+                      stroke={color}
+                      strokeWidth={3}
+                      opacity={0.7}
+                    />
+                  );
+                }
+              }
+            });
+            
+            return connections;
+          })}
+          
+          {/* Connexions diagonales (pointillées) */}
+          {area.stones.map((stone, i) => {
+            const diagonalConnections = [];
+            for (let j = i + 1; j < area.stones.length; j++) {
+              const otherStone = area.stones[j];
+              if (areStonesDiagonallyConnected(stone, otherStone)) {
+                const pixel1 = gridToPixel(stone.x, stone.y);
+                const pixel2 = gridToPixel(otherStone.x, otherStone.y);
+                diagonalConnections.push(
+                  <Line
+                    key={`diag-${i}-${j}`}
+                    points={[pixel1.x, pixel1.y, pixel2.x, pixel2.y]}
+                    stroke={color}
+                    strokeWidth={2}
+                    dash={[8, 4]}
+                    opacity={0.8}
+                  />
+                );
+              }
+            }
+            return diagonalConnections;
+          })}
+        </Group>
+      );
+    });
+  };
+
+  const GameStones = () => {
+    const stones = [];
+    
+    gameState.grid.forEach((player, coordKey) => {
+      const coord = keyToCoord(coordKey);
+      const pixel = gridToPixel(coord.x, coord.y);
+      
+      const isLastMove = gameState.move && 
+        gameState.move.x === coord.x && 
+        gameState.move.y === coord.y;
+      
+      const colors = {
+        1: { main: '#e74c3c', shadow: '#c0392b', highlight: '#ff6b7a', glow: '#ff4757' },
+        2: { main: '#3498db', shadow: '#2980b9', highlight: '#74b9ff', glow: '#00cec9' }
+      };
+      
+      const playerColors = colors[player];
+      const time = animationFrame * 0.05;
+      const pulseScale = isLastMove ? 1 + Math.sin(time) * 0.15 : 1;
+      const glowIntensity = isLastMove ? (Math.sin(time * 2) * 0.3 + 0.7) : 0;
+
+      stones.push(
+        <Group key={coordKey}>
+          {/* Halo de surbrillance pour le dernier coup */}
+          {isLastMove && (
+            <Circle
+              x={pixel.x}
+              y={pixel.y}
+              radius={stoneRadius * 2.5 * pulseScale}
+              fill={playerColors.glow}
+              opacity={glowIntensity * 0.3}
+            />
+          )}
+          
+          {/* Ombre de la pierre */}
+          <Circle
+            x={pixel.x + 1}
+            y={pixel.y + 2}
+            radius={stoneRadius * pulseScale}
+            fill={playerColors.shadow}
+            opacity={0.4}
+          />
+          
+          {/* Pierre principale */}
+          <Circle
+            x={pixel.x}
+            y={pixel.y}
+            radius={stoneRadius * pulseScale}
+            fill={playerColors.main}
+            shadowColor={playerColors.shadow}
+            shadowBlur={4}
+            shadowOffset={{ x: 1, y: 2 }}
+            shadowOpacity={0.3}
+          />
+          
+          {/* Reflet sur la pierre */}
+          <Circle
+            x={pixel.x - 2}
+            y={pixel.y - 2}
+            radius={stoneRadius * 0.4}
+            fill="rgba(255, 255, 255, 0.6)"
+            opacity={0.8}
+          />
+          
+          {/* Anneau de surbrillance pour le dernier coup */}
+          {isLastMove && (
+            <>
+              <Circle
+                x={pixel.x}
+                y={pixel.y}
+                radius={(stoneRadius + 6) * pulseScale}
+                stroke={playerColors.glow}
+                strokeWidth={3}
+                opacity={glowIntensity * 0.8}
+              />
+              
+              {/* Points de surbrillance qui tournent */}
+              {[...Array(8)].map((_, i) => {
+                const angle = (i / 8) * Math.PI * 2 + time * 0.5;
+                const dotX = pixel.x + Math.cos(angle) * (stoneRadius + 8) * pulseScale;
+                const dotY = pixel.y + Math.sin(angle) * (stoneRadius + 8) * pulseScale;
+                
+                return (
+                  <Circle
+                    key={`dot-${i}`}
+                    x={dotX}
+                    y={dotY}
+                    radius={2 * glowIntensity}
+                    fill={playerColors.glow}
+                    opacity={glowIntensity}
+                  />
+                );
+              })}
+            </>
+          )}
+        </Group>
+      );
+    });
+    
+    return <>{stones}</>;
   };
 
   return (
@@ -581,13 +568,40 @@ function App() {
             <h2 className="text-xl font-semibold text-slate-800 mb-4 text-center">Plateau de Jeu</h2>
             
             <div className="flex justify-center">
-              <canvas
-                ref={canvasRef}
-                onClick={handleCanvasClick}
-                onMouseMove={handleCanvasMouseMove}
-                onMouseLeave={handleCanvasMouseLeave}
-                className="bg-amber-50 rounded-xl border-2 border-slate-300 cursor-crosshair shadow-inner"
-              />
+              <div className="bg-amber-50 rounded-xl border-2 border-slate-300 shadow-inner p-2">
+                <Stage
+                  width={stageWidth}
+                  height={stageHeight}
+                  onClick={handleStageClick}
+                  onMouseMove={handleStageMouseMove}
+                  onMouseLeave={handleStageMouseLeave}
+                  ref={stageRef}
+                  style={{ cursor: 'crosshair' }}
+                >
+                  <Layer>
+                    {/* Arrière-plan */}
+                    <Rect
+                      x={0}
+                      y={0}
+                      width={stageWidth}
+                      height={stageHeight}
+                      fill="#fef7ed"
+                    />
+                    
+                    {/* Grille */}
+                    <GridLines />
+                    
+                    {/* Zones capturées */}
+                    <CapturedAreas />
+                    
+                    {/* Effet de survol */}
+                    <HoverEffect />
+                    
+                    {/* Pierres de jeu */}
+                    <GameStones />
+                  </Layer>
+                </Stage>
+              </div>
             </div>
 
             {/* Légende */}
