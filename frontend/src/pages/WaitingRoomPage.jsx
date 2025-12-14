@@ -118,24 +118,46 @@ export default function WaitingRoomPage() {
 
     const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
     const shareUrl = `${appUrl}/join/${roomCode}`;
+    const shareData = {
+      title: "Rejoignez ma partie !", // Optionnel : titre du partage
+      text: "Utilisez ce lien pour rejoindre la room :", // Optionnel : texte descriptif
+      url: shareUrl, // L'URL à partager
+    };
 
-    // Copier dans le presse-papier
+    // Essayer le partage natif en premier
+    if (navigator.share) {
+      navigator
+        .share(shareData)
+        .then(() => {
+          // Succès : rien à faire, le système gère
+        })
+        .catch((err) => {
+          console.error("Erreur partage natif:", err);
+          // Fallback sur clipboard si échec (ex: user annule)
+          fallbackToClipboard(shareUrl);
+        });
+    } else {
+      // Si Web Share pas supporté, direct fallback
+      fallbackToClipboard(shareUrl);
+    }
+  }, [roomCode]);
+
+  // Fonction helper pour le fallback clipboard
+  const fallbackToClipboard = (url) => {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard
-        .writeText(shareUrl)
+        .writeText(url)
         .then(() => {
           alert("Lien copié dans le presse-papier !");
         })
         .catch((err) => {
           console.error("Erreur copie presse-papier:", err);
-          // Fallback: afficher le lien
-          prompt("Copiez ce lien:", shareUrl);
+          prompt("Copiez ce lien:", url);
         });
     } else {
-      // Fallback pour les navigateurs anciens
-      prompt("Copiez ce lien:", shareUrl);
+      prompt("Copiez ce lien:", url);
     }
-  }, [roomCode, addLogEntry]);
+  };
 
   // Afficher un loader pendant la connexion
   if (isLoading) {
