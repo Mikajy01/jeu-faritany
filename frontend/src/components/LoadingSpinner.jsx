@@ -1,7 +1,7 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
 
-export const LoadingSpinner = ({ size = 'md', text = 'Chargement...' }) => {
+const LoadingSpinner = ({ size = 'md', text = 'Chargement...' }) => {
   const sizeClasses = {
     sm: 'w-4 h-4',
     md: 'w-8 h-8',
@@ -17,3 +17,5 @@ export const LoadingSpinner = ({ size = 'md', text = 'Chargement...' }) => {
     </div>
   );
 };
+
+export default LoadingSpinner;

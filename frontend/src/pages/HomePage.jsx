@@ -29,7 +29,7 @@ export default function HomePage() {
           break;
 
         case "ai":
-          socketRef.current?.emit("createGame", { type: "AI" });
+           navigate("/ai")
           addLogEntry("Démarrage d'une partie contre l'IA...");
           break;
 
