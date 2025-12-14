@@ -124,7 +124,6 @@ export default function WaitingRoomPage() {
       navigator.clipboard
         .writeText(shareUrl)
         .then(() => {
-          addLogEntry(`✅ Lien copié: ${shareUrl}`);
           alert("Lien copié dans le presse-papier !");
         })
         .catch((err) => {
