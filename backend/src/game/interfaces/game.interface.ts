@@ -23,6 +23,7 @@ export interface GameState {
   currentPlayer: number;
   scores: Scores;
   gameActive: boolean;
+  gameType: 'public' | 'private' | 'AI';
   gameId: string;
   deadStones: string[];
   capturedAreas: Territory[];

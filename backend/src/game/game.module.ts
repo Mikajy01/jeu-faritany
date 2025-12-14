@@ -6,6 +6,7 @@ import { CycleDetectionService } from './services/cycle-detection.service';
 import { TerritoryService } from './services/territory.service';
 import { ScoringService } from './services/scoring.service';
 import { NotificationService } from './services/notification.service';
+import { AiService } from './services/ai.service';
 
 @Module({
   providers: [
@@ -16,6 +17,7 @@ import { NotificationService } from './services/notification.service';
     CycleDetectionService,
     TerritoryService,
     ScoringService,
+    AiService,
   ],
 })
 export class GameModule {}

@@ -3,6 +3,7 @@ export const GAME_CONSTANTS = {
   MIN_CYCLE_LENGTH: 4,
   PLAYER_ONE: 1,
   PLAYER_TWO: 2,
+  AI_PLAYER_ID: 'AI_BOT_SOCKET_ID',
   EMPTY_CELL: 0,
 } as const;
 

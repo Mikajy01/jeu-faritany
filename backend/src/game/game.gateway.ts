@@ -16,6 +16,8 @@ import { MakeMoveDto } from './dto/make-move.dto';
 import { CreateGameDto } from './dto/create-game.dto';
 import { JoinGameDto } from './dto/join-game.dto';
 import { NotificationService } from './services/notification.service';
+import { AiService } from './services/ai.service';
+import { GAME_CONSTANTS } from 'src/common/constants/game.constant';
 
 @WebSocketGateway({
   cors: {
@@ -38,6 +40,7 @@ export class GameGateway
   constructor(
     private readonly gameRoomService: GameRoomService,
     private readonly notificationService: NotificationService,
+    private readonly aiService: AiService,
   ) {}
 
   /**
@@ -86,25 +89,53 @@ export class GameGateway
     const type = (payload && payload.type) || 'public';
 
     if (type === 'AI') {
+      // 1. Créer la room via le service
       const result = this.gameRoomService.createRoom('AI', client.id);
       const gameId = result.gameId;
-      const playerNumber = 1;
 
-      // Join rooms
+      // 2. IMPORTANT : Inscrire immédiatement l'IA comme Joueur 2
+      // On utilise l'ID constant défini plus haut
+      this.gameRoomService.joinRoomByCode(gameId, GAME_CONSTANTS.AI_PLAYER_ID);
+
+      // 3. Configuration socket pour le joueur humain
       client.join(gameId);
-      client.join(`${gameId}-p${playerNumber}`);
-
-      // Track player
+      client.join(`${gameId}-p1`);
       this.socketToRoom.set(client.id, gameId);
-      this.socketToPlayer.set(client.id, playerNumber);
+      this.socketToPlayer.set(client.id, 1);
 
+      // 4. Récupérer l'état initial (maintenant avec 2 joueurs)
+      const room = this.gameRoomService.getRoom(gameId);
+
+      if (!room) {
+        client.emit('createError', { reason: 'Failed to create AI game' });
+        return;
+      }
+      const gameState = room.getGameState();
+
+      // 5. Envoyer la confirmation et le DÉMARRAGE immédiat
       client.emit('gameCreated', {
         code: gameId,
         type: 'AI',
-        playerId: playerNumber,
-        note: 'AI opponent not implemented yet',
+        playerId: 1,
       });
-      this.logger.log(`AI game created: ${gameId}`);
+
+      // Notifier que le jeu commence (puisqu'on a les 2 joueurs : Humain + IA)
+      this.notificationService.notifyBothPlayers(gameId, 'gameStart', {
+        gameState: gameState.toSerializable(),
+        playerCount: 2,
+      });
+
+      // Track player
+      this.socketToRoom.set(GAME_CONSTANTS.AI_PLAYER_ID, gameId);
+      this.socketToPlayer.set(GAME_CONSTANTS.AI_PLAYER_ID, 2);
+
+      this.notificationService.notifyPlayerOne(gameId, 'gameStart', {
+        playerId: 1,
+        gameState: gameState.toSerializable(),
+        playerCount: room.getPlayerCount(),
+      });
+
+      this.logger.log(`AI game started: ${gameId}`);
       return;
     }
 
@@ -129,7 +160,9 @@ export class GameGateway
         type,
         playerId: playerNumber,
       });
-      this.logger.log(`${type} game created: ${gameId} by player ${playerNumber}`);
+      this.logger.log(
+        `${type} game created: ${gameId} by player ${playerNumber}`,
+      );
       return;
     }
 
@@ -184,7 +217,6 @@ export class GameGateway
       playerCount: room.getPlayerCount(),
     });
 
-
     // if (room.getPlayerCount() === 2) {
     //   this.notificationService.notifyBothPlayers(gameId, 'gameStart', {
     //     gameState: gameState.toSerializable(),
@@ -198,9 +230,9 @@ export class GameGateway
 
     // If room is full, start game
     if (room.getPlayerCount() === 2) {
-    //   this.notificationService.notifyBothPlayers(gameId, 'gameStart', {
-    //     gameState: gameState.toSerializable(),
-    //   });
+      //   this.notificationService.notifyBothPlayers(gameId, 'gameStart', {
+      //     gameState: gameState.toSerializable(),
+      //   });
       this.logger.log(`Game ${gameId} started`);
     }
   }
@@ -249,16 +281,15 @@ export class GameGateway
    */
   @UsePipes(new ValidationPipe({ transform: true }))
   @SubscribeMessage('makeMove')
-  handleMakeMove(
+  async handleMakeMove(
+    // Async pour gérer le délai IA
     @ConnectedSocket() client: Socket,
     @MessageBody() moveDto: MakeMoveDto,
   ) {
     const gameId = this.socketToRoom.get(client.id);
-    if (!gameId) {
-      client.emit('moveError', { reason: 'Not in a game' });
-      return;
-    }
+    if (!gameId) return;
 
+    // 1. Exécuter le coup de l'humain
     const result = this.gameRoomService.makeMove(
       gameId,
       client.id,
@@ -267,21 +298,70 @@ export class GameGateway
     );
 
     if (result.success) {
+      // Notifier tout le monde du coup humain
       this.notificationService.notifyBothPlayers(gameId, 'moveMade', {
         gameState: result.gameState,
         move: result.move,
         capturedStones: result.capturedStones,
         capturedAreas: result.capturedAreas,
       });
-      this.logger.log(
-        `Move made in game ${gameId}: (${moveDto.x}, ${moveDto.y}) by player ${result.move?.player}`,
-      );
+
+      // === DÉCLENCHEMENT DU TOUR DE L'IA ===
+      // Si la partie est de type IA et que c'est maintenant au tour du Joueur 2
+      if (
+        result.gameState &&
+        result.gameState.gameType === 'AI' &&
+        result.gameState.currentPlayer === GAME_CONSTANTS.PLAYER_TWO
+      ) {
+        await this.triggerAiMove(gameId);
+      }
+      // ======================================
     } else {
       client.emit('moveError', { reason: result.reason });
-      this.logger.warn(`Invalid move in game ${gameId}: ${result.reason}`);
     }
   }
 
+  /**
+   * Méthode privée pour gérer le tour de l'IA
+   */
+  private async triggerAiMove(gameId: string) {
+    // 1. Petit délai "humain" (500ms à 1s) pour ne pas que la réponse soit instantanée
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    const room = this.gameRoomService.getRoom(gameId);
+    if (!room) return;
+
+    try {
+      // 2. L'IA réfléchit
+      const gameState = room.getGameState(); // Assurez-vous que c'est le bon type
+      const aiMove = this.aiService.calculateNextMove(gameState as any); // Cast si nécessaire
+
+      // 3. L'IA joue (en utilisant son ID spécial)
+      const result = this.gameRoomService.makeMove(
+        gameId,
+        GAME_CONSTANTS.AI_PLAYER_ID, // <--- C'est ici qu'on utilise l'identité IA
+        aiMove.x,
+        aiMove.y,
+      );
+
+      if (result.success) {
+        this.logger.log(`AI (P2) moved at ${aiMove.x}, ${aiMove.y}`);
+
+        // Notifier le frontend
+        this.notificationService.notifyBothPlayers(gameId, 'moveMade', {
+          gameState: result.gameState,
+          move: result.move,
+          capturedStones: result.capturedStones,
+          capturedAreas: result.capturedAreas,
+        });
+      } else {
+        this.logger.error(`AI failed to move: ${result.reason}`);
+        // Logique de retry ou fin de partie si l'IA est bloquée
+      }
+    } catch (e) {
+      this.logger.error('Error during AI execution', e);
+    }
+  }
   /**
    * Handle score calculation request
    */
@@ -295,7 +375,11 @@ export class GameGateway
 
     const finalScore = this.gameRoomService.calculateFinalScore(gameId);
     if (finalScore) {
-      this.notificationService.notifyBothPlayers(gameId, 'finalScore', finalScore);
+      this.notificationService.notifyBothPlayers(
+        gameId,
+        'finalScore',
+        finalScore,
+      );
       this.logger.log(`Final score calculated for game ${gameId}`);
     } else {
       client.emit('scoreError', { reason: 'Failed to calculate score' });
