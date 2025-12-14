@@ -66,7 +66,7 @@ export const CapturedAreas = React.memo(({ capturedAreas, grid }) => {
                       points={[pixel1.x, pixel1.y, pixel2.x, pixel2.y]}
                       stroke={color}
                       strokeWidth={2}
-                      dash={[8, 4]}
+                      // dash={[8, 4]}
                       opacity={0.8}
                     />
                   );
