@@ -39,8 +39,30 @@ export class GameLogicService {
     const key = CoordinateUtil.toKey(x, y);
     gameState.grid[key] = player;
 
+    const isSuicideMove = this.checkSuicideMove(
+      x,
+      y,
+      player,
+      gameState,
+      gridSize,
+    );
+
+    if (isSuicideMove) {
+      // Mark the stone as dead
+      gameState.deadStones.add(key);
+      this.logger.log(
+        `Suicide move: Player ${player} placed stone at (${x},${y}) in enemy prison`,
+      );
+    }
+
     // Detect cycles and capture stones
-    const capturedStones = this.processCycleCaptures(x, y, player, gameState, gridSize);
+    const capturedStones = this.processCycleCaptures(
+      x,
+      y,
+      player,
+      gameState,
+      gridSize,
+    );
 
     // NOUVELLE LOGIQUE: Recalculer tous les scores basés sur deadStones
     gameState.scores = this.scoringService.calculateScores(
@@ -51,7 +73,7 @@ export class GameLogicService {
     if (capturedStones.length > 0) {
       this.logger.log(
         `Player ${player} captured ${capturedStones.length} stones. ` +
-        `New scores: P1=${gameState.scores.player1}, P2=${gameState.scores.player2}`
+          `New scores: P1=${gameState.scores.player1}, P2=${gameState.scores.player2}`,
       );
     }
 
@@ -59,9 +81,10 @@ export class GameLogicService {
     this.updateActiveCycles(gameState, gridSize);
 
     // Switch player
-    gameState.currentPlayer = player === GAME_CONSTANTS.PLAYER_ONE 
-      ? GAME_CONSTANTS.PLAYER_TWO 
-      : GAME_CONSTANTS.PLAYER_ONE;
+    gameState.currentPlayer =
+      player === GAME_CONSTANTS.PLAYER_ONE
+        ? GAME_CONSTANTS.PLAYER_TWO
+        : GAME_CONSTANTS.PLAYER_ONE;
 
     return {
       success: true,
@@ -70,6 +93,64 @@ export class GameLogicService {
       capturedStones,
       capturedAreas: gameState.capturedAreas,
     };
+  }
+
+  /**
+   * Vérifie si la pierre placée est dans une prison ennemie
+   */
+  private checkSuicideMove(
+    x: number,
+    y: number,
+    player: number,
+    gameState: GameStateEntity,
+    gridSize: number,
+  ): boolean {
+    const opponent =
+      player === GAME_CONSTANTS.PLAYER_ONE
+        ? GAME_CONSTANTS.PLAYER_TWO
+        : GAME_CONSTANTS.PLAYER_ONE;
+
+    const getCellStateBeforeMove = (cx: number, cy: number): number => {
+      const cKey = CoordinateUtil.toKey(cx, cy);
+
+      // Ignorer la pierre qu'on vient de placer pour la détection
+      if (cx === x && cy === y) {
+        return GAME_CONSTANTS.EMPTY_CELL;
+      }
+
+      if (gameState.deadStones.has(cKey)) {
+        return GAME_CONSTANTS.EMPTY_CELL;
+      }
+      return gameState.grid[cKey] || GAME_CONSTANTS.EMPTY_CELL;
+    };
+
+    // Trouver tous les cycles de l'adversaire
+    const opponentCycles = this.findAllPlayerCycles(
+      opponent,
+      getCellStateBeforeMove,
+      gameState.deadStones,
+      gridSize,
+    );
+
+    // Vérifier si le point (x, y) est dans un cycle ennemi
+    for (const cycle of opponentCycles) {
+      const polygon = cycle.map((c) => [c.x, c.y] as [number, number]);
+
+      // Fermer le polygone
+      if (polygon.length > 0) {
+        const first = polygon[0];
+        const last = polygon[polygon.length - 1];
+        if (first[0] !== last[0] || first[1] !== last[1]) {
+          polygon.push([first[0], first[1]]);
+        }
+      }
+
+      if (this.isPointInPolygon([x, y], polygon)) {
+        return true; // C'est un suicide move
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -130,7 +211,7 @@ export class GameLogicService {
 
     if (cycles.length > 0) {
       const longestCycle = this.cycleDetectionService.getLongestCycle(cycles);
-      
+
       if (longestCycle) {
         const captured = this.cycleDetectionService.captureInsideCycle(
           longestCycle,
@@ -155,7 +236,10 @@ export class GameLogicService {
    * Détecter et maintenir tous les cycles actifs
    * Un cycle reste actif tant que ses pierres ne sont pas capturées
    */
-  private updateActiveCycles(gameState: GameStateEntity, gridSize: number): void {
+  private updateActiveCycles(
+    gameState: GameStateEntity,
+    gridSize: number,
+  ): void {
     const getCellState = (x: number, y: number): number => {
       const key = CoordinateUtil.toKey(x, y);
       if (gameState.deadStones.has(key)) {
@@ -167,9 +251,17 @@ export class GameLogicService {
     gameState.capturedAreas = [];
 
     // Trouver tous les cycles pour chaque joueur
-    for (const player of [GAME_CONSTANTS.PLAYER_ONE, GAME_CONSTANTS.PLAYER_TWO]) {
-      const playerCycles = this.findAllPlayerCycles(player, getCellState, gameState.deadStones, gridSize);
-      
+    for (const player of [
+      GAME_CONSTANTS.PLAYER_ONE,
+      GAME_CONSTANTS.PLAYER_TWO,
+    ]) {
+      const playerCycles = this.findAllPlayerCycles(
+        player,
+        getCellState,
+        gameState.deadStones,
+        gridSize,
+      );
+
       // Convertir les cycles en territoires
       for (const cycle of playerCycles) {
         const territory = {
@@ -234,7 +326,7 @@ export class GameLogicService {
       if (a.x !== b.x) return a.x - b.x;
       return a.y - b.y;
     });
-    return sorted.map(c => `${c.x},${c.y}`).join('|');
+    return sorted.map((c) => `${c.x},${c.y}`).join('|');
   }
 
   /**
@@ -249,7 +341,7 @@ export class GameLogicService {
 
     for (const cycle of sorted) {
       let overlaps = false;
-      
+
       for (const existing of result) {
         if (this.cyclesOverlap(cycle, existing)) {
           overlaps = true;
@@ -269,8 +361,8 @@ export class GameLogicService {
    * Vérifier si deux cycles se chevauchent
    */
   private cyclesOverlap(cycle1: Coordinate[], cycle2: Coordinate[]): boolean {
-    const set1 = new Set(cycle1.map(c => CoordinateUtil.toKey(c.x, c.y)));
-    const set2 = new Set(cycle2.map(c => CoordinateUtil.toKey(c.x, c.y)));
+    const set1 = new Set(cycle1.map((c) => CoordinateUtil.toKey(c.x, c.y)));
+    const set2 = new Set(cycle2.map((c) => CoordinateUtil.toKey(c.x, c.y)));
 
     // Si plus de 50% des pierres sont communes, considérer comme chevauchement
     let common = 0;
@@ -291,8 +383,8 @@ export class GameLogicService {
     gridSize: number,
   ): Coordinate[] {
     const points: Coordinate[] = [];
-    const polygon = cycle.map(c => [c.x, c.y] as [number, number]);
-    
+    const polygon = cycle.map((c) => [c.x, c.y] as [number, number]);
+
     // Fermer le polygone
     if (polygon.length > 0) {
       const first = polygon[0];
@@ -304,8 +396,16 @@ export class GameLogicService {
 
     const bounds = this.getBounds(cycle);
 
-    for (let x = Math.max(0, bounds.minX); x <= Math.min(gridSize - 1, bounds.maxX); x++) {
-      for (let y = Math.max(0, bounds.minY); y <= Math.min(gridSize - 1, bounds.maxY); y++) {
+    for (
+      let x = Math.max(0, bounds.minX);
+      x <= Math.min(gridSize - 1, bounds.maxX);
+      x++
+    ) {
+      for (
+        let y = Math.max(0, bounds.minY);
+        y <= Math.min(gridSize - 1, bounds.maxY);
+        y++
+      ) {
         if (this.isPointInPolygon([x, y], polygon)) {
           points.push({ x, y });
         }
@@ -315,11 +415,18 @@ export class GameLogicService {
     return points;
   }
 
-  private getBounds(points: Coordinate[]): { minX: number; maxX: number; minY: number; maxY: number } {
+  private getBounds(points: Coordinate[]): {
+    minX: number;
+    maxX: number;
+    minY: number;
+    maxY: number;
+  } {
     if (points.length === 0) return { minX: 0, maxX: 0, minY: 0, maxY: 0 };
 
-    let minX = points[0].x, maxX = points[0].x;
-    let minY = points[0].y, maxY = points[0].y;
+    let minX = points[0].x,
+      maxX = points[0].x;
+    let minY = points[0].y,
+      maxY = points[0].y;
 
     for (const p of points) {
       minX = Math.min(minX, p.x);
@@ -331,7 +438,10 @@ export class GameLogicService {
     return { minX, maxX, minY, maxY };
   }
 
-  private isPointInPolygon(point: [number, number], polygon: [number, number][]): boolean {
+  private isPointInPolygon(
+    point: [number, number],
+    polygon: [number, number][],
+  ): boolean {
     let intersections = 0;
     const [x, y] = point;
 
@@ -339,7 +449,7 @@ export class GameLogicService {
       const [x1, y1] = polygon[k];
       const [x2, y2] = polygon[k + 1];
 
-      if ((y < y1) !== (y < y2) && x < ((x2 - x1) * (y - y1)) / (y2 - y1) + x1) {
+      if (y < y1 !== y < y2 && x < ((x2 - x1) * (y - y1)) / (y2 - y1) + x1) {
         intersections++;
       }
     }
@@ -347,4 +457,3 @@ export class GameLogicService {
     return intersections % 2 === 1;
   }
 }
-
