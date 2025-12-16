@@ -334,7 +334,7 @@ export class GameGateway
     try {
       // 2. L'IA réfléchit
       const gameState = room.getGameState(); // Assurez-vous que c'est le bon type
-      const aiMove = this.aiService.calculateNextMove(gameState as any); // Cast si nécessaire
+      const aiMove = this.aiService.calculateNextMove(gameState as any, 4); // Cast si nécessaire
 
       // 3. L'IA joue (en utilisant son ID spécial)
       const result = this.gameRoomService.makeMove(
