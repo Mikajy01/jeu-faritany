@@ -186,6 +186,7 @@ export class GameRoomService {
 
   /**
    * Calculate final score for a game
+   * MODIFIÉ: Utilise maintenant calculateScores() au lieu de calculateFinalScore()
    */
   calculateFinalScore(gameId: string): FinalScore | null {
     const room = this.gameRooms.get(gameId);
@@ -193,20 +194,31 @@ export class GameRoomService {
 
     const gameState = room.getGameState();
 
-    // Create getCellState closure
-    const getCellState = (x: number, y: number): number => {
-      const key = CoordinateUtil.toKey(x, y);
-      if (gameState.deadStones.has(key)) {
-        return GAME_CONSTANTS.EMPTY_CELL;
-      }
-      return gameState.grid[key] || GAME_CONSTANTS.EMPTY_CELL;
+    // Recalculer les scores basés sur les deadStones
+    const scores = this.scoringService.calculateScores(
+      gameState.grid,
+      gameState.deadStones,
+    );
+
+    const finalScore: FinalScore = {
+      player1: scores.player1,
+      player2: scores.player2,
+      territories: gameState.capturedAreas, // Utilise les cycles actifs comme territoires
     };
 
-    return this.scoringService.calculateFinalScore(
-      gameState.scores,
-      getCellState,
-      room.gridSize,
+    // Log avec le gagnant pour information
+    let winner: string = 'Draw';
+    if (scores.player1 > scores.player2) {
+      winner = 'Player 1';
+    } else if (scores.player2 > scores.player1) {
+      winner = 'Player 2';
+    }
+
+    this.logger.log(
+      `Final score for game ${gameId}: P1=${scores.player1}, P2=${scores.player2}, Winner=${winner}`
     );
+
+    return finalScore;
   }
 
   /**
