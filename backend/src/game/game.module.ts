@@ -7,6 +7,7 @@ import { TerritoryService } from './services/territory.service';
 import { ScoringService } from './services/scoring.service';
 import { NotificationService } from './services/notification.service';
 import { AiService } from './services/ai.service';
+import { HybridTerritoryService } from './services/hybrid-territory.service';
 
 @Module({
   providers: [
@@ -18,6 +19,7 @@ import { AiService } from './services/ai.service';
     TerritoryService,
     ScoringService,
     AiService,
+    HybridTerritoryService,
   ],
 })
 export class GameModule {}
