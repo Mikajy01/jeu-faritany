@@ -1,11 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { GameStateEntity } from '../entities/game-state.entity';
-import { Coordinate, MoveResult } from '../interfaces/game.interface';
+import { MoveResult } from '../interfaces/game.interface';
 import { CycleDetectionService } from './cycle-detection.service';
 import { TerritoryService } from './territory.service';
 import { ScoringService } from './scoring.service';
 import { CoordinateUtil } from '../../common/utils/coordinate.util';
 import { GAME_CONSTANTS } from 'src/common/constants/game.constant';
+import { Coordinate } from '../interfaces/game.interface';
 
 @Injectable()
 export class GameLogicService {
@@ -41,17 +42,20 @@ export class GameLogicService {
     // Detect cycles and capture stones
     const capturedStones = this.processCycleCaptures(x, y, player, gameState, gridSize);
 
-    // Update scores
+    // NOUVELLE LOGIQUE: Recalculer tous les scores basés sur deadStones
+    gameState.scores = this.scoringService.calculateScores(
+      gameState.grid,
+      gameState.deadStones,
+    );
+
     if (capturedStones.length > 0) {
-      gameState.scores = this.scoringService.updateScoreAfterCapture(
-        gameState.scores,
-        player,
-        capturedStones.length,
+      this.logger.log(
+        `Player ${player} captured ${capturedStones.length} stones. ` +
+        `New scores: P1=${gameState.scores.player1}, P2=${gameState.scores.player2}`
       );
-      this.logger.log(`Player ${player} captured ${capturedStones.length} stones`);
     }
 
-    // CORRECTION: Mettre à jour les cycles actifs au lieu des territoires
+    // Mettre à jour les cycles actifs
     this.updateActiveCycles(gameState, gridSize);
 
     // Switch player
@@ -148,7 +152,7 @@ export class GameLogicService {
   }
 
   /**
-   * NOUVELLE MÉTHODE: Détecter et maintenir tous les cycles actifs
+   * Détecter et maintenir tous les cycles actifs
    * Un cycle reste actif tant que ses pierres ne sont pas capturées
    */
   private updateActiveCycles(gameState: GameStateEntity, gridSize: number): void {
@@ -343,3 +347,4 @@ export class GameLogicService {
     return intersections % 2 === 1;
   }
 }
+
