@@ -85,6 +85,7 @@ export class GameLogicService {
       player === GAME_CONSTANTS.PLAYER_ONE
         ? GAME_CONSTANTS.PLAYER_TWO
         : GAME_CONSTANTS.PLAYER_ONE;
+    this.logger.debug('capturedArreas:', gameState.capturedAreas);
 
     return {
       success: true,
@@ -222,6 +223,21 @@ export class GameLogicService {
 
         this.logger.log(`Captured ${captured.size} opponent stones in cycle`);
 
+        // NOUVEAU: Raviver les pierres alliées dans la prison
+        const revivedStones = this.reviveAlliedStones(
+          longestCycle,
+          player,
+          gameState,
+          gridSize,
+        );
+
+        if (revivedStones.length > 0) {
+          this.logger.log(
+            `Revived ${revivedStones.length} allied stones in captured prison`,
+          );
+        }
+
+        // Marquer les pierres adverses comme mortes
         captured.forEach((stone) => {
           gameState.deadStones.add(stone);
           capturedStones.push(stone);
@@ -232,6 +248,65 @@ export class GameLogicService {
     return capturedStones;
   }
 
+  /**
+ * Raviver les pierres alliées mortes qui se trouvent dans une prison qu'on vient de capturer
+ */
+private reviveAlliedStones(
+  cycle: Coordinate[],
+  player: number,
+  gameState: GameStateEntity,
+  gridSize: number,
+): string[] {
+  const revivedStones: string[] = [];
+  
+  // Créer le polygone de la prison
+  const polygon = cycle.map(c => [c.x, c.y] as [number, number]);
+  
+  // Fermer le polygone
+  if (polygon.length > 0) {
+    const first = polygon[0];
+    const last = polygon[polygon.length - 1];
+    if (first[0] !== last[0] || first[1] !== last[1]) {
+      polygon.push([first[0], first[1]]);
+    }
+  }
+
+  const bounds = this.getBounds(cycle);
+
+  // Parcourir toutes les pierres mortes
+  const deadStonesToRevive: string[] = [];
+  
+  for (const deadStoneKey of gameState.deadStones) {
+    const coord = CoordinateUtil.fromKey(deadStoneKey);
+    const stoneOwner = gameState.grid[deadStoneKey];
+    
+    // Si c'est une pierre alliée morte
+    if (stoneOwner === player) {
+      // Vérifier si elle est dans le bounds (optimisation)
+      if (
+        coord.x >= Math.max(0, bounds.minX) &&
+        coord.x <= Math.min(gridSize - 1, bounds.maxX) &&
+        coord.y >= Math.max(0, bounds.minY) &&
+        coord.y <= Math.min(gridSize - 1, bounds.maxY)
+      ) {
+        // Vérifier si elle est dans la prison
+        if (this.isPointInPolygon([coord.x, coord.y], polygon)) {
+          deadStonesToRevive.push(deadStoneKey);
+          revivedStones.push(deadStoneKey);
+        }
+      }
+    }
+  }
+
+  // Retirer les pierres ravivées de deadStones
+  deadStonesToRevive.forEach((key) => {
+    gameState.deadStones.delete(key);
+    const coord = CoordinateUtil.fromKey(key);
+    this.logger.debug(`Revived allied stone at (${coord.x}, ${coord.y})`);
+  });
+
+  return revivedStones;
+}
   /**
    * Détecter et maintenir tous les cycles actifs
    * Un cycle reste actif tant que ses pierres ne sont pas capturées
