@@ -325,27 +325,37 @@ export class GameGateway
    * Méthode privée pour gérer le tour de l'IA
    */
   private async triggerAiMove(gameId: string) {
-    // 1. Petit délai "humain" (500ms à 1s) pour ne pas que la réponse soit instantanée
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
     const room = this.gameRoomService.getRoom(gameId);
     if (!room) return;
 
     try {
-      // 2. L'IA réfléchit
-      const gameState = room.getGameState(); // Assurez-vous que c'est le bon type
-      const aiMove = this.aiService.calculateNextMove(gameState as any, 4); // Cast si nécessaire
+      const gameState = room.getGameState();
 
-      // 3. L'IA joue (en utilisant son ID spécial)
+      // OPTION 1: Difficulté fixe (Expert)
+      const difficulty = 5; // 1=Random, 2=Defensive, 3=Offensive, 4=Strategic, 5=Expert
+
+      // OPTION 2: Difficulté basée sur les paramètres de la room (si vous l'avez stocké)
+      // const difficulty = room.aiDifficulty || 5;
+
+      // Calculer le coup de l'IA avec le niveau choisi
+      const aiMove = this.aiService.calculateNextMove(
+        gameState as any,
+        GAME_CONSTANTS.GRID_SIZE,
+        difficulty,
+      );
+
+      // L'IA joue
       const result = this.gameRoomService.makeMove(
         gameId,
-        GAME_CONSTANTS.AI_PLAYER_ID, // <--- C'est ici qu'on utilise l'identité IA
+        GAME_CONSTANTS.AI_PLAYER_ID,
         aiMove.x,
         aiMove.y,
       );
 
       if (result.success) {
-        this.logger.log(`AI (P2) moved at ${aiMove.x}, ${aiMove.y}`);
+        this.logger.log(
+          `AI (P2) moved at (${aiMove.x}, ${aiMove.y}) - Difficulty: ${difficulty}`,
+        );
 
         // Notifier le frontend
         this.notificationService.notifyBothPlayers(gameId, 'moveMade', {
@@ -356,10 +366,57 @@ export class GameGateway
         });
       } else {
         this.logger.error(`AI failed to move: ${result.reason}`);
-        // Logique de retry ou fin de partie si l'IA est bloquée
+
+        // Fallback: essayer un coup aléatoire
+        this.handleAiMoveFailure(gameId);
       }
-    } catch (e) {
-      this.logger.error('Error during AI execution', e);
+    } catch (error) {
+      this.logger.error('Error during AI execution', error);
+      this.handleAiMoveFailure(gameId);
+    }
+  }
+
+  /**
+   * Gestion des échecs de l'IA
+   */
+  private handleAiMoveFailure(gameId: string) {
+    const room = this.gameRoomService.getRoom(gameId);
+    if (!room) return;
+
+    try {
+      const gameState = room.getGameState();
+
+      // Essayer avec un coup aléatoire (niveau 1)
+      this.logger.warn('AI retrying with random move (difficulty 1)');
+
+      const aiMove = this.aiService.calculateNextMove(
+        gameState as any,
+        GAME_CONSTANTS.GRID_SIZE,
+        2, // Coup aléatoire
+      );
+
+      const result = this.gameRoomService.makeMove(
+        gameId,
+        GAME_CONSTANTS.AI_PLAYER_ID,
+        aiMove.x,
+        aiMove.y,
+      );
+
+      if (result.success) {
+        this.notificationService.notifyBothPlayers(gameId, 'moveMade', {
+          gameState: result.gameState,
+          move: result.move,
+          capturedStones: result.capturedStones,
+          capturedAreas: result.capturedAreas,
+        });
+      } else {
+        // L'IA ne peut vraiment pas jouer, terminer la partie
+        this.notificationService.notifyBothPlayers(gameId, 'gameError', {
+          reason: 'AI cannot make a move - game ending',
+        });
+      }
+    } catch (fallbackError) {
+      this.logger.error('AI fallback also failed', fallbackError);
     }
   }
   /**

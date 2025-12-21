@@ -85,18 +85,12 @@ export class CycleDetectionService {
     const captured = new Set<string>();
 
     if (!cycle || cycle.length < 3) {
-      this.logger.warn('Invalid or too short cycle');
       return captured;
     }
 
     try {
       const polygon = PolygonUtil.cycleToPoly(cycle);
       const bounds = PolygonUtil.getBounds(cycle);
-
-      this.logger.debug(
-        `Searching for captures in area: (${bounds.minX},${bounds.minY}) to (${bounds.maxX},${bounds.maxY})`,
-      );
-
       let pointsAnalyzed = 0;
 
       // Scan only within bounding box
@@ -118,14 +112,10 @@ export class CycleDetectionService {
             if (isInside) {
               const key = CoordinateUtil.toKey(x, y);
               captured.add(key);
-              this.logger.debug(`Opponent stone captured at (${x}, ${y})`);
             }
           }
         }
       }
-
-      this.logger.debug(`Points analyzed: ${pointsAnalyzed}`);
-      this.logger.debug(`Stones captured: ${captured.size}`);
     } catch (error) {
       this.logger.error('Error during cycle capture calculation:', error);
       this.logger.error('Problematic cycle:', cycle);

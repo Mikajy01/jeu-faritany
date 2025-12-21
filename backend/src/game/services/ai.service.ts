@@ -4,61 +4,74 @@ import { CoordinateUtil } from '../../common/utils/coordinate.util';
 import { GAME_CONSTANTS } from 'src/common/constants/game.constant';
 import { GameLogicService } from './game-logic.service';
 
+interface Move {
+  x: number;
+  y: number;
+}
+
+interface ScoredMove {
+  move: Move;
+  score: number;
+}
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
 
-  constructor(
-    private readonly gameLogicService: GameLogicService,
-  ) {}
+  constructor(private readonly gameLogicService: GameLogicService) {}
 
   /**
-   * Calcule le prochain coup de l'IA avec différents niveaux de difficulté
+   * Calcule le prochain coup de l'IA
    */
   calculateNextMove(
     gameState: GameStateEntity,
     gridSize: number = GAME_CONSTANTS.GRID_SIZE,
     difficulty: number = 1
-  ): { x: number; y: number } {
+  ): Move {
+    const startTime = Date.now();
     const availableMoves = this.getAvailableMoves(gameState, gridSize);
 
     if (availableMoves.length === 0) {
       throw new Error('No moves available for AI');
     }
 
+    let selectedMove: Move;
+
     switch (difficulty) {
       case 1:
-        // Niveau 1: Aléatoire simple
-        return this.getRandomMove(availableMoves);
-      
+        selectedMove = this.getRandomMove(availableMoves);
+        break;
       case 2:
-        // Niveau 2: Défensif basique - évite les zones risquées
-        return this.getDefensiveMove(gameState, availableMoves, gridSize);
-      
+        selectedMove = this.getDefensiveMove(gameState, availableMoves, gridSize);
+        break;
       case 3:
-        // Niveau 3: Offensif basique - cherche les captures simples
-        return this.getOffensiveMove(gameState, availableMoves, gridSize);
-      
+        selectedMove = this.getOffensiveMove(gameState, availableMoves, gridSize);
+        break;
       case 4:
-        // Niveau 4: Stratégique - évalue plusieurs facteurs
-        return this.getStrategicMove(gameState, availableMoves, gridSize);
-      
+        selectedMove = this.getStrategicMove(gameState, availableMoves, gridSize);
+        break;
       case 5:
-        // Niveau 5: Expert - utilise Minimax simple
-        return this.getExpertMove(gameState, availableMoves, gridSize);
-      
+        selectedMove = this.getExpertMove(gameState, availableMoves, gridSize);
+        break;
       default:
-        return this.getRandomMove(availableMoves);
+        selectedMove = this.getRandomMove(availableMoves);
     }
+
+    const elapsed = Date.now() - startTime;
+    this.logger.debug(
+      `AI (difficulty ${difficulty}) calculated move (${selectedMove.x},${selectedMove.y}) in ${elapsed}ms`
+    );
+
+    return selectedMove;
   }
 
-  private getAvailableMoves(gameState: GameStateEntity, gridSize: number): { x: number; y: number }[] {
-    const moves: { x: number; y: number }[] = [];
+  private getAvailableMoves(gameState: GameStateEntity, gridSize: number): Move[] {
+    const moves: Move[] = [];
     
     for (let x = 0; x < gridSize; x++) {
       for (let y = 0; y < gridSize; y++) {
         const key = CoordinateUtil.toKey(x, y);
-        if (!gameState.grid[key] && !gameState.deadStones.has(key)) {
+        if (!gameState.grid[key]) {
           moves.push({ x, y });
         }
       }
@@ -69,9 +82,8 @@ export class AiService {
   /**
    * Niveau 1: Coup aléatoire
    */
-  private getRandomMove(moves: { x: number; y: number }[]): { x: number; y: number } {
-    const randomIndex = Math.floor(Math.random() * moves.length);
-    return moves[randomIndex];
+  private getRandomMove(moves: Move[]): Move {
+    return moves[Math.floor(Math.random() * moves.length)];
   }
 
   /**
@@ -79,27 +91,18 @@ export class AiService {
    */
   private getDefensiveMove(
     gameState: GameStateEntity,
-    moves: { x: number; y: number }[],
+    moves: Move[],
     gridSize: number
-  ): { x: number; y: number } {
-    // Prioriser les coups qui ne permettent pas à l'adversaire de former un cycle
-    const scoredMoves = moves.map(move => {
-      let score = 0;
-      const key = CoordinateUtil.toKey(move.x, move.y);
-      
-      // Éviter les positions isolées
-      score += this.evaluateIsolation(move, gameState, gridSize);
-      
-      // Éviter d'être entouré par l'adversaire
-      score -= this.countOpponentNeighbors(move, gameState, gridSize) * 2;
-      
-      // Préférer le centre du plateau
-      score += this.evaluateCenterPosition(move, gridSize);
-      
-      return { move, score };
-    });
+  ): Move {
+    const scoredMoves = moves.map(move => ({
+      move,
+      score: 
+        this.evaluateIsolation(move, gameState, gridSize) * 2 +
+        this.evaluateCenterPosition(move, gridSize) -
+        this.countOpponentNeighbors(move, gameState, gridSize) * 2 -
+        this.evaluateVulnerability(move, gameState, gridSize)
+    }));
 
-    // Choisir le meilleur coup défensif
     scoredMoves.sort((a, b) => b.score - a.score);
     return scoredMoves[0].move;
   }
@@ -109,30 +112,25 @@ export class AiService {
    */
   private getOffensiveMove(
     gameState: GameStateEntity,
-    moves: { x: number; y: number }[],
+    moves: Move[],
     gridSize: number
-  ): { x: number; y: number } {
-    const scoredMoves = moves.map(move => {
-      let score = 0;
-      
-      // Évaluer le potentiel de capture
-      score += this.evaluateCapturePotential(move, gameState, gridSize) * 5;
-      
-      // Préférer les positions près des pierres adverses
-      score += this.countOpponentNeighbors(move, gameState, gridSize);
-      
-      // Bonus pour le centre
-      score += this.evaluateCenterPosition(move, gridSize) * 0.5;
-      
-      return { move, score };
-    });
+  ): Move {
+    const scoredMoves = moves.map(move => ({
+      move,
+      score:
+        this.evaluateCapturePotential(move, gameState, gridSize) * 5 +
+        this.evaluateCycleFormation(move, gameState, gridSize) * 3 +
+        this.countOpponentNeighbors(move, gameState, gridSize) +
+        this.evaluateCenterPosition(move, gridSize) * 0.5
+    }));
 
+    scoredMoves.sort((a, b) => b.score - a.score);
+    
     // Si aucun coup offensif intéressant, revenir au défensif
-    if (scoredMoves[0].score <= 0) {
+    if (scoredMoves[0].score <= 2) {
       return this.getDefensiveMove(gameState, moves, gridSize);
     }
 
-    scoredMoves.sort((a, b) => b.score - a.score);
     return scoredMoves[0].move;
   }
 
@@ -141,62 +139,59 @@ export class AiService {
    */
   private getStrategicMove(
     gameState: GameStateEntity,
-    moves: { x: number; y: number }[],
+    moves: Move[],
     gridSize: number
-  ): { x: number; y: number } {
+  ): Move {
     const scoredMoves = moves.map(move => {
-      let score = 0;
-      
-      // Facteurs offensifs (40% du score)
-      score += this.evaluateCapturePotential(move, gameState, gridSize) * 4;
-      score += this.countOpponentNeighbors(move, gameState, gridSize) * 0.5;
-      
-      // Facteurs défensifs (30% du score)
-      score += this.evaluateIsolation(move, gameState, gridSize) * 3;
-      score -= this.evaluateVulnerability(move, gameState, gridSize) * 2;
-      
-      // Facteurs positionnels (30% du score)
-      score += this.evaluateCenterPosition(move, gridSize) * 2;
-      score += this.evaluateBoardControl(move, gameState, gridSize) * 1.5;
-      
-      // Pénalité pour les coups trop évidents
-      score -= this.evaluateObviousness(move, gameState, gridSize);
-      
-      return { move, score };
+      const offensiveScore = 
+        this.evaluateCapturePotential(move, gameState, gridSize) * 4 +
+        this.evaluateCycleFormation(move, gameState, gridSize) * 3 +
+        this.countOpponentNeighbors(move, gameState, gridSize) * 0.5;
+
+      const defensiveScore =
+        this.evaluateIsolation(move, gameState, gridSize) * 2 -
+        this.evaluateVulnerability(move, gameState, gridSize) * 2 +
+        this.evaluateBlockingPotential(move, gameState, gridSize) * 3;
+
+      const positionalScore =
+        this.evaluateCenterPosition(move, gridSize) * 2 +
+        this.evaluateBoardControl(move, gameState, gridSize) * 1.5 +
+        this.evaluateEdgeAdvantage(move, gridSize);
+
+      return {
+        move,
+        score: offensiveScore + defensiveScore + positionalScore
+      };
     });
 
     scoredMoves.sort((a, b) => b.score - a.score);
     
-    // Parfois choisir le 2ème ou 3ème meilleur coup pour varier
-    const topMoves = scoredMoves.slice(0, 3);
-    const randomChoice = Math.random();
-    if (randomChoice < 0.7) {
-      return topMoves[0].move;
-    } else if (randomChoice < 0.9) {
-      return topMoves[1]?.move || topMoves[0].move;
-    } else {
-      return topMoves[2]?.move || topMoves[0].move;
-    }
+    // Ajouter de la variabilité (70% meilleur, 20% 2ème, 10% 3ème)
+    const rand = Math.random();
+    if (rand < 0.7) return scoredMoves[0].move;
+    if (rand < 0.9 && scoredMoves[1]) return scoredMoves[1].move;
+    return scoredMoves[2]?.move || scoredMoves[0].move;
   }
 
   /**
-   * Niveau 5: Expert - Minimax simple avec évaluation
+   * Niveau 5: Expert - Minimax avec évaluation avancée
    */
   private getExpertMove(
     gameState: GameStateEntity,
-    moves: { x: number; y: number }[],
+    moves: Move[],
     gridSize: number
-  ): { x: number; y: number } {
-    const depth = 2; // Profondeur de recherche
-    let bestMove = moves[0];
+  ): Move {
+    const depth = 5; // Augmenté à 3 pour plus de profondeur
+    
+    // Pré-filtrer les coups prometteurs pour optimiser
+    const promisingMoves = this.getPromisingMoves(gameState, moves, gridSize, 15);
+    
+    let bestMove = promisingMoves[0];
     let bestScore = -Infinity;
 
-    // Limiter le nombre de coups évalués pour la performance
-    const evaluatedMoves = moves.slice(0, Math.min(20, moves.length));
-
-    for (const move of evaluatedMoves) {
-      // Simuler le coup
+    for (const move of promisingMoves) {
       const simulatedState = this.cloneGameState(gameState);
+      
       try {
         const result = this.gameLogicService.makeMove(
           move.x,
@@ -207,14 +202,14 @@ export class AiService {
         );
 
         if (result.success) {
-          // Évaluer la position résultante
           const score = this.minimax(
             simulatedState,
             depth - 1,
             false,
             -Infinity,
             Infinity,
-            gridSize
+            gridSize,
+            gameState.currentPlayer
           );
 
           if (score > bestScore) {
@@ -223,7 +218,8 @@ export class AiService {
           }
         }
       } catch (error) {
-        this.logger.debug(`Move ${move.x},${move.y} invalid: ${error.message}`);
+        // Coup invalide, ignorer
+        continue;
       }
     }
 
@@ -231,7 +227,30 @@ export class AiService {
   }
 
   /**
-   * Algorithme Minimax simplifié avec élagage alpha-beta
+   * Pré-filtre les coups les plus prometteurs
+   */
+  private getPromisingMoves(
+    gameState: GameStateEntity,
+    moves: Move[],
+    gridSize: number,
+    topN: number
+  ): Move[] {
+    const scoredMoves = moves.map(move => ({
+      move,
+      score:
+        this.evaluateCapturePotential(move, gameState, gridSize) * 4 +
+        this.evaluateCycleFormation(move, gameState, gridSize) * 3 +
+        this.evaluateBlockingPotential(move, gameState, gridSize) * 3 +
+        this.evaluateIsolation(move, gameState, gridSize) * 2 +
+        this.evaluateCenterPosition(move, gridSize)
+    }));
+
+    scoredMoves.sort((a, b) => b.score - a.score);
+    return scoredMoves.slice(0, topN).map(sm => sm.move);
+  }
+
+  /**
+   * Minimax avec élagage alpha-beta
    */
   private minimax(
     state: GameStateEntity,
@@ -239,18 +258,22 @@ export class AiService {
     isMaximizing: boolean,
     alpha: number,
     beta: number,
-    gridSize: number
+    gridSize: number,
+    aiPlayer: number
   ): number {
     if (depth === 0) {
-      return this.evaluateBoardState(state, gridSize);
+      return this.evaluateBoardState(state, gridSize, aiPlayer);
     }
 
     const moves = this.getAvailableMoves(state, gridSize);
+    const limitedMoves = moves.slice(0, 8); // Limiter les branches
     
     if (isMaximizing) {
       let maxEval = -Infinity;
-      for (const move of moves.slice(0, 10)) { // Limiter les branches
+      
+      for (const move of limitedMoves) {
         const simulatedState = this.cloneGameState(state);
+        
         try {
           const result = this.gameLogicService.makeMove(
             move.x,
@@ -261,20 +284,32 @@ export class AiService {
           );
           
           if (result.success) {
-            const evalScore = this.minimax(simulatedState, depth - 1, false, alpha, beta, gridSize);
+            const evalScore = this.minimax(
+              simulatedState,
+              depth - 1,
+              false,
+              alpha,
+              beta,
+              gridSize,
+              aiPlayer
+            );
+            
             maxEval = Math.max(maxEval, evalScore);
             alpha = Math.max(alpha, evalScore);
-            if (beta <= alpha) break; // Élagage beta
+            if (beta <= alpha) break; // Élagage
           }
         } catch (error) {
           continue;
         }
       }
       return maxEval;
+      
     } else {
       let minEval = Infinity;
-      for (const move of moves.slice(0, 10)) {
+      
+      for (const move of limitedMoves) {
         const simulatedState = this.cloneGameState(state);
+        
         try {
           const result = this.gameLogicService.makeMove(
             move.x,
@@ -285,10 +320,19 @@ export class AiService {
           );
           
           if (result.success) {
-            const evalScore = this.minimax(simulatedState, depth - 1, true, alpha, beta, gridSize);
+            const evalScore = this.minimax(
+              simulatedState,
+              depth - 1,
+              true,
+              alpha,
+              beta,
+              gridSize,
+              aiPlayer
+            );
+            
             minEval = Math.min(minEval, evalScore);
             beta = Math.min(beta, evalScore);
-            if (beta <= alpha) break; // Élagage alpha
+            if (beta <= alpha) break; // Élagage
           }
         } catch (error) {
           continue;
@@ -301,54 +345,79 @@ export class AiService {
   /**
    * Évalue l'état du plateau pour l'IA
    */
-  private evaluateBoardState(state: GameStateEntity, gridSize: number): number {
+  private evaluateBoardState(
+    state: GameStateEntity,
+    gridSize: number,
+    aiPlayer: number
+  ): number {
     let score = 0;
-    const aiPlayer = state.currentPlayer;
     const opponent = aiPlayer === GAME_CONSTANTS.PLAYER_ONE 
       ? GAME_CONSTANTS.PLAYER_TWO 
       : GAME_CONSTANTS.PLAYER_ONE;
 
-    // Score basé sur les captures
-    score += (state.scores[aiPlayer] - state.scores[opponent]) * 10;
+    // 1. Score de base (captures)
+    const scoreKey1 = aiPlayer === GAME_CONSTANTS.PLAYER_ONE ? 'player1' : 'player2';
+    const scoreKey2 = opponent === GAME_CONSTANTS.PLAYER_ONE ? 'player1' : 'player2';
+    score += (state.scores[scoreKey1] - state.scores[scoreKey2]) * 10;
 
-    // Évaluer le contrôle du centre
-    const center = Math.floor(gridSize / 2);
-    for (let x = center - 1; x <= center + 1; x++) {
-      for (let y = center - 1; y <= center + 1; y++) {
-        if (x >= 0 && x < gridSize && y >= 0 && y < gridSize) {
-          const key = CoordinateUtil.toKey(x, y);
-          if (state.grid[key] === aiPlayer) score += 2;
-          else if (state.grid[key] === opponent) score -= 2;
+    // 2. Territoires capturés
+    if (state.capturedAreas) {
+      for (const area of state.capturedAreas) {
+        if (area.owner === aiPlayer) {
+          score += area.points.length * 2;
+        } else if (area.owner === opponent) {
+          score -= area.points.length * 2;
         }
       }
     }
 
+    // 3. Contrôle du centre
+    const center = Math.floor(gridSize / 2);
+    for (let x = center - 2; x <= center + 2; x++) {
+      for (let y = center - 2; y <= center + 2; y++) {
+        if (x >= 0 && x < gridSize && y >= 0 && y < gridSize) {
+          const key = CoordinateUtil.toKey(x, y);
+          if (state.grid[key] === aiPlayer) score += 1.5;
+          else if (state.grid[key] === opponent) score -= 1.5;
+        }
+      }
+    }
+
+    // 4. Pierres vivantes vs mortes
+    let aiStones = 0, opponentStones = 0;
+    for (const key in state.grid) {
+      if (!state.deadStones.has(key)) {
+        if (state.grid[key] === aiPlayer) aiStones++;
+        else if (state.grid[key] === opponent) opponentStones++;
+      }
+    }
+    score += (aiStones - opponentStones) * 0.5;
+
     return score;
   }
 
-  /**
-   * Méthodes d'évaluation auxiliaires
-   */
+  // ==================== FONCTIONS D'ÉVALUATION ====================
+
   private evaluateCapturePotential(
-    move: { x: number; y: number },
+    move: Move,
     gameState: GameStateEntity,
     gridSize: number
   ): number {
-    // Vérifie si ce coup peut aider à former un cycle
     let potential = 0;
+    const opponent = gameState.currentPlayer === GAME_CONSTANTS.PLAYER_ONE 
+      ? GAME_CONSTANTS.PLAYER_TWO 
+      : GAME_CONSTANTS.PLAYER_ONE;
+    
     const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
     
     for (const [dx, dy] of directions) {
       const nx = move.x + dx;
       const ny = move.y + dy;
-      if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
+      
+      if (this.isValidCoord(nx, ny, gridSize)) {
         const key = CoordinateUtil.toKey(nx, ny);
-        const opponent = gameState.currentPlayer === GAME_CONSTANTS.PLAYER_ONE 
-          ? GAME_CONSTANTS.PLAYER_TWO 
-          : GAME_CONSTANTS.PLAYER_ONE;
-        
-        if (gameState.grid[key] === opponent) {
-          potential++;
+        if (gameState.grid[key] === opponent && !gameState.deadStones.has(key)) {
+          potential += 2;
         }
       }
     }
@@ -356,19 +425,94 @@ export class AiService {
     return potential;
   }
 
-  private evaluateIsolation(
-    move: { x: number; y: number },
+  /**
+   * NOUVEAU: Évalue le potentiel de formation de cycle
+   */
+  private evaluateCycleFormation(
+    move: Move,
     gameState: GameStateEntity,
     gridSize: number
   ): number {
-    // Un coup est bien positionné s'il est près d'autres pierres alliées
+    let score = 0;
+    const player = gameState.currentPlayer;
+    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    
     let friendlyNeighbors = 0;
-    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [-1, -1], [1, -1], [-1, 1]];
+    
+    // Compter les voisins alliés
+    for (const [dx, dy] of directions) {
+      const nx = move.x + dx;
+      const ny = move.y + dy;
+      
+      if (this.isValidCoord(nx, ny, gridSize)) {
+        const key = CoordinateUtil.toKey(nx, ny);
+        if (gameState.grid[key] === player && !gameState.deadStones.has(key)) {
+          friendlyNeighbors++;
+        }
+      }
+    }
+    
+    // Plus il y a de voisins alliés, plus le potentiel de cycle est élevé
+    if (friendlyNeighbors >= 2) {
+      score += friendlyNeighbors * 2;
+    }
+    
+    return score;
+  }
+
+  /**
+   * NOUVEAU: Évalue le potentiel de blocage d'un cycle adverse
+   */
+  private evaluateBlockingPotential(
+    move: Move,
+    gameState: GameStateEntity,
+    gridSize: number
+  ): number {
+    const opponent = gameState.currentPlayer === GAME_CONSTANTS.PLAYER_ONE 
+      ? GAME_CONSTANTS.PLAYER_TWO 
+      : GAME_CONSTANTS.PLAYER_ONE;
+    
+    let blockingScore = 0;
+    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    
+    // Vérifier si on bloque un cycle potentiel ennemi
+    let opponentNeighbors = 0;
+    for (const [dx, dy] of directions) {
+      const nx = move.x + dx;
+      const ny = move.y + dy;
+      
+      if (this.isValidCoord(nx, ny, gridSize)) {
+        const key = CoordinateUtil.toKey(nx, ny);
+        if (gameState.grid[key] === opponent && !gameState.deadStones.has(key)) {
+          opponentNeighbors++;
+        }
+      }
+    }
+    
+    // Si entouré par l'adversaire, c'est un bon blocage
+    if (opponentNeighbors >= 3) {
+      blockingScore += 5;
+    }
+    
+    return blockingScore;
+  }
+
+  private evaluateIsolation(
+    move: Move,
+    gameState: GameStateEntity,
+    gridSize: number
+  ): number {
+    let friendlyNeighbors = 0;
+    const directions = [
+      [0, 1], [1, 0], [0, -1], [-1, 0],
+      [1, 1], [-1, -1], [1, -1], [-1, 1]
+    ];
     
     for (const [dx, dy] of directions) {
       const nx = move.x + dx;
       const ny = move.y + dy;
-      if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
+      
+      if (this.isValidCoord(nx, ny, gridSize)) {
         const key = CoordinateUtil.toKey(nx, ny);
         if (gameState.grid[key] === gameState.currentPlayer) {
           friendlyNeighbors++;
@@ -380,108 +524,130 @@ export class AiService {
   }
 
   private countOpponentNeighbors(
-    move: { x: number; y: number },
+    move: Move,
     gameState: GameStateEntity,
     gridSize: number
   ): number {
-    let opponentNeighbors = 0;
-    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    let count = 0;
     const opponent = gameState.currentPlayer === GAME_CONSTANTS.PLAYER_ONE 
       ? GAME_CONSTANTS.PLAYER_TWO 
       : GAME_CONSTANTS.PLAYER_ONE;
     
+    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    
     for (const [dx, dy] of directions) {
       const nx = move.x + dx;
       const ny = move.y + dy;
-      if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
+      
+      if (this.isValidCoord(nx, ny, gridSize)) {
         const key = CoordinateUtil.toKey(nx, ny);
         if (gameState.grid[key] === opponent) {
-          opponentNeighbors++;
+          count++;
         }
       }
     }
     
-    return opponentNeighbors;
+    return count;
   }
 
-  private evaluateCenterPosition(
-    move: { x: number; y: number },
-    gridSize: number
-  ): number {
+  private evaluateCenterPosition(move: Move, gridSize: number): number {
     const center = gridSize / 2 - 0.5;
     const distance = Math.sqrt(
       Math.pow(move.x - center, 2) + Math.pow(move.y - center, 2)
     );
-    // Plus on est près du centre, plus le score est élevé
-    return Math.max(0, (gridSize - distance) / gridSize);
+    return Math.max(0, (gridSize - distance) / gridSize * 2);
   }
 
   private evaluateVulnerability(
-    move: { x: number; y: number },
+    move: Move,
     gameState: GameStateEntity,
     gridSize: number
   ): number {
-    // Évalue si la position est vulnérable aux attaques
     let vulnerability = 0;
     
-    // Positions en bordure sont moins vulnérables aux cycles
-    if (move.x === 0 || move.x === gridSize - 1 || move.y === 0 || move.y === gridSize - 1) {
-      vulnerability -= 2;
+    // Positions sur les bords sont moins vulnérables
+    if (this.isEdgePosition(move, gridSize)) {
+      vulnerability -= 1;
     }
     
-    // Positions entourées par l'adversaire sont vulnérables
+    // Entouré par l'adversaire = vulnérable
     vulnerability += this.countOpponentNeighbors(move, gameState, gridSize) * 0.5;
     
     return Math.max(0, vulnerability);
   }
 
   private evaluateBoardControl(
-    move: { x: number; y: number },
+    move: Move,
     gameState: GameStateEntity,
     gridSize: number
   ): number {
-    // Évalue le contrôle positionnel du plateau
     let control = 0;
     const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
     
     for (const [dx, dy] of directions) {
       const nx = move.x + dx;
       const ny = move.y + dy;
-      if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
-        // Les cases vides adjacentes représentent une influence
+      
+      if (this.isValidCoord(nx, ny, gridSize)) {
         const key = CoordinateUtil.toKey(nx, ny);
-        if (!gameState.grid[key]) {
+        if (!gameState.grid[key] && !gameState.deadStones.has(key)) {
           control++;
         }
       }
     }
     
-    return control / 4; // Normalisé entre 0 et 1
-  }
-
-  private evaluateObviousness(
-    move: { x: number; y: number },
-    gameState: GameStateEntity,
-    gridSize: number
-  ): number {
-    // Pénalise les coups trop évidents (comme répondre directement à une menace)
-    // Cette méthode peut être raffinée selon votre jeu
-    return 0; // À adapter selon vos besoins
+    return control;
   }
 
   /**
-   * Clone l'état du jeu pour la simulation
+   * NOUVEAU: Évalue l'avantage des positions de bord
+   */
+  private evaluateEdgeAdvantage(move: Move, gridSize: number): number {
+    if (this.isEdgePosition(move, gridSize)) {
+      return 1; // Léger bonus pour les bords
+    }
+    return 0;
+  }
+
+  // ==================== UTILITAIRES ====================
+
+  private isValidCoord(x: number, y: number, gridSize: number): boolean {
+    return x >= 0 && x < gridSize && y >= 0 && y < gridSize;
+  }
+
+  private isEdgePosition(move: Move, gridSize: number): boolean {
+    return move.x === 0 || move.x === gridSize - 1 || 
+           move.y === 0 || move.y === gridSize - 1;
+  }
+
+  /**
+   * Clone profond de l'état du jeu
    */
   private cloneGameState(state: GameStateEntity): GameStateEntity {
-    // Implémentez le clonage de votre GameStateEntity
-    // Ceci est un exemple basique, adaptez-le à votre implémentation
     const cloned = new GameStateEntity();
+    
+    // Clone grid
     cloned.grid = { ...state.grid };
+    
+    // Clone deadStones
     cloned.deadStones = new Set(state.deadStones);
-    cloned.capturedAreas = { ...state.capturedAreas };
+    
+    // Clone capturedAreas
+    if (state.capturedAreas) {
+      cloned.capturedAreas = state.capturedAreas.map(area => ({
+        points: [...area.points],
+        owner: area.owner,
+        stones: [...area.stones]
+      }));
+    }
+    
+    // Clone scores
     cloned.scores = { ...state.scores };
+    
+    // Copy primitives
     cloned.currentPlayer = state.currentPlayer;
     cloned.gameActive = state.gameActive;
+    
     return cloned;
   }
 }

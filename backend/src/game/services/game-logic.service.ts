@@ -47,9 +47,6 @@ export class GameLogicService {
 
     if (isSuicideMove) {
       gameState.deadStones.add(key);
-      this.logger.log(
-        `Suicide move: Player ${player} placed stone at (${x},${y}) in enemy prison`,
-      );
     }
 
     // Detect cycles and capture stones
@@ -66,13 +63,6 @@ export class GameLogicService {
       gameState.grid,
       gameState.deadStones,
     );
-
-    if (capturedStones.length > 0) {
-      this.logger.log(
-        `Player ${player} captured ${capturedStones.length} stones. ` +
-          `New scores: P1=${gameState.scores.player1}, P2=${gameState.scores.player2}`,
-      );
-    }
 
     // REMPLACER updateActiveCycles par la nouvelle approche hybride
     this.updateCapturedAreasHybrid(gameState, gridSize);
@@ -114,8 +104,6 @@ export class GameLogicService {
       getCellState,
       gridSize,
     );
-
-    this.logger.debug(`Captured areas: ${gameState.capturedAreas.length}`);
   }
 
   // ... reste du code identique (checkSuicideMove, validateMove, etc.)
@@ -219,8 +207,6 @@ export class GameLogicService {
       gridSize,
     );
 
-    this.logger.debug(`Found ${cycles.length} cycles`);
-
     if (cycles.length > 0) {
       const longestCycle = this.cycleDetectionService.getLongestCycle(cycles);
 
@@ -232,20 +218,12 @@ export class GameLogicService {
           gridSize,
         );
 
-        this.logger.log(`Captured ${captured.size} opponent stones in cycle`);
-
         const revivedStones = this.reviveAlliedStones(
           longestCycle,
           player,
           gameState,
           gridSize,
         );
-
-        if (revivedStones.length > 0) {
-          this.logger.log(
-            `Revived ${revivedStones.length} allied stones in captured prison`,
-          );
-        }
 
         captured.forEach((stone) => {
           gameState.deadStones.add(stone);
@@ -301,7 +279,6 @@ export class GameLogicService {
     deadStonesToRevive.forEach((key) => {
       gameState.deadStones.delete(key);
       const coord = CoordinateUtil.fromKey(key);
-      this.logger.debug(`Revived allied stone at (${coord.x}, ${coord.y})`);
     });
 
     return revivedStones;
