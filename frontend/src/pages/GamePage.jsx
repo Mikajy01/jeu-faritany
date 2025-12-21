@@ -13,8 +13,7 @@ import { Menu, X } from "lucide-react";
 
 export default function GamePage() {
   const navigate = useNavigate();
-  const { socketRef, connectionStatus, gameState, gameLog, addLogEntry } =
-    useGameContext();
+  const { socketRef, connectionStatus, gameState, gameLog } = useGameContext();
   const animationFrame = useAnimation();
   const [hoveredCoord, setHoveredCoord] = useState(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
@@ -150,27 +149,28 @@ export default function GamePage() {
   }, [socketRef, navigate]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 p-4">
-      {/* Bouton Menu Mobile uniquement */}
-      <button
-        onClick={() => setShowInfoPanel(true)}
-        className="menu-toggle-btn lg:hidden fixed top-4 left-4 z-40 p-3 bg-white rounded-xl shadow-lg border border-slate-200 hover:bg-slate-50 transition-colors"
-        aria-label="Ouvrir le menu"
-      >
-        <Menu className="w-6 h-6 text-slate-700" />
-      </button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200">
+      <div className="p-4">
+        {/* Bouton Menu Mobile uniquement */}
+        <button
+          onClick={() => setShowInfoPanel(true)}
+          className="menu-toggle-btn lg:hidden fixed top-4 left-4 z-40 p-3 bg-white rounded-xl shadow-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+          aria-label="Ouvrir le menu"
+        >
+          <Menu className="w-6 h-6 text-slate-700" />
+        </button>
 
-      {/* Overlay pour mobile uniquement */}
-      {showInfoPanel && (
-        <div className="lg:hidden fixed inset-0 bg-black/50 z-40 transition-opacity" />
-      )}
+        {/* Overlay pour mobile uniquement */}
+        {showInfoPanel && (
+          <div className="lg:hidden fixed inset-0 bg-black/50 z-40 transition-opacity" />
+        )}
 
-      {/* Layout Desktop (grid) et Mobile (drawer) */}
-      <div className="max-w-7xl mx-auto">
-        <div className="lg:grid lg:grid-cols-3 lg:gap-6">
-          {/* InfoPanel - Drawer mobile / Column desktop */}
-          <div
-            className={`
+        {/* Layout Desktop (grid) et Mobile (drawer) */}
+        <div className="max-w-7xl mx-auto">
+          <div className="lg:grid lg:grid-cols-3 lg:gap-6">
+            {/* InfoPanel - Drawer mobile / Column desktop */}
+            <div
+              className={`
               info-panel-drawer
               fixed lg:static inset-y-0 left-0 z-50
               w-full sm:w-96 lg:w-auto
@@ -184,39 +184,40 @@ export default function GamePage() {
               overflow-y-auto lg:overflow-visible
               lg:col-span-1
             `}
-          >
-            {/* Bouton fermer (mobile uniquement) */}
-            <button
-              onClick={() => setShowInfoPanel(false)}
-              className="lg:hidden absolute top-4 right-4 z-10 p-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
-              aria-label="Fermer le menu"
             >
-              <X className="w-5 h-5 text-slate-700" />
-            </button>
+              {/* Bouton fermer (mobile uniquement) */}
+              <button
+                onClick={() => setShowInfoPanel(false)}
+                className="lg:hidden absolute top-4 right-4 z-10 p-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                aria-label="Fermer le menu"
+              >
+                <X className="w-5 h-5 text-slate-700" />
+              </button>
 
-            <div className="p-4 lg:p-0">
-              <InfoPanel
-                connectionStatus={connectionStatus}
+              <div className="p-4 lg:p-0">
+                <InfoPanel
+                  connectionStatus={connectionStatus}
+                  gameState={gameState}
+                  hoveredCoord={hoveredCoord}
+                  gameLog={gameLog}
+                  onResetGame={resetGame}
+                  onBackToMenu={handleBackToMenu}
+                  roomCode={roomCode}
+                />
+              </div>
+            </div>
+
+            {/* GameBoard */}
+            <div className="lg:col-span-2 mt-4 lg:mt-4">
+              <GameBoard
                 gameState={gameState}
                 hoveredCoord={hoveredCoord}
-                gameLog={gameLog}
-                onResetGame={resetGame}
-                onBackToMenu={handleBackToMenu}
-                roomCode={roomCode}
+                animationFrame={animationFrame}
+                onStageClick={handleStageClick}
+                onStageMouseMove={handleStageMouseMove}
+                onStageMouseLeave={handleStageMouseLeave}
               />
             </div>
-          </div>
-
-          {/* GameBoard */}
-          <div className="lg:col-span-2 mt-16 lg:mt-0">
-            <GameBoard
-              gameState={gameState}
-              hoveredCoord={hoveredCoord}
-              animationFrame={animationFrame}
-              onStageClick={handleStageClick}
-              onStageMouseMove={handleStageMouseMove}
-              onStageMouseLeave={handleStageMouseLeave}
-            />
           </div>
         </div>
       </div>
