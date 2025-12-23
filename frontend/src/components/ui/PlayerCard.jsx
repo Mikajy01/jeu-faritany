@@ -7,6 +7,7 @@ export const PlayerCard = ({
   isCurrentPlayer, 
   isActive,
   isYou,
+  showTimer = true,
   timeLeft = 600, // 10 minutes par défaut
   onTimeUp,
   compact = false
@@ -82,15 +83,19 @@ export const PlayerCard = ({
           </div>
 
           {/* Pendule compact */}
-          <div className="flex justify-center">
-            <ChessTimer 
-              timeLeft={timeLeft}
-              isActive={isActiveTurn}
-              isLowTime={timeLeft <= 30}
-              onTimeUp={onTimeUp}
-              compact={true}
-            />
-          </div>
+          {
+            showTimer && (
+              <div className="flex justify-center">
+                <ChessTimer 
+                  timeLeft={timeLeft}
+                  isActive={isActiveTurn}
+                isLowTime={timeLeft <= 30}
+                onTimeUp={onTimeUp}
+                compact={true}
+              />
+            </div>
+            )
+          }
         </div>
 
         {/* Indicateur de tour actif */}
@@ -151,15 +156,20 @@ export const PlayerCard = ({
           </div>
         </div>
 
-        {/* Pendule */}
-        <div className="flex justify-center">
-          <ChessTimer 
-            timeLeft={timeLeft}
-            isActive={isActiveTurn}
-            isLowTime={timeLeft <= 30}
-            onTimeUp={onTimeUp}
-          />
-        </div>
+         {/* Pendule */}
+          {
+            showTimer && (
+            <div className="flex justify-center">
+              <ChessTimer 
+                timeLeft={timeLeft}
+                isActive={isActiveTurn}
+                isLowTime={timeLeft <= 30}
+                onTimeUp={onTimeUp}
+              />
+            </div>
+            )
+          }
+       
       </div>
 
       {/* Indicateur de tour actif */}

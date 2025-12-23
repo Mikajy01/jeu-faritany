@@ -37,7 +37,6 @@ export default function AiRoomPage() {
     const handleGameCreated = ({ code, type, playerId }) => {
       console.log("🎮 Game created:", { code, type, playerId });
       if (type === "AI") {
-        addLogEntry("Partie contre l'IA créée");
         navigate("/game");
       }
     };
@@ -65,7 +64,6 @@ export default function AiRoomPage() {
 
     const handleGameStart = () => {
       console.log("🚀 Game starting!");
-      addLogEntry("La partie commence !");
       navigate("/game");
     };
 

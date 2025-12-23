@@ -77,7 +77,6 @@ export default function WaitingRoomPage() {
 
     const handleGameStart = () => {
       console.log("🚀 Game starting!");
-      addLogEntry("La partie commence !");
       navigate("/game");
     };
 

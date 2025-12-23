@@ -17,6 +17,9 @@ export const GameProvider = ({ children }) => {
   const [connectionStatus, setConnectionStatus] = useState(
     "Connexion au serveur..."
   );
+  const [gameType, setGameType] = useState("public");
+  const [moveTimeLimit, setMoveTimeLimit] = useState(600);
+
   const [gameState, setGameState] = useState({
     grid: new Map(),
     currentPlayer: 1,
@@ -97,7 +100,10 @@ export const GameProvider = ({ children }) => {
         });
       }
 
-      console.log(data.gameState)
+      if (type === "gameStart" || type === "gameJoined") {
+        setGameType(data.gameState.gameType || "public");
+        setMoveTimeLimit(data.gameState.timeControl?.moveTimeLimit || 60);
+      }
 
       setGameState((prev) => ({
         ...prev,
@@ -119,6 +125,8 @@ export const GameProvider = ({ children }) => {
     socket.on("gameStart", (data) => handleGameStateUpdate(data, "gameStart"));
     socket.on("moveMade", (data) => handleGameStateUpdate(data, "moveMade"));
     socket.on("gameReset", (data) => handleGameStateUpdate(data, "gameReset"));
+    socket.on("moveTimeout", (data) => handleGameStateUpdate(data, "gameReset"));
+
 
     socket.on("playerDisconnected", () => {
       console.log("👤 Adversaire déconnecté");
@@ -161,6 +169,8 @@ export const GameProvider = ({ children }) => {
     connectionStatus,
     gameState,
     setGameState,
+    moveTimeLimit,
+    gameType,
     gameLog,
     addLogEntry,
   };

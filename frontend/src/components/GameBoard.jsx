@@ -7,6 +7,7 @@ import { GameStones } from "./canvas/GameStones";
 import { HoverEffect } from "./canvas/HoverEffect";
 import { Legend } from "./ui/Legend";
 import { PlayerCard } from "./ui/PlayerCard";
+import { useGameContext } from "../context/GameContext";
 
 export const GameBoard = ({
   gameState,
@@ -16,6 +17,7 @@ export const GameBoard = ({
   onStageMouseMove,
   onStageMouseLeave,
 }) => {
+  const { gameType, moveTimeLimit } = useGameContext();
   const stageRef = useRef(null);
   const containerRef = useRef(null);
   const [scale, setScale] = useState(1);
@@ -234,8 +236,9 @@ export const GameBoard = ({
             isCurrentPlayer={gameState.currentPlayer === 1}
             isActive={gameState.gameActive}
             isYou={gameState.playerId === 1}
-            timeLeft={600}
+            timeLeft={moveTimeLimit}
             compact={true}
+            showTimer={gameType !== "AI"}
           />
         </div>
 
@@ -252,8 +255,10 @@ export const GameBoard = ({
             isCurrentPlayer={gameState.currentPlayer === 2}
             isActive={gameState.gameActive}
             isYou={gameState.playerId === 2}
-            timeLeft={600}
+            timeLeft={moveTimeLimit}
             compact={true}
+            showTimer={gameType !== "AI"}
+
           />
         </div>
       </div>
@@ -282,7 +287,9 @@ export const GameBoard = ({
             isCurrentPlayer={gameState.currentPlayer === 1}
             isActive={gameState.gameActive}
             isYou={gameState.playerId === 1}
-            timeLeft={600}
+            timeLeft={moveTimeLimit}
+            showTimer={gameType !== "AI"}
+
             compact={true}
           />
           <PlayerCard
@@ -291,8 +298,10 @@ export const GameBoard = ({
             isCurrentPlayer={gameState.currentPlayer === 2}
             isActive={gameState.gameActive}
             isYou={gameState.playerId === 2}
-            timeLeft={600}
+            timeLeft={moveTimeLimit}
             compact={true}
+            showTimer={gameType !== "AI"}
+
           />
         </div>
       </div>
