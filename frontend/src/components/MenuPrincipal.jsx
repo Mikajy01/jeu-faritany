@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Users, Bot, Globe, Plus } from 'lucide-react';
+import backgroundImage from '@/assets/images/background.png';
+
 
 export const MenuPrincipal = ({ onSelectMode }) => {
 
@@ -39,8 +41,19 @@ export const MenuPrincipal = ({ onSelectMode }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-5xl">
+    <div className="relative min-h-screen overflow-hidden flex items-center justify-center p-4">
+
+  {/* Background */}
+  <div
+    className="absolute inset-0 bg-cover bg-center scale-105"
+    style={{ backgroundImage: `url(${backgroundImage})` }}
+  />
+
+  <div className="absolute inset-0 bg-black/50" />
+  <div className="absolute inset-0 bg-gradient-to-br from-slate-900/70 via-slate-800/70 to-slate-900/70" />
+
+  {/* Content */}
+  <div className="relative z-10 w-full max-w-5xl">
         <div className="text-center mb-12">
           <h1 className="text-5xl md:text-6xl font-bold text-white mb-4 tracking-tight">
             Jeu Faritany
