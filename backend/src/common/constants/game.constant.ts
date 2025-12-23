@@ -5,6 +5,8 @@ export const GAME_CONSTANTS = {
   PLAYER_TWO: 2,
   AI_PLAYER_ID: 'AI_BOT_SOCKET_ID',
   EMPTY_CELL: 0,
+  DEFAULT_MOVE_TIME_LIMIT: 60,      // seconds
+  DEFAULT_TOTAL_TIME_LIMIT: 1800,    // seconds
 } as const;
 
 export const DIRECTIONS = {

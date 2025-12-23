@@ -37,6 +37,8 @@ export class GameGateway
   private readonly socketToRoom = new Map<string, string>();
   private readonly socketToPlayer = new Map<string, number>();
 
+  private readonly gameMoveTimers = new Map<string, NodeJS.Timeout>();
+
   constructor(
     private readonly gameRoomService: GameRoomService,
     private readonly notificationService: NotificationService,
@@ -62,16 +64,65 @@ export class GameGateway
    * Handle disconnection
    */
   handleDisconnect(client: Socket): void {
-    this.logger.log(`Client disconnected: ${client.id}`);
-
     const gameId = this.socketToRoom.get(client.id);
     if (gameId) {
+      this.clearMoveTimer(gameId); // 🟢 Nettoyer le timer si un joueur quitte
       this.gameRoomService.removePlayer(gameId, client.id);
       this.notificationService.notifyBothPlayers(gameId, 'playerDisconnected');
-
-      // Clean up
       this.socketToRoom.delete(client.id);
       this.socketToPlayer.delete(client.id);
+    }
+  }
+
+  // --- LOGIQUE DES TIMERS ---
+
+  private clearMoveTimer(gameId: string) {
+    const timer = this.gameMoveTimers.get(gameId);
+    if (timer) {
+      clearTimeout(timer);
+      this.gameMoveTimers.delete(gameId);
+    }
+  }
+
+  private startMoveTimer(gameId: string) {
+    this.clearMoveTimer(gameId); // Nettoyer l'ancien timer s'il existe
+
+    const room = this.gameRoomService.getRoom(gameId);
+    if (!room || !room.getGameState().gameActive) return;
+
+    const gameState = room.getGameState();
+    // On convertit les secondes du DTO en millisecondes
+    const delay = (gameState.timeControl?.moveTimeLimit || 30) * 1000;
+
+    const timer = setTimeout(() => {
+      this.logger.log(`Move timer expired for game ${gameId}, handling timeout ${delay}`);
+      this.handleMoveTimeout(gameId);
+    }, delay);
+
+    this.gameMoveTimers.set(gameId, timer);
+  }
+
+  private async handleMoveTimeout(gameId: string) {
+    this.logger.warn(`Timeout atteint pour la partie ${gameId}`);
+    
+    // 1. Demander au service de changer de tour de force
+    const result = this.gameRoomService.forcePassTurn(gameId);
+    
+    if (result.success) {
+      // 2. Notifier les joueurs du switch de tour
+      this.notificationService.notifyBothPlayers(gameId, 'moveTimeout', {
+        gameState: result.gameState,
+        timedOutPlayer: result.previousPlayer,
+        message: `Temps écoulé pour le joueur ${result.previousPlayer} !`
+      });
+
+      // 3. Relancer le timer pour le nouveau joueur
+      this.startMoveTimer(gameId);
+
+      // 4. Si c'est au tour de l'IA maintenant
+      if (result.gameState && result.gameState.gameType === 'AI' && result.gameState.currentPlayer === 2) {
+        await this.triggerAiMove(gameId);
+      }
     }
   }
 
@@ -90,7 +141,7 @@ export class GameGateway
 
     if (type === 'AI') {
       // 1. Créer la room via le service
-      const result = this.gameRoomService.createRoom('AI', client.id);
+      const result = this.gameRoomService.createRoom('AI', client.id, payload);
       const gameId = result.gameId;
 
       // 2. IMPORTANT : Inscrire immédiatement l'IA comme Joueur 2
@@ -143,6 +194,7 @@ export class GameGateway
       const result = this.gameRoomService.createRoom(
         type as 'public' | 'private',
         client.id,
+        payload
       );
       const gameId = result.gameId;
       const playerNumber = 1;
@@ -163,6 +215,8 @@ export class GameGateway
       this.logger.log(
         `${type} game created: ${gameId} by player ${playerNumber}`,
       );
+
+      this.startMoveTimer(gameId);
       return;
     }
 
@@ -233,6 +287,7 @@ export class GameGateway
       //   this.notificationService.notifyBothPlayers(gameId, 'gameStart', {
       //     gameState: gameState.toSerializable(),
       //   });
+      this.startMoveTimer(gameId)
       this.logger.log(`Game ${gameId} started`);
     }
   }
@@ -279,26 +334,17 @@ export class GameGateway
   /**
    * Handle move
    */
-  @UsePipes(new ValidationPipe({ transform: true }))
   @SubscribeMessage('makeMove')
-  async handleMakeMove(
-    // Async pour gérer le délai IA
-    @ConnectedSocket() client: Socket,
-    @MessageBody() moveDto: MakeMoveDto,
-  ) {
+  async handleMakeMove(@ConnectedSocket() client: Socket, @MessageBody() moveDto: MakeMoveDto) {
     const gameId = this.socketToRoom.get(client.id);
     if (!gameId) return;
 
-    // 1. Exécuter le coup de l'humain
-    const result = this.gameRoomService.makeMove(
-      gameId,
-      client.id,
-      moveDto.x,
-      moveDto.y,
-    );
+    // 🟢 Arrêter le timer car le joueur a répondu à temps
+    this.clearMoveTimer(gameId);
+
+    const result = this.gameRoomService.makeMove(gameId, client.id, moveDto.x, moveDto.y);
 
     if (result.success) {
-      // Notifier tout le monde du coup humain
       this.notificationService.notifyBothPlayers(gameId, 'moveMade', {
         gameState: result.gameState,
         move: result.move,
@@ -306,20 +352,21 @@ export class GameGateway
         capturedAreas: result.capturedAreas,
       });
 
-      // === DÉCLENCHEMENT DU TOUR DE L'IA ===
-      // Si la partie est de type IA et que c'est maintenant au tour du Joueur 2
-      if (
-        result.gameState &&
-        result.gameState.gameType === 'AI' &&
-        result.gameState.currentPlayer === GAME_CONSTANTS.PLAYER_TWO
-      ) {
+      // 🟢 Relancer le timer pour l'autre joueur si la partie est encore active
+      if (result.gameState && result.gameState.gameActive) {
+        this.startMoveTimer(gameId);
+      }
+
+      if (result.gameState && result.gameState.gameType === 'AI' && result.gameState.currentPlayer === 2) {
         await this.triggerAiMove(gameId);
       }
-      // ======================================
     } else {
+      // 🟢 Si le move a échoué (ex: position occupée), on relance le timer pour le même joueur
+      this.startMoveTimer(gameId); 
       client.emit('moveError', { reason: result.reason });
     }
   }
+
 
   /**
    * Méthode privée pour gérer le tour de l'IA

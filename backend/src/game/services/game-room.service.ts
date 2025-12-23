@@ -5,6 +5,7 @@ import { ScoringService } from './scoring.service';
 import { MoveResult, FinalScore } from '../interfaces/game.interface';
 import { CoordinateUtil } from '../../common/utils/coordinate.util';
 import { GAME_CONSTANTS } from 'src/common/constants/game.constant';
+import { CreateGameDto } from '../dto/create-game.dto';
 
 @Injectable()
 export class GameRoomService {
@@ -20,7 +21,7 @@ export class GameRoomService {
    * Create a new room with optional type (public|private|AI)
    * Returns the created game id (6-char code for public/private)
    */
-  createRoom(type: 'public' | 'private' | 'AI' = 'public', ownerId: string) {
+  createRoom(type: 'public' | 'private' | 'AI' = 'public', ownerId: string, createGameDto: CreateGameDto) {
     const newRoom = new GameRoomEntity();
     // set game type on the game state so it's persisted with the room
     newRoom.getGameState().gameType = type;
@@ -36,6 +37,8 @@ export class GameRoomService {
     const code = this.generateUniqueCode(6);
     // override generated id with the human-friendly code
     newRoom.getGameState().gameId = code;
+    newRoom.getGameState().timeControl.moveTimeLimit = createGameDto.moveTimeLimit ?? GAME_CONSTANTS.DEFAULT_MOVE_TIME_LIMIT;
+    newRoom.getGameState().timeControl.gameDurationLimit = createGameDto.gameDurationLimit ?? GAME_CONSTANTS.DEFAULT_TOTAL_TIME_LIMIT;
     this.gameRooms.set(code, newRoom);
     this.logger.log(`Created ${type} room ${code}`);
     return { gameId: code, type };
@@ -132,7 +135,7 @@ export class GameRoomService {
     }
 
     // No available public room, create one and join as player 1
-    const { gameId } = this.createRoom('public', socketId);
+    const { gameId } = this.createRoom('public', socketId, {});
     const room = this.gameRooms.get(gameId)!;
     const playerNumber = 1;
     room.addPlayer(socketId, playerNumber);
@@ -182,6 +185,43 @@ export class GameRoomService {
       gameState,
       room.gridSize,
     );
+  }
+
+  forcePassTurn(gameId: string) {
+    const room = this.gameRooms.get(gameId); // 🟢 Maintenant 'rooms' existe !
+    if (!room) {
+      this.logger.error(`Attempted to force pass on non-existent room: ${gameId}`);
+      return { success: false };
+    }
+
+    const gameState = room.getGameState();
+    const previousPlayer = gameState.currentPlayer;
+
+    // 1. Changer de joueur (1 -> 2 ou 2 -> 1)
+    gameState.currentPlayer = (previousPlayer === 1) ? 2 : 1;
+
+    // 2. Réinitialiser le chrono pour le nouveau joueur
+    const now = Date.now();
+    gameState.clock.lastMoveTimestamp = now;
+    gameState.clock.remainingMoveTime = gameState.timeControl.moveTimeLimit;
+
+    // 3. Mettre à jour l'historique du dernier joueur ayant agi
+    gameState.lastPlayer = previousPlayer;
+
+    this.logger.log(`Timeout: Player ${previousPlayer} skipped. Now Player ${gameState.currentPlayer}'s turn.`);
+
+    return {
+      success: true,
+      previousPlayer,
+      gameState: gameState.toSerializable()
+    };
+  }
+
+  /**
+   * Supprimer une room (quand la partie est finie ou vide)
+   */
+  removeRoom(gameId: string) {
+    this.gameRooms.delete(gameId);
   }
 
   /**

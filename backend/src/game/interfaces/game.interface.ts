@@ -18,13 +18,37 @@ export interface Territory {
   stones: Coordinate[];
 }
 
+/**
+ * Configuration du temps de jeu
+ */
+export interface TimeControl {
+  moveTimeLimit: number;        // seconds (max par coup)
+  gameDurationLimit: number;    // seconds (durée max de la partie)
+}
+
+/**
+ * État runtime des pendules
+ */
+export interface ClockState {
+  remainingMoveTime: number;    // seconds
+  remainingGameTime: number;    // seconds
+  lastMoveTimestamp: number;    // Date.now()
+}
+
 export interface GameState {
   grid: GridState;
   currentPlayer: number;
   scores: Scores;
+
   gameActive: boolean;
+
+  timeControl: TimeControl;
+  clock: ClockState;
+
+  lastPlayer: number;           // 1 or 2
   gameType: 'public' | 'private' | 'AI';
   gameId: string;
+
   deadStones: string[];
   capturedAreas: Territory[];
 }
@@ -40,6 +64,7 @@ export interface MoveResult {
   };
   capturedStones?: string[];
   capturedAreas?: Territory[];
+  timedOutPlayer?: number; // 🆕 Pour identifier quel joueur a timeout
 }
 
 export interface FinalScore {

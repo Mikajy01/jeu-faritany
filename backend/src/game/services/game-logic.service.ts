@@ -27,6 +27,36 @@ export class GameLogicService {
     gameState: GameStateEntity,
     gridSize: number = GAME_CONSTANTS.GRID_SIZE,
   ): MoveResult {
+    const now = Date.now();
+
+    /**
+     * ⏱️ Mise à jour du temps AVANT validation
+     * (le joueur vient de consommer du temps)
+     */
+    // const elapsedSeconds = (now - gameState.clock.lastMoveTimestamp) / 1000;
+
+    // gameState.clock.remainingMoveTime -= elapsedSeconds;
+    // gameState.clock.remainingGameTime -= elapsedSeconds;
+
+    // // ⛔ Timeout
+    // if (gameState.clock.remainingMoveTime <= 0) {
+    //   gameState.gameActive = false;
+    //   return {
+    //     success: false,
+    //     reason: 'MOVE_TIMEOUT',
+    //     gameState: gameState.toSerializable(),
+    //   };
+    // }
+
+    // if (gameState.clock.remainingGameTime <= 0) {
+    //   gameState.gameActive = false;
+    //   return {
+    //     success: false,
+    //     reason: 'GAME_TIMEOUT',
+    //     gameState: gameState.toSerializable(),
+    //   };
+    // }
+
     // Validate move
     const validation = this.validateMove(x, y, player, gameState);
     if (!validation.valid) {
@@ -58,20 +88,31 @@ export class GameLogicService {
       gridSize,
     );
 
-    // Recalculer tous les scores
+    // Recalculer les scores
     gameState.scores = this.scoringService.calculateScores(
       gameState.grid,
       gameState.deadStones,
     );
 
-    // REMPLACER updateActiveCycles par la nouvelle approche hybride
+    // Mise à jour des territoires
     this.updateCapturedAreasHybrid(gameState, gridSize);
 
-    // Switch player
+    /**
+     * 🔁 Switch player
+     */
     gameState.currentPlayer =
       player === GAME_CONSTANTS.PLAYER_ONE
         ? GAME_CONSTANTS.PLAYER_TWO
         : GAME_CONSTANTS.PLAYER_ONE;
+
+    gameState.lastPlayer = player;
+
+    /**
+     * 🔄 Reset du temps pour le prochain coup
+     */
+    gameState.clock.remainingMoveTime = gameState.timeControl.moveTimeLimit;
+
+    gameState.clock.lastMoveTimestamp = now;
 
     return {
       success: true,
@@ -81,6 +122,7 @@ export class GameLogicService {
       capturedAreas: gameState.capturedAreas,
     };
   }
+  
 
   /**
    * NOUVELLE MÉTHODE : Mise à jour hybride des territoires capturés
@@ -107,7 +149,7 @@ export class GameLogicService {
   }
 
   // ... reste du code identique (checkSuicideMove, validateMove, etc.)
-  
+
   private checkSuicideMove(
     x: number,
     y: number,
@@ -242,9 +284,9 @@ export class GameLogicService {
     gridSize: number,
   ): string[] {
     const revivedStones: string[] = [];
-    
-    const polygon = cycle.map(c => [c.x, c.y] as [number, number]);
-    
+
+    const polygon = cycle.map((c) => [c.x, c.y] as [number, number]);
+
     if (polygon.length > 0) {
       const first = polygon[0];
       const last = polygon[polygon.length - 1];
@@ -256,11 +298,11 @@ export class GameLogicService {
     const bounds = this.getBounds(cycle);
 
     const deadStonesToRevive: string[] = [];
-    
+
     for (const deadStoneKey of gameState.deadStones) {
       const coord = CoordinateUtil.fromKey(deadStoneKey);
       const stoneOwner = gameState.grid[deadStoneKey];
-      
+
       if (stoneOwner === player) {
         if (
           coord.x >= Math.max(0, bounds.minX) &&
