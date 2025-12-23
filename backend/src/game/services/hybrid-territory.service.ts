@@ -61,35 +61,45 @@ export class HybridTerritoryService {
     const points: Coordinate[] = [];
     const boundaryPlayers = new Set<number>();
     const boundaryStones = new Set<string>();
+    
+    let touchesEdge = false;
 
     while (queue.length > 0) {
       const current = queue.shift()!;
       const currentKey = CoordinateUtil.toKey(current.x, current.y);
 
-      // Déjà visité
       if (visited.has(currentKey)) continue;
       visited.add(currentKey);
 
-      // Si ce n'est pas une case vide, ignorer
       if (getCellState(current.x, current.y) !== GAME_CONSTANTS.EMPTY_CELL) {
         continue;
       }
 
-      // Ajouter le point au territoire
       points.push({ x: current.x, y: current.y });
 
-      // Explorer les cases adjacentes
-      const adjacents = this.getAdjacentCoords(current.x, current.y, gridSize);
-      
-      for (const adj of adjacents) {
-        const adjKey = CoordinateUtil.toKey(adj.x, adj.y);
-        const adjValue = getCellState(adj.x, adj.y);
+      const directions = [
+        { dx: 0, dy: -1 }, { dx: 1, dy: 0 },
+        { dx: 0, dy: 1 }, { dx: -1, dy: 0 },
+      ];
 
-        if (adjValue === GAME_CONSTANTS.EMPTY_CELL && !visited.has(adjKey)) {
-          // Case vide : continuer l'exploration
-          queue.push(adj);
-        } else if (adjValue !== GAME_CONSTANTS.EMPTY_CELL) {
-          // Pierre : ajouter aux frontières
+      for (const dir of directions) {
+        const nx = current.x + dir.dx;
+        const ny = current.y + dir.dy;
+
+        if (nx < 0 || nx >= gridSize || ny < 0 || ny >= gridSize) {
+          touchesEdge = true;
+          continue; 
+        }
+
+        const adjKey = CoordinateUtil.toKey(nx, ny);
+        const adjValue = getCellState(nx, ny);
+
+        if (adjValue === GAME_CONSTANTS.EMPTY_CELL) {
+          if (!visited.has(adjKey)) {
+            queue.push({ x: nx, y: ny });
+          }
+        } else {
+          // C'est une pierre (frontière)
           boundaryPlayers.add(adjValue);
           boundaryStones.add(adjKey);
         }
@@ -98,12 +108,11 @@ export class HybridTerritoryService {
 
     // Déterminer le propriétaire
     let owner: number | null = null;
-    if (boundaryPlayers.size === 1) {
-      // Territoire entouré par un seul joueur
+    
+    if (!touchesEdge && boundaryPlayers.size === 1) {
       owner = Array.from(boundaryPlayers)[0];
     }
 
-    // Convertir les pierres frontières en coordonnées
     const stones = Array.from(boundaryStones).map((key) => {
       return CoordinateUtil.fromKey(key);
     });
