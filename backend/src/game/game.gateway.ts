@@ -12,11 +12,11 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger, UsePipes, ValidationPipe } from '@nestjs/common';
 import { GameRoomService } from './services/game-room.service';
+import { GameManagerService } from './services/game-manager.service';
 import { MakeMoveDto } from './dto/make-move.dto';
 import { CreateGameDto } from './dto/create-game.dto';
 import { JoinGameDto } from './dto/join-game.dto';
 import { NotificationService } from './services/notification.service';
-import { AiService } from './services/ai.service';
 import { GAME_CONSTANTS } from 'src/common/constants/game.constant';
 
 @WebSocketGateway({
@@ -34,15 +34,11 @@ export class GameGateway
   server: Server;
 
   private readonly logger = new Logger(GameGateway.name);
-  private readonly socketToRoom = new Map<string, string>();
-  private readonly socketToPlayer = new Map<string, number>();
-
-  private readonly gameMoveTimers = new Map<string, NodeJS.Timeout>();
 
   constructor(
     private readonly gameRoomService: GameRoomService,
+    private readonly gameManagerService: GameManagerService,
     private readonly notificationService: NotificationService,
-    private readonly aiService: AiService,
   ) {}
 
   /**
@@ -64,72 +60,14 @@ export class GameGateway
    * Handle disconnection
    */
   handleDisconnect(client: Socket): void {
-    const gameId = this.socketToRoom.get(client.id);
+    const gameId = this.gameRoomService.getGameIdBySocket(client.id);
     if (gameId) {
-      this.clearMoveTimer(gameId); // 🟢 Nettoyer le timer si un joueur quitte
-      this.gameRoomService.removePlayer(gameId, client.id);
-      this.notificationService.notifyBothPlayers(gameId, 'playerDisconnected');
-      this.socketToRoom.delete(client.id);
-      this.socketToPlayer.delete(client.id);
-    }
-  }
-
-  // --- LOGIQUE DES TIMERS ---
-
-  private clearMoveTimer(gameId: string) {
-    const timer = this.gameMoveTimers.get(gameId);
-    if (timer) {
-      clearTimeout(timer);
-      this.gameMoveTimers.delete(gameId);
-    }
-  }
-
-  private startMoveTimer(gameId: string) {
-    this.clearMoveTimer(gameId); // Nettoyer l'ancien timer s'il existe
-
-    const room = this.gameRoomService.getRoom(gameId);
-    if (!room || !room.getGameState().gameActive) return;
-
-    const gameState = room.getGameState();
-    // On convertit les secondes du DTO en millisecondes
-    const delay = (gameState.timeControl?.moveTimeLimit || 30) * 1000;
-
-    const timer = setTimeout(() => {
-      this.logger.log(`Move timer expired for game ${gameId}, handling timeout ${delay}`);
-      this.handleMoveTimeout(gameId);
-    }, delay);
-
-    this.gameMoveTimers.set(gameId, timer);
-  }
-
-  private async handleMoveTimeout(gameId: string) {
-    this.logger.warn(`Timeout atteint pour la partie ${gameId}`);
-    
-    // 1. Demander au service de changer de tour de force
-    const result = this.gameRoomService.forcePassTurn(gameId);
-    
-    if (result.success) {
-      // 2. Notifier les joueurs du switch de tour
-      this.notificationService.notifyBothPlayers(gameId, 'moveTimeout', {
-        gameState: result.gameState,
-        timedOutPlayer: result.previousPlayer,
-        message: `Temps écoulé pour le joueur ${result.previousPlayer} !`
-      });
-
-      // 3. Relancer le timer pour le nouveau joueur
-      this.startMoveTimer(gameId);
-
-      // 4. Si c'est au tour de l'IA maintenant
-      if (result.gameState && result.gameState.gameType === 'AI' && result.gameState.currentPlayer === 2) {
-        await this.triggerAiMove(gameId);
-      }
+      this.gameManagerService.handlePlayerDisconnected(gameId, client.id);
     }
   }
 
   /**
    * Create a new game (public | private | AI)
-   * - For public/private returns a 6-character code
-   * - AI placeholder: created but AI implementation left for later
    */
   @UsePipes(new ValidationPipe({ transform: true }))
   @SubscribeMessage('createGame')
@@ -137,95 +75,40 @@ export class GameGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: CreateGameDto,
   ) {
-    const type = (payload && payload.type) || 'public';
+    this.logger.log(`Create game request: ${JSON.stringify(payload)}`);
+    const type = payload?.type || 'public';
+
+    const result = this.gameRoomService.createRoom(type, client.id, payload);
+    const gameId = result.gameId;
+
+    client.join(gameId);
+    client.join(`${gameId}-p1`);
+
+    client.emit('gameCreated', {
+      code: gameId,
+      type,
+      playerId: 1,
+    });
 
     if (type === 'AI') {
-      // 1. Créer la room via le service
-      const result = this.gameRoomService.createRoom('AI', client.id, payload);
-      const gameId = result.gameId;
-
-      // 2. IMPORTANT : Inscrire immédiatement l'IA comme Joueur 2
-      // On utilise l'ID constant défini plus haut
+      // For AI games, immediately join the AI bot
       this.gameRoomService.joinRoomByCode(gameId, GAME_CONSTANTS.AI_PLAYER_ID);
 
-      // 3. Configuration socket pour le joueur humain
-      client.join(gameId);
-      client.join(`${gameId}-p1`);
-      this.socketToRoom.set(client.id, gameId);
-      this.socketToPlayer.set(client.id, 1);
-
-      // 4. Récupérer l'état initial (maintenant avec 2 joueurs)
       const room = this.gameRoomService.getRoom(gameId);
-
-      if (!room) {
-        client.emit('createError', { reason: 'Failed to create AI game' });
-        return;
+      if (room) {
+        this.notificationService.notifyBothPlayers(gameId, 'gameStart', {
+          gameState: room.getGameState().toSerializable(),
+          playerCount: 2,
+        });
       }
-      const gameState = room.getGameState();
-
-      // 5. Envoyer la confirmation et le DÉMARRAGE immédiat
-      client.emit('gameCreated', {
-        code: gameId,
-        type: 'AI',
-        playerId: 1,
-      });
-
-      // Notifier que le jeu commence (puisqu'on a les 2 joueurs : Humain + IA)
-      this.notificationService.notifyBothPlayers(gameId, 'gameStart', {
-        gameState: gameState.toSerializable(),
-        playerCount: 2,
-      });
-
-      // Track player
-      this.socketToRoom.set(GAME_CONSTANTS.AI_PLAYER_ID, gameId);
-      this.socketToPlayer.set(GAME_CONSTANTS.AI_PLAYER_ID, 2);
-
-      this.notificationService.notifyPlayerOne(gameId, 'gameStart', {
-        playerId: 1,
-        gameState: gameState.toSerializable(),
-        playerCount: room.getPlayerCount(),
-      });
-
-      this.logger.log(`AI game started: ${gameId}`);
-      return;
     }
 
-    if (type === 'public' || type === 'private') {
-      const result = this.gameRoomService.createRoom(
-        type as 'public' | 'private',
-        client.id,
-        payload
-      );
-      const gameId = result.gameId;
-      const playerNumber = 1;
-
-      // Join rooms
-      client.join(gameId);
-      client.join(`${gameId}-p${playerNumber}`);
-
-      // Track player
-      this.socketToRoom.set(client.id, gameId);
-      this.socketToPlayer.set(client.id, playerNumber);
-
-      client.emit('gameCreated', {
-        code: gameId,
-        type,
-        playerId: playerNumber,
-      });
-      this.logger.log(
-        `${type} game created: ${gameId} by player ${playerNumber}`,
-      );
-
-      this.startMoveTimer(gameId);
-      return;
-    }
-
-    client.emit('createError', { reason: 'Invalid game type' });
+    this.gameManagerService.afterGameCreated(gameId, type);
+    this.logger.log(`${type} game created: ${gameId} by player 1`);
   }
 
   /**
    * Handle player joining a specific game by code
-   * payload: { code: string }
    */
   @UsePipes(new ValidationPipe({ transform: true }))
   @SubscribeMessage('joinGame')
@@ -233,7 +116,7 @@ export class GameGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: JoinGameDto,
   ) {
-    const code = payload && payload.code;
+    const code = payload?.code;
     if (!code) {
       client.emit('joinError', { reason: 'Missing game code' });
       return;
@@ -246,88 +129,76 @@ export class GameGateway
     }
 
     const room = result.room!;
-    const playerNumber = 2;
-    const gameState = room.getGameState();
-    const gameId = gameState.gameId;
+    const playerNumber = result.playerNumber!;
+    const gameId = room.getGameState().gameId;
 
-    // Join rooms
     client.join(gameId);
     client.join(`${gameId}-p${playerNumber}`);
 
-    // Track player
-    this.socketToRoom.set(client.id, gameId);
-    this.socketToPlayer.set(client.id, playerNumber);
-
-    // Notify both players about the join
-    this.notificationService.notifyPlayerTwo(gameId, 'gameJoined', {
-      playerId: 2,
-      gameState: gameState.toSerializable(),
+    this.notificationService.notifyPlayer(gameId, playerNumber, 'gameJoined', {
+      playerId: playerNumber,
+      gameState: room.getGameState().toSerializable(),
       playerCount: room.getPlayerCount(),
     });
 
-    this.notificationService.notifyPlayerOne(gameId, 'gameStart', {
-      playerId: 1,
-      gameState: gameState.toSerializable(),
-      playerCount: room.getPlayerCount(),
-    });
-
-    // if (room.getPlayerCount() === 2) {
-    //   this.notificationService.notifyBothPlayers(gameId, 'gameStart', {
-    //     gameState: gameState.toSerializable(),
-    //   });
-    //   this.logger.log(`Game ${gameId} started`);
-    // }
+    if (room.getPlayerCount() === 2) {
+      this.notificationService.notifyBothPlayers(gameId, 'gameStart', {
+        gameState: room.getGameState().toSerializable(),
+        playerCount: 2,
+      });
+      this.gameManagerService.afterPlayerJoined(gameId);
+    }
 
     this.logger.log(
       `Player ${client.id} joined game ${gameId} as player ${playerNumber}`,
     );
-
-    // If room is full, start game
-    if (room.getPlayerCount() === 2) {
-      //   this.notificationService.notifyBothPlayers(gameId, 'gameStart', {
-      //     gameState: gameState.toSerializable(),
-      //   });
-      this.startMoveTimer(gameId)
-      this.logger.log(`Game ${gameId} started`);
-    }
   }
 
   /**
-   * Join a random public game (no code required). Creates one if none available.
+   * Join a random public game
    */
+  @UsePipes(new ValidationPipe({ transform: true }))
   @SubscribeMessage('joinPublic')
-  handleJoinPublic(@ConnectedSocket() client: Socket) {
+  handleJoinPublic(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: CreateGameDto,
+  ) {
     const { room, playerNumber } = this.gameRoomService.joinRandomPublicRoom(
       client.id,
+      payload,
     );
-    const gameState = room.getGameState();
-    const gameId = gameState.gameId;
+    const gameId = room.getGameState().gameId;
 
-    // Join rooms
     client.join(gameId);
     client.join(`${gameId}-p${playerNumber}`);
 
-    // Track player
-    this.socketToRoom.set(client.id, gameId);
-    this.socketToPlayer.set(client.id, playerNumber);
-
-    // Notify the joining player
     client.emit('gameJoined', {
       playerId: playerNumber,
-      gameState: gameState.toSerializable(),
+      gameState: room.getGameState().toSerializable(),
       playerCount: room.getPlayerCount(),
     });
+
+    if (room.getPlayerCount() === 2) {
+      this.notificationService.notifyBothPlayers(gameId, 'gameStart', {
+        gameState: room.getGameState().toSerializable(),
+        playerCount: 2,
+      });
+      this.gameManagerService.afterPlayerJoined(gameId);
+    }
 
     this.logger.log(
       `Player ${client.id} joined public game ${gameId} as player ${playerNumber}`,
     );
+  }
 
-    // If room is full, start game
-    if (room.getPlayerCount() === 2) {
-      this.notificationService.notifyBothPlayers(gameId, 'gameStart', {
-        gameState: gameState.toSerializable(),
-      });
-      this.logger.log(`Game ${gameId} started`);
+  /**
+   * Handle resignation
+   */
+  @SubscribeMessage('resignGame')
+  handleResign(@ConnectedSocket() client: Socket) {
+    const gameId = this.gameRoomService.getGameIdBySocket(client.id);
+    if (gameId) {
+      this.gameManagerService.handlePlayerDisconnected(gameId, client.id);
     }
   }
 
@@ -335,143 +206,30 @@ export class GameGateway
    * Handle move
    */
   @SubscribeMessage('makeMove')
-  async handleMakeMove(@ConnectedSocket() client: Socket, @MessageBody() moveDto: MakeMoveDto) {
-    const gameId = this.socketToRoom.get(client.id);
+  async handleMakeMove(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() moveDto: MakeMoveDto,
+  ) {
+    const gameId = this.gameRoomService.getGameIdBySocket(client.id);
     if (!gameId) return;
 
-    // 🟢 Arrêter le timer car le joueur a répondu à temps
-    this.clearMoveTimer(gameId);
+    const result = await this.gameManagerService.makeMove(
+      gameId,
+      client.id,
+      moveDto,
+    );
 
-    const result = this.gameRoomService.makeMove(gameId, client.id, moveDto.x, moveDto.y);
-
-    if (result.success) {
-      this.notificationService.notifyBothPlayers(gameId, 'moveMade', {
-        gameState: result.gameState,
-        move: result.move,
-        capturedStones: result.capturedStones,
-        capturedAreas: result.capturedAreas,
-      });
-
-      // 🟢 Relancer le timer pour l'autre joueur si la partie est encore active
-      if (result.gameState && result.gameState.gameActive) {
-        this.startMoveTimer(gameId);
-      }
-
-      if (result.gameState && result.gameState.gameType === 'AI' && result.gameState.currentPlayer === 2) {
-        await this.triggerAiMove(gameId);
-      }
-    } else {
-      // 🟢 Si le move a échoué (ex: position occupée), on relance le timer pour le même joueur
-      this.startMoveTimer(gameId); 
+    if (!result.success) {
       client.emit('moveError', { reason: result.reason });
     }
   }
 
-
-  /**
-   * Méthode privée pour gérer le tour de l'IA
-   */
-  private async triggerAiMove(gameId: string) {
-    const room = this.gameRoomService.getRoom(gameId);
-    if (!room) return;
-
-    try {
-      const gameState = room.getGameState();
-
-      // OPTION 1: Difficulté fixe (Expert)
-      const difficulty = 5; // 1=Random, 2=Defensive, 3=Offensive, 4=Strategic, 5=Expert
-
-      // OPTION 2: Difficulté basée sur les paramètres de la room (si vous l'avez stocké)
-      // const difficulty = room.aiDifficulty || 5;
-
-      // Calculer le coup de l'IA avec le niveau choisi
-      const aiMove = this.aiService.calculateNextMove(
-        gameState as any,
-        GAME_CONSTANTS.GRID_SIZE,
-        difficulty,
-      );
-
-      // L'IA joue
-      const result = this.gameRoomService.makeMove(
-        gameId,
-        GAME_CONSTANTS.AI_PLAYER_ID,
-        aiMove.x,
-        aiMove.y,
-      );
-
-      if (result.success) {
-        this.logger.log(
-          `AI (P2) moved at (${aiMove.x}, ${aiMove.y}) - Difficulty: ${difficulty}`,
-        );
-
-        // Notifier le frontend
-        this.notificationService.notifyBothPlayers(gameId, 'moveMade', {
-          gameState: result.gameState,
-          move: result.move,
-          capturedStones: result.capturedStones,
-          capturedAreas: result.capturedAreas,
-        });
-      } else {
-        this.logger.error(`AI failed to move: ${result.reason}`);
-
-        // Fallback: essayer un coup aléatoire
-        this.handleAiMoveFailure(gameId);
-      }
-    } catch (error) {
-      this.logger.error('Error during AI execution', error);
-      this.handleAiMoveFailure(gameId);
-    }
-  }
-
-  /**
-   * Gestion des échecs de l'IA
-   */
-  private handleAiMoveFailure(gameId: string) {
-    const room = this.gameRoomService.getRoom(gameId);
-    if (!room) return;
-
-    try {
-      const gameState = room.getGameState();
-
-      // Essayer avec un coup aléatoire (niveau 1)
-      this.logger.warn('AI retrying with random move (difficulty 1)');
-
-      const aiMove = this.aiService.calculateNextMove(
-        gameState as any,
-        GAME_CONSTANTS.GRID_SIZE,
-        2, // Coup aléatoire
-      );
-
-      const result = this.gameRoomService.makeMove(
-        gameId,
-        GAME_CONSTANTS.AI_PLAYER_ID,
-        aiMove.x,
-        aiMove.y,
-      );
-
-      if (result.success) {
-        this.notificationService.notifyBothPlayers(gameId, 'moveMade', {
-          gameState: result.gameState,
-          move: result.move,
-          capturedStones: result.capturedStones,
-          capturedAreas: result.capturedAreas,
-        });
-      } else {
-        // L'IA ne peut vraiment pas jouer, terminer la partie
-        this.notificationService.notifyBothPlayers(gameId, 'gameError', {
-          reason: 'AI cannot make a move - game ending',
-        });
-      }
-    } catch (fallbackError) {
-      this.logger.error('AI fallback also failed', fallbackError);
-    }
-  }
   /**
    * Handle score calculation request
    */
   @SubscribeMessage('calculateScore')
   handleCalculateScore(@ConnectedSocket() client: Socket) {
-    const gameId = this.socketToRoom.get(client.id);
+    const gameId = this.gameRoomService.getGameIdBySocket(client.id);
     if (!gameId) {
       client.emit('scoreError', { reason: 'Not in a game' });
       return;
@@ -484,7 +242,6 @@ export class GameGateway
         'finalScore',
         finalScore,
       );
-      this.logger.log(`Final score calculated for game ${gameId}`);
     } else {
       client.emit('scoreError', { reason: 'Failed to calculate score' });
     }
@@ -495,7 +252,7 @@ export class GameGateway
    */
   @SubscribeMessage('resetGame')
   handleResetGame(@ConnectedSocket() client: Socket) {
-    const gameId = this.socketToRoom.get(client.id);
+    const gameId = this.gameRoomService.getGameIdBySocket(client.id);
     if (!gameId) {
       client.emit('resetError', { reason: 'Not in a game' });
       return;
@@ -508,7 +265,6 @@ export class GameGateway
         this.notificationService.notifyBothPlayers(gameId, 'gameReset', {
           gameState: room.getGameState().toSerializable(),
         });
-        this.logger.log(`Game ${gameId} reset`);
       }
     } else {
       client.emit('resetError', { reason: 'Failed to reset game' });

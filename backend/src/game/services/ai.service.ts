@@ -9,19 +9,24 @@ interface Move {
   y: number;
 }
 
-interface ScoredMove {
-  move: Move;
-  score: number;
+interface Pattern {
+  positions: Move[];
+  priority: number;
+  type: 'capture' | 'defend' | 'extend' | 'block';
 }
 
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
 
+  // Patterns tactiques pré-calculés pour reconnaissance rapide
+  private readonly TACTICAL_PATTERNS = this.initializeTacticalPatterns();
+  
   constructor(private readonly gameLogicService: GameLogicService) {}
 
   /**
-   * Calcule le prochain coup de l'IA
+   * STRATÉGIE PRINCIPALE : Pattern matching + heuristiques rapides
+   * Pas de minimax lourd - focus sur reconnaissance de patterns
    */
   calculateNextMove(
     gameState: GameStateEntity,
@@ -29,45 +34,528 @@ export class AiService {
     difficulty: number = 1
   ): Move {
     const startTime = Date.now();
-    const availableMoves = this.getAvailableMoves(gameState, gridSize);
 
-    if (availableMoves.length === 0) {
-      throw new Error('No moves available for AI');
+    if (difficulty <= 2) {
+      // Niveaux faciles : heuristiques simples
+      return this.getSimpleMove(gameState, gridSize, difficulty);
     }
 
-    let selectedMove: Move;
-
-    switch (difficulty) {
-      case 1:
-        selectedMove = this.getRandomMove(availableMoves);
-        break;
-      case 2:
-        selectedMove = this.getDefensiveMove(gameState, availableMoves, gridSize);
-        break;
-      case 3:
-        selectedMove = this.getOffensiveMove(gameState, availableMoves, gridSize);
-        break;
-      case 4:
-        selectedMove = this.getStrategicMove(gameState, availableMoves, gridSize);
-        break;
-      case 5:
-        selectedMove = this.getExpertMove(gameState, availableMoves, gridSize);
-        break;
-      default:
-        selectedMove = this.getRandomMove(availableMoves);
+    // PHASE 1: Détection de menaces immédiates (ultra rapide)
+    const criticalMove = this.findCriticalMove(gameState, gridSize);
+    if (criticalMove) {
+      this.logger.debug(`Critical move found in ${Date.now() - startTime}ms`);
+      return criticalMove;
     }
 
-    const elapsed = Date.now() - startTime;
-    this.logger.debug(
-      `AI (difficulty ${difficulty}) calculated move (${selectedMove.x},${selectedMove.y}) in ${elapsed}ms`
-    );
+    // PHASE 2: Pattern matching tactique
+    const tacticalMove = this.findTacticalPattern(gameState, gridSize);
+    if (tacticalMove) {
+      this.logger.debug(`Tactical pattern found in ${Date.now() - startTime}ms`);
+      return tacticalMove;
+    }
 
-    return selectedMove;
+    // PHASE 3: Évaluation positionnelle rapide
+    const strategicMove = this.findStrategicMove(gameState, gridSize, difficulty);
+    
+    this.logger.debug(`Move calculated in ${Date.now() - startTime}ms`);
+    return strategicMove;
   }
 
-  private getAvailableMoves(gameState: GameStateEntity, gridSize: number): Move[] {
-    const moves: Move[] = [];
+  /**
+   * PHASE 1: Coups critiques (captures immédiates ou blocages urgents)
+   */
+  private findCriticalMove(
+    gameState: GameStateEntity,
+    gridSize: number
+  ): Move | null {
+    const opponent = this.getOpponent(gameState.currentPlayer);
     
+    // 1. Chercher les captures IMMÉDIATES
+    for (let x = 0; x < gridSize; x++) {
+      for (let y = 0; y < gridSize; y++) {
+        if (gameState.grid[CoordinateUtil.toKey(x, y)]) continue;
+        
+        // Simuler le coup rapidement
+        const capturedCount = this.countImmediateCaptures(
+          { x, y },
+          gameState,
+          gridSize,
+          gameState.currentPlayer
+        );
+        
+        if (capturedCount >= 2) {
+          return { x, y }; // Capture multiple = jouer immédiatement
+        }
+      }
+    }
+
+    // 2. Bloquer les menaces de capture adverses
+    for (let x = 0; x < gridSize; x++) {
+      for (let y = 0; y < gridSize; y++) {
+        if (gameState.grid[CoordinateUtil.toKey(x, y)]) continue;
+        
+        const opponentCaptures = this.countImmediateCaptures(
+          { x, y },
+          gameState,
+          gridSize,
+          opponent
+        );
+        
+        if (opponentCaptures >= 3) {
+          return { x, y }; // Bloquer menace critique
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Compte les captures immédiates d'un coup (sans simulation lourde)
+   */
+  private countImmediateCaptures(
+    move: Move,
+    gameState: GameStateEntity,
+    gridSize: number,
+    player: number
+  ): number {
+    const opponent = this.getOpponent(player);
+    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    let captures = 0;
+
+    for (const [dx, dy] of directions) {
+      const nx = move.x + dx;
+      const ny = move.y + dy;
+      
+      if (!this.isValid(nx, ny, gridSize)) continue;
+      
+      const key = CoordinateUtil.toKey(nx, ny);
+      if (gameState.grid[key] === opponent && !gameState.deadStones.has(key)) {
+        // Vérifier si cette pierre serait entourée
+        if (this.wouldBeTrapped(nx, ny, move, gameState, gridSize, player)) {
+          captures++;
+        }
+      }
+    }
+
+    return captures;
+  }
+
+  /**
+   * Vérifie si une pierre serait piégée après un coup
+   */
+  private wouldBeTrapped(
+    stoneX: number,
+    stoneY: number,
+    newMove: Move,
+    gameState: GameStateEntity,
+    gridSize: number,
+    attacker: number
+  ): boolean {
+    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    let surroundedSides = 0;
+
+    for (const [dx, dy] of directions) {
+      const nx = stoneX + dx;
+      const ny = stoneY + dy;
+      
+      if (!this.isValid(nx, ny, gridSize)) {
+        surroundedSides++;
+        continue;
+      }
+
+      const key = CoordinateUtil.toKey(nx, ny);
+      
+      // Si c'est le nouveau coup ou déjà occupé par l'attaquant
+      if ((nx === newMove.x && ny === newMove.y) || gameState.grid[key] === attacker) {
+        surroundedSides++;
+      }
+    }
+
+    return surroundedSides >= 3; // Piégé si 3+ côtés entourés
+  }
+
+  /**
+   * PHASE 2: Reconnaissance de patterns tactiques
+   */
+  private findTacticalPattern(
+    gameState: GameStateEntity,
+    gridSize: number
+  ): Move | null {
+    const moves = this.getAllEmptyPositions(gameState, gridSize);
+    let bestMove: Move | null = null;
+    let bestScore = -Infinity;
+
+    for (const move of moves) {
+      // Évaluer les patterns autour de ce coup
+      const patternScore = this.evaluatePatterns(move, gameState, gridSize);
+      
+      if (patternScore > bestScore) {
+        bestScore = patternScore;
+        bestMove = move;
+      }
+    }
+
+    // Seuil pour considérer un pattern comme intéressant
+    return bestScore > 15 ? bestMove : null;
+  }
+
+  /**
+   * Évalue les patterns tactiques autour d'une position
+   */
+  private evaluatePatterns(
+    move: Move,
+    gameState: GameStateEntity,
+    gridSize: number
+  ): number {
+    let score = 0;
+    const player = gameState.currentPlayer;
+    const opponent = this.getOpponent(player);
+
+    // Pattern 1: Extension de chaîne (créer des connexions)
+    const friendlyNeighbors = this.countNeighbors(move, gameState, gridSize, player);
+    if (friendlyNeighbors >= 2) {
+      score += 10 + friendlyNeighbors * 3; // Connecter nos pierres
+    }
+
+    // Pattern 2: Coupe (séparer les chaînes adverses)
+    const opponentGroups = this.countAdjacentGroups(move, gameState, gridSize, opponent);
+    if (opponentGroups >= 2) {
+      score += 15; // Couper entre deux groupes ennemis
+    }
+
+    // Pattern 3: Atari (menace de capture)
+    const threatenedStones = this.countThreatenedStones(move, gameState, gridSize);
+    score += threatenedStones * 8;
+
+    // Pattern 4: Formation de territoire
+    const territoryPotential = this.evaluateTerritoryFormation(move, gameState, gridSize);
+    score += territoryPotential * 5;
+
+    // Pattern 5: Sécurité de la position
+    const liberty = this.countLiberties(move, gameState, gridSize);
+    if (liberty <= 1) {
+      score -= 20; // Position dangereuse
+    }
+
+    return score;
+  }
+
+  /**
+   * Compte les groupes adjacents distincts
+   */
+  private countAdjacentGroups(
+    move: Move,
+    gameState: GameStateEntity,
+    gridSize: number,
+    player: number
+  ): number {
+    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    const visited = new Set<string>();
+    let groupCount = 0;
+
+    for (const [dx, dy] of directions) {
+      const nx = move.x + dx;
+      const ny = move.y + dy;
+      const key = CoordinateUtil.toKey(nx, ny);
+
+      if (!this.isValid(nx, ny, gridSize) || visited.has(key)) continue;
+      
+      if (gameState.grid[key] === player && !gameState.deadStones.has(key)) {
+        // Marquer tout le groupe comme visité
+        this.markGroup(nx, ny, gameState, gridSize, player, visited);
+        groupCount++;
+      }
+    }
+
+    return groupCount;
+  }
+
+  /**
+   * Marque récursivement un groupe de pierres connectées
+   */
+  private markGroup(
+    x: number,
+    y: number,
+    gameState: GameStateEntity,
+    gridSize: number,
+    player: number,
+    visited: Set<string>
+  ): void {
+    const key = CoordinateUtil.toKey(x, y);
+    if (visited.has(key)) return;
+    
+    visited.add(key);
+    
+    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    for (const [dx, dy] of directions) {
+      const nx = x + dx;
+      const ny = y + dy;
+      const nkey = CoordinateUtil.toKey(nx, ny);
+      
+      if (this.isValid(nx, ny, gridSize) && 
+          gameState.grid[nkey] === player && 
+          !gameState.deadStones.has(nkey)) {
+        this.markGroup(nx, ny, gameState, gridSize, player, visited);
+      }
+    }
+  }
+
+  /**
+   * Compte les pierres adverses menacées de capture
+   */
+  private countThreatenedStones(
+    move: Move,
+    gameState: GameStateEntity,
+    gridSize: number
+  ): number {
+    const opponent = this.getOpponent(gameState.currentPlayer);
+    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    let threatened = 0;
+
+    for (const [dx, dy] of directions) {
+      const nx = move.x + dx;
+      const ny = move.y + dy;
+      
+      if (!this.isValid(nx, ny, gridSize)) continue;
+      
+      const key = CoordinateUtil.toKey(nx, ny);
+      if (gameState.grid[key] === opponent && !gameState.deadStones.has(key)) {
+        // Vérifier les libertés restantes
+        const liberties = this.countStoneLiberties(nx, ny, gameState, gridSize);
+        if (liberties <= 2) {
+          threatened++;
+        }
+      }
+    }
+
+    return threatened;
+  }
+
+  /**
+   * Compte les libertés d'une pierre spécifique
+   */
+  private countStoneLiberties(
+    x: number,
+    y: number,
+    gameState: GameStateEntity,
+    gridSize: number
+  ): number {
+    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    let liberties = 0;
+
+    for (const [dx, dy] of directions) {
+      const nx = x + dx;
+      const ny = y + dy;
+      
+      if (!this.isValid(nx, ny, gridSize)) continue;
+      
+      const key = CoordinateUtil.toKey(nx, ny);
+      if (!gameState.grid[key]) {
+        liberties++;
+      }
+    }
+
+    return liberties;
+  }
+
+  /**
+   * Évalue le potentiel de formation de territoire
+   */
+  private evaluateTerritoryFormation(
+    move: Move,
+    gameState: GameStateEntity,
+    gridSize: number
+  ): number {
+    const player = gameState.currentPlayer;
+    let territoryScore = 0;
+
+    // Vérifier dans un rayon de 2 cases
+    for (let dx = -2; dx <= 2; dx++) {
+      for (let dy = -2; dy <= 2; dy++) {
+        if (dx === 0 && dy === 0) continue;
+        
+        const nx = move.x + dx;
+        const ny = move.y + dy;
+        
+        if (!this.isValid(nx, ny, gridSize)) continue;
+        
+        const key = CoordinateUtil.toKey(nx, ny);
+        if (gameState.grid[key] === player && !gameState.deadStones.has(key)) {
+          const distance = Math.abs(dx) + Math.abs(dy);
+          territoryScore += (3 - distance); // Plus proche = meilleur
+        }
+      }
+    }
+
+    return territoryScore;
+  }
+
+  /**
+   * Compte les libertés (cases vides adjacentes)
+   */
+  private countLiberties(
+    move: Move,
+    gameState: GameStateEntity,
+    gridSize: number
+  ): number {
+    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    let liberties = 0;
+
+    for (const [dx, dy] of directions) {
+      const nx = move.x + dx;
+      const ny = move.y + dy;
+      
+      if (!this.isValid(nx, ny, gridSize)) continue;
+      
+      const key = CoordinateUtil.toKey(nx, ny);
+      if (!gameState.grid[key]) {
+        liberties++;
+      }
+    }
+
+    return liberties;
+  }
+
+  /**
+   * PHASE 3: Coup stratégique basé sur l'évaluation positionnelle
+   */
+  private findStrategicMove(
+    gameState: GameStateEntity,
+    gridSize: number,
+    difficulty: number
+  ): Move {
+    const moves = this.getAllEmptyPositions(gameState, gridSize);
+    
+    let bestMove = moves[0];
+    let bestScore = -Infinity;
+
+    for (const move of moves) {
+      let score = 0;
+
+      // Facteur 1: Position centrale (début de partie)
+      const center = gridSize / 2 - 0.5;
+      const distToCenter = Math.abs(move.x - center) + Math.abs(move.y - center);
+      score += (gridSize - distToCenter) * 2;
+
+      // Facteur 2: Connexions
+      const friendlyNeighbors = this.countNeighbors(move, gameState, gridSize, gameState.currentPlayer);
+      score += friendlyNeighbors * 5;
+
+      // Facteur 3: Influence territoriale
+      const influence = this.calculateInfluence(move, gameState, gridSize);
+      score += influence * 3;
+
+      // Facteur 4: Sécurité
+      const liberties = this.countLiberties(move, gameState, gridSize);
+      score += liberties * 2;
+
+      // Facteur 5: Contrôle des points clés
+      if (this.isKeyPoint(move, gridSize)) {
+        score += 8;
+      }
+
+      // Ajouter variabilité pour niveaux < 5
+      if (difficulty < 5) {
+        score += Math.random() * (6 - difficulty) * 2;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMove = move;
+      }
+    }
+
+    return bestMove;
+  }
+
+  /**
+   * Calcule l'influence d'une position sur le plateau
+   */
+  private calculateInfluence(
+    move: Move,
+    gameState: GameStateEntity,
+    gridSize: number
+  ): number {
+    const player = gameState.currentPlayer;
+    const opponent = this.getOpponent(player);
+    let influence = 0;
+
+    // Évaluer l'influence dans un rayon
+    for (let dx = -3; dx <= 3; dx++) {
+      for (let dy = -3; dy <= 3; dy++) {
+        const nx = move.x + dx;
+        const ny = move.y + dy;
+        
+        if (!this.isValid(nx, ny, gridSize)) continue;
+        
+        const distance = Math.abs(dx) + Math.abs(dy);
+        if (distance === 0 || distance > 3) continue;
+        
+        const key = CoordinateUtil.toKey(nx, ny);
+        const weight = 4 - distance;
+        
+        if (gameState.grid[key] === player) {
+          influence += weight;
+        } else if (gameState.grid[key] === opponent) {
+          influence -= weight * 0.5;
+        }
+      }
+    }
+
+    return influence;
+  }
+
+  /**
+   * Identifie les points stratégiques clés
+   */
+  private isKeyPoint(move: Move, gridSize: number): boolean {
+    const third = Math.floor(gridSize / 3);
+    const twoThirds = Math.floor(gridSize * 2 / 3);
+    
+    // Points stratégiques: intersections des lignes de tiers
+    const keyPoints = [
+      [third, third],
+      [third, twoThirds],
+      [twoThirds, third],
+      [twoThirds, twoThirds]
+    ];
+
+    return keyPoints.some(([x, y]) => 
+      Math.abs(move.x - x) <= 1 && Math.abs(move.y - y) <= 1
+    );
+  }
+
+  /**
+   * Coups simples pour niveaux faciles
+   */
+  private getSimpleMove(
+    gameState: GameStateEntity,
+    gridSize: number,
+    difficulty: number
+  ): Move {
+    const moves = this.getAllEmptyPositions(gameState, gridSize);
+    
+    if (difficulty === 1) {
+      // Niveau 1: Aléatoire
+      return moves[Math.floor(Math.random() * moves.length)];
+    }
+
+    // Niveau 2: Préférence pour positions connectées
+    const scoredMoves = moves.map(move => ({
+      move,
+      score: this.countNeighbors(move, gameState, gridSize, gameState.currentPlayer) * 3 +
+             Math.random() * 5
+    }));
+
+    scoredMoves.sort((a, b) => b.score - a.score);
+    return scoredMoves[0].move;
+  }
+
+  // ==================== UTILITAIRES ====================
+
+  private getAllEmptyPositions(gameState: GameStateEntity, gridSize: number): Move[] {
+    const moves: Move[] = [];
     for (let x = 0; x < gridSize; x++) {
       for (let y = 0; y < gridSize; y++) {
         const key = CoordinateUtil.toKey(x, y);
@@ -79,575 +567,43 @@ export class AiService {
     return moves;
   }
 
-  /**
-   * Niveau 1: Coup aléatoire
-   */
-  private getRandomMove(moves: Move[]): Move {
-    return moves[Math.floor(Math.random() * moves.length)];
-  }
-
-  /**
-   * Niveau 2: Défensif - évite les positions vulnérables
-   */
-  private getDefensiveMove(
+  private countNeighbors(
+    move: Move,
     gameState: GameStateEntity,
-    moves: Move[],
-    gridSize: number
-  ): Move {
-    const scoredMoves = moves.map(move => ({
-      move,
-      score: 
-        this.evaluateIsolation(move, gameState, gridSize) * 2 +
-        this.evaluateCenterPosition(move, gridSize) -
-        this.countOpponentNeighbors(move, gameState, gridSize) * 2 -
-        this.evaluateVulnerability(move, gameState, gridSize)
-    }));
-
-    scoredMoves.sort((a, b) => b.score - a.score);
-    return scoredMoves[0].move;
-  }
-
-  /**
-   * Niveau 3: Offensif - cherche les captures
-   */
-  private getOffensiveMove(
-    gameState: GameStateEntity,
-    moves: Move[],
-    gridSize: number
-  ): Move {
-    const scoredMoves = moves.map(move => ({
-      move,
-      score:
-        this.evaluateCapturePotential(move, gameState, gridSize) * 5 +
-        this.evaluateCycleFormation(move, gameState, gridSize) * 3 +
-        this.countOpponentNeighbors(move, gameState, gridSize) +
-        this.evaluateCenterPosition(move, gridSize) * 0.5
-    }));
-
-    scoredMoves.sort((a, b) => b.score - a.score);
-    
-    // Si aucun coup offensif intéressant, revenir au défensif
-    if (scoredMoves[0].score <= 2) {
-      return this.getDefensiveMove(gameState, moves, gridSize);
-    }
-
-    return scoredMoves[0].move;
-  }
-
-  /**
-   * Niveau 4: Stratégique - équilibre attaque/défense
-   */
-  private getStrategicMove(
-    gameState: GameStateEntity,
-    moves: Move[],
-    gridSize: number
-  ): Move {
-    const scoredMoves = moves.map(move => {
-      const offensiveScore = 
-        this.evaluateCapturePotential(move, gameState, gridSize) * 4 +
-        this.evaluateCycleFormation(move, gameState, gridSize) * 3 +
-        this.countOpponentNeighbors(move, gameState, gridSize) * 0.5;
-
-      const defensiveScore =
-        this.evaluateIsolation(move, gameState, gridSize) * 2 -
-        this.evaluateVulnerability(move, gameState, gridSize) * 2 +
-        this.evaluateBlockingPotential(move, gameState, gridSize) * 3;
-
-      const positionalScore =
-        this.evaluateCenterPosition(move, gridSize) * 2 +
-        this.evaluateBoardControl(move, gameState, gridSize) * 1.5 +
-        this.evaluateEdgeAdvantage(move, gridSize);
-
-      return {
-        move,
-        score: offensiveScore + defensiveScore + positionalScore
-      };
-    });
-
-    scoredMoves.sort((a, b) => b.score - a.score);
-    
-    // Ajouter de la variabilité (70% meilleur, 20% 2ème, 10% 3ème)
-    const rand = Math.random();
-    if (rand < 0.7) return scoredMoves[0].move;
-    if (rand < 0.9 && scoredMoves[1]) return scoredMoves[1].move;
-    return scoredMoves[2]?.move || scoredMoves[0].move;
-  }
-
-  /**
-   * Niveau 5: Expert - Minimax avec évaluation avancée
-   */
-  private getExpertMove(
-    gameState: GameStateEntity,
-    moves: Move[],
-    gridSize: number
-  ): Move {
-    const depth = 5; // Augmenté à 3 pour plus de profondeur
-    
-    // Pré-filtrer les coups prometteurs pour optimiser
-    const promisingMoves = this.getPromisingMoves(gameState, moves, gridSize, 15);
-    
-    let bestMove = promisingMoves[0];
-    let bestScore = -Infinity;
-
-    for (const move of promisingMoves) {
-      const simulatedState = this.cloneGameState(gameState);
-      
-      try {
-        const result = this.gameLogicService.makeMove(
-          move.x,
-          move.y,
-          gameState.currentPlayer,
-          simulatedState,
-          gridSize
-        );
-
-        if (result.success) {
-          const score = this.minimax(
-            simulatedState,
-            depth - 1,
-            false,
-            -Infinity,
-            Infinity,
-            gridSize,
-            gameState.currentPlayer
-          );
-
-          if (score > bestScore) {
-            bestScore = score;
-            bestMove = move;
-          }
-        }
-      } catch (error) {
-        // Coup invalide, ignorer
-        continue;
-      }
-    }
-
-    return bestMove;
-  }
-
-  /**
-   * Pré-filtre les coups les plus prometteurs
-   */
-  private getPromisingMoves(
-    gameState: GameStateEntity,
-    moves: Move[],
     gridSize: number,
-    topN: number
-  ): Move[] {
-    const scoredMoves = moves.map(move => ({
-      move,
-      score:
-        this.evaluateCapturePotential(move, gameState, gridSize) * 4 +
-        this.evaluateCycleFormation(move, gameState, gridSize) * 3 +
-        this.evaluateBlockingPotential(move, gameState, gridSize) * 3 +
-        this.evaluateIsolation(move, gameState, gridSize) * 2 +
-        this.evaluateCenterPosition(move, gridSize)
-    }));
-
-    scoredMoves.sort((a, b) => b.score - a.score);
-    return scoredMoves.slice(0, topN).map(sm => sm.move);
-  }
-
-  /**
-   * Minimax avec élagage alpha-beta
-   */
-  private minimax(
-    state: GameStateEntity,
-    depth: number,
-    isMaximizing: boolean,
-    alpha: number,
-    beta: number,
-    gridSize: number,
-    aiPlayer: number
+    player: number
   ): number {
-    if (depth === 0) {
-      return this.evaluateBoardState(state, gridSize, aiPlayer);
-    }
-
-    const moves = this.getAvailableMoves(state, gridSize);
-    const limitedMoves = moves.slice(0, 8); // Limiter les branches
-    
-    if (isMaximizing) {
-      let maxEval = -Infinity;
-      
-      for (const move of limitedMoves) {
-        const simulatedState = this.cloneGameState(state);
-        
-        try {
-          const result = this.gameLogicService.makeMove(
-            move.x,
-            move.y,
-            state.currentPlayer,
-            simulatedState,
-            gridSize
-          );
-          
-          if (result.success) {
-            const evalScore = this.minimax(
-              simulatedState,
-              depth - 1,
-              false,
-              alpha,
-              beta,
-              gridSize,
-              aiPlayer
-            );
-            
-            maxEval = Math.max(maxEval, evalScore);
-            alpha = Math.max(alpha, evalScore);
-            if (beta <= alpha) break; // Élagage
-          }
-        } catch (error) {
-          continue;
-        }
-      }
-      return maxEval;
-      
-    } else {
-      let minEval = Infinity;
-      
-      for (const move of limitedMoves) {
-        const simulatedState = this.cloneGameState(state);
-        
-        try {
-          const result = this.gameLogicService.makeMove(
-            move.x,
-            move.y,
-            state.currentPlayer,
-            simulatedState,
-            gridSize
-          );
-          
-          if (result.success) {
-            const evalScore = this.minimax(
-              simulatedState,
-              depth - 1,
-              true,
-              alpha,
-              beta,
-              gridSize,
-              aiPlayer
-            );
-            
-            minEval = Math.min(minEval, evalScore);
-            beta = Math.min(beta, evalScore);
-            if (beta <= alpha) break; // Élagage
-          }
-        } catch (error) {
-          continue;
-        }
-      }
-      return minEval;
-    }
-  }
-
-  /**
-   * Évalue l'état du plateau pour l'IA
-   */
-  private evaluateBoardState(
-    state: GameStateEntity,
-    gridSize: number,
-    aiPlayer: number
-  ): number {
-    let score = 0;
-    const opponent = aiPlayer === GAME_CONSTANTS.PLAYER_ONE 
-      ? GAME_CONSTANTS.PLAYER_TWO 
-      : GAME_CONSTANTS.PLAYER_ONE;
-
-    // 1. Score de base (captures)
-    const scoreKey1 = aiPlayer === GAME_CONSTANTS.PLAYER_ONE ? 'player1' : 'player2';
-    const scoreKey2 = opponent === GAME_CONSTANTS.PLAYER_ONE ? 'player1' : 'player2';
-    score += (state.scores[scoreKey1] - state.scores[scoreKey2]) * 10;
-
-    // 2. Territoires capturés
-    if (state.capturedAreas) {
-      for (const area of state.capturedAreas) {
-        if (area.owner === aiPlayer) {
-          score += area.points.length * 2;
-        } else if (area.owner === opponent) {
-          score -= area.points.length * 2;
-        }
-      }
-    }
-
-    // 3. Contrôle du centre
-    const center = Math.floor(gridSize / 2);
-    for (let x = center - 2; x <= center + 2; x++) {
-      for (let y = center - 2; y <= center + 2; y++) {
-        if (x >= 0 && x < gridSize && y >= 0 && y < gridSize) {
-          const key = CoordinateUtil.toKey(x, y);
-          if (state.grid[key] === aiPlayer) score += 1.5;
-          else if (state.grid[key] === opponent) score -= 1.5;
-        }
-      }
-    }
-
-    // 4. Pierres vivantes vs mortes
-    let aiStones = 0, opponentStones = 0;
-    for (const key in state.grid) {
-      if (!state.deadStones.has(key)) {
-        if (state.grid[key] === aiPlayer) aiStones++;
-        else if (state.grid[key] === opponent) opponentStones++;
-      }
-    }
-    score += (aiStones - opponentStones) * 0.5;
-
-    return score;
-  }
-
-  // ==================== FONCTIONS D'ÉVALUATION ====================
-
-  private evaluateCapturePotential(
-    move: Move,
-    gameState: GameStateEntity,
-    gridSize: number
-  ): number {
-    let potential = 0;
-    const opponent = gameState.currentPlayer === GAME_CONSTANTS.PLAYER_ONE 
-      ? GAME_CONSTANTS.PLAYER_TWO 
-      : GAME_CONSTANTS.PLAYER_ONE;
-    
     const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
-    
-    for (const [dx, dy] of directions) {
-      const nx = move.x + dx;
-      const ny = move.y + dy;
-      
-      if (this.isValidCoord(nx, ny, gridSize)) {
-        const key = CoordinateUtil.toKey(nx, ny);
-        if (gameState.grid[key] === opponent && !gameState.deadStones.has(key)) {
-          potential += 2;
-        }
-      }
-    }
-    
-    return potential;
-  }
-
-  /**
-   * NOUVEAU: Évalue le potentiel de formation de cycle
-   */
-  private evaluateCycleFormation(
-    move: Move,
-    gameState: GameStateEntity,
-    gridSize: number
-  ): number {
-    let score = 0;
-    const player = gameState.currentPlayer;
-    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
-    
-    let friendlyNeighbors = 0;
-    
-    // Compter les voisins alliés
-    for (const [dx, dy] of directions) {
-      const nx = move.x + dx;
-      const ny = move.y + dy;
-      
-      if (this.isValidCoord(nx, ny, gridSize)) {
-        const key = CoordinateUtil.toKey(nx, ny);
-        if (gameState.grid[key] === player && !gameState.deadStones.has(key)) {
-          friendlyNeighbors++;
-        }
-      }
-    }
-    
-    // Plus il y a de voisins alliés, plus le potentiel de cycle est élevé
-    if (friendlyNeighbors >= 2) {
-      score += friendlyNeighbors * 2;
-    }
-    
-    return score;
-  }
-
-  /**
-   * NOUVEAU: Évalue le potentiel de blocage d'un cycle adverse
-   */
-  private evaluateBlockingPotential(
-    move: Move,
-    gameState: GameStateEntity,
-    gridSize: number
-  ): number {
-    const opponent = gameState.currentPlayer === GAME_CONSTANTS.PLAYER_ONE 
-      ? GAME_CONSTANTS.PLAYER_TWO 
-      : GAME_CONSTANTS.PLAYER_ONE;
-    
-    let blockingScore = 0;
-    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
-    
-    // Vérifier si on bloque un cycle potentiel ennemi
-    let opponentNeighbors = 0;
-    for (const [dx, dy] of directions) {
-      const nx = move.x + dx;
-      const ny = move.y + dy;
-      
-      if (this.isValidCoord(nx, ny, gridSize)) {
-        const key = CoordinateUtil.toKey(nx, ny);
-        if (gameState.grid[key] === opponent && !gameState.deadStones.has(key)) {
-          opponentNeighbors++;
-        }
-      }
-    }
-    
-    // Si entouré par l'adversaire, c'est un bon blocage
-    if (opponentNeighbors >= 3) {
-      blockingScore += 5;
-    }
-    
-    return blockingScore;
-  }
-
-  private evaluateIsolation(
-    move: Move,
-    gameState: GameStateEntity,
-    gridSize: number
-  ): number {
-    let friendlyNeighbors = 0;
-    const directions = [
-      [0, 1], [1, 0], [0, -1], [-1, 0],
-      [1, 1], [-1, -1], [1, -1], [-1, 1]
-    ];
-    
-    for (const [dx, dy] of directions) {
-      const nx = move.x + dx;
-      const ny = move.y + dy;
-      
-      if (this.isValidCoord(nx, ny, gridSize)) {
-        const key = CoordinateUtil.toKey(nx, ny);
-        if (gameState.grid[key] === gameState.currentPlayer) {
-          friendlyNeighbors++;
-        }
-      }
-    }
-    
-    return friendlyNeighbors;
-  }
-
-  private countOpponentNeighbors(
-    move: Move,
-    gameState: GameStateEntity,
-    gridSize: number
-  ): number {
     let count = 0;
-    const opponent = gameState.currentPlayer === GAME_CONSTANTS.PLAYER_ONE 
-      ? GAME_CONSTANTS.PLAYER_TWO 
-      : GAME_CONSTANTS.PLAYER_ONE;
-    
-    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
-    
+
     for (const [dx, dy] of directions) {
       const nx = move.x + dx;
       const ny = move.y + dy;
       
-      if (this.isValidCoord(nx, ny, gridSize)) {
-        const key = CoordinateUtil.toKey(nx, ny);
-        if (gameState.grid[key] === opponent) {
-          count++;
-        }
+      if (!this.isValid(nx, ny, gridSize)) continue;
+      
+      const key = CoordinateUtil.toKey(nx, ny);
+      if (gameState.grid[key] === player && !gameState.deadStones.has(key)) {
+        count++;
       }
     }
-    
+
     return count;
   }
 
-  private evaluateCenterPosition(move: Move, gridSize: number): number {
-    const center = gridSize / 2 - 0.5;
-    const distance = Math.sqrt(
-      Math.pow(move.x - center, 2) + Math.pow(move.y - center, 2)
-    );
-    return Math.max(0, (gridSize - distance) / gridSize * 2);
+  private getOpponent(player: number): number {
+    return player === GAME_CONSTANTS.PLAYER_ONE 
+      ? GAME_CONSTANTS.PLAYER_TWO 
+      : GAME_CONSTANTS.PLAYER_ONE;
   }
 
-  private evaluateVulnerability(
-    move: Move,
-    gameState: GameStateEntity,
-    gridSize: number
-  ): number {
-    let vulnerability = 0;
-    
-    // Positions sur les bords sont moins vulnérables
-    if (this.isEdgePosition(move, gridSize)) {
-      vulnerability -= 1;
-    }
-    
-    // Entouré par l'adversaire = vulnérable
-    vulnerability += this.countOpponentNeighbors(move, gameState, gridSize) * 0.5;
-    
-    return Math.max(0, vulnerability);
-  }
-
-  private evaluateBoardControl(
-    move: Move,
-    gameState: GameStateEntity,
-    gridSize: number
-  ): number {
-    let control = 0;
-    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
-    
-    for (const [dx, dy] of directions) {
-      const nx = move.x + dx;
-      const ny = move.y + dy;
-      
-      if (this.isValidCoord(nx, ny, gridSize)) {
-        const key = CoordinateUtil.toKey(nx, ny);
-        if (!gameState.grid[key] && !gameState.deadStones.has(key)) {
-          control++;
-        }
-      }
-    }
-    
-    return control;
-  }
-
-  /**
-   * NOUVEAU: Évalue l'avantage des positions de bord
-   */
-  private evaluateEdgeAdvantage(move: Move, gridSize: number): number {
-    if (this.isEdgePosition(move, gridSize)) {
-      return 1; // Léger bonus pour les bords
-    }
-    return 0;
-  }
-
-  // ==================== UTILITAIRES ====================
-
-  private isValidCoord(x: number, y: number, gridSize: number): boolean {
+  private isValid(x: number, y: number, gridSize: number): boolean {
     return x >= 0 && x < gridSize && y >= 0 && y < gridSize;
   }
 
-  private isEdgePosition(move: Move, gridSize: number): boolean {
-    return move.x === 0 || move.x === gridSize - 1 || 
-           move.y === 0 || move.y === gridSize - 1;
-  }
-
-  /**
-   * Clone profond de l'état du jeu
-   */
-  private cloneGameState(state: GameStateEntity): GameStateEntity {
-    const cloned = new GameStateEntity();
-    
-    // Clone grid
-    cloned.grid = { ...state.grid };
-    
-    // Clone deadStones
-    cloned.deadStones = new Set(state.deadStones);
-    
-    // Clone capturedAreas
-    if (state.capturedAreas) {
-      cloned.capturedAreas = state.capturedAreas.map(area => ({
-        points: [...area.points],
-        owner: area.owner,
-        stones: [...area.stones]
-      }));
-    }
-    
-    // Clone scores
-    cloned.scores = { ...state.scores };
-    
-    // Copy primitives
-    cloned.currentPlayer = state.currentPlayer;
-    cloned.gameActive = state.gameActive;
-    
-    return cloned;
+  private initializeTacticalPatterns(): Pattern[] {
+    // Patterns pré-calculés pour reconnaissance rapide
+    // À étendre selon les patterns spécifiques de Dual Dot
+    return [];
   }
 }

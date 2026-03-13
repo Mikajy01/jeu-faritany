@@ -11,6 +11,7 @@ import { CreateGameDto } from '../dto/create-game.dto';
 export class GameRoomService {
   private readonly logger = new Logger(GameRoomService.name);
   private readonly gameRooms = new Map<string, GameRoomEntity>();
+  private readonly socketToRoom = new Map<string, string>();
 
   constructor(
     private readonly gameLogicService: GameLogicService,
@@ -19,71 +20,66 @@ export class GameRoomService {
 
   /**
    * Create a new room with optional type (public|private|AI)
-   * Returns the created game id (6-char code for public/private)
+   * Returns the created game id
    */
-  createRoom(type: 'public' | 'private' | 'AI' = 'public', ownerId: string, createGameDto: CreateGameDto) {
+  createRoom(
+    type: 'public' | 'private' | 'AI' = 'public',
+    ownerSocketId: string,
+    createGameDto: CreateGameDto,
+  ) {
     const newRoom = new GameRoomEntity();
-    // set game type on the game state so it's persisted with the room
-    newRoom.getGameState().gameType = type;
-    newRoom.addPlayer(ownerId, 1);
+    const gameState = newRoom.getGameState();
 
-    if (type === 'AI') {
-      const gameId = newRoom.getGameState().gameId;
-      this.gameRooms.set(gameId, newRoom);
-      this.logger.log(`Created AI room ${gameId}`);
-      return { gameId, type };
+    gameState.gameType = type;
+    gameState.timeControl.moveTimeLimit =
+      createGameDto.moveTimeLimit ?? GAME_CONSTANTS.DEFAULT_MOVE_TIME_LIMIT;
+    gameState.timeControl.gameDurationLimit =
+      createGameDto.gameDurationLimit ??
+      GAME_CONSTANTS.DEFAULT_TOTAL_TIME_LIMIT;
+    gameState.timeControl.gameMode =
+      createGameDto.gameMode ?? GAME_CONSTANTS.DEFAULT_GAME_MODE;
+    gameState.timeControl.targetScore =
+      createGameDto.targetScore ?? GAME_CONSTANTS.DEFAULT_TARGET_SCORE;
+
+    // Appliquer les nouveaux réglages de temps au clock
+    gameState.applyTimeControl();
+
+    let gameId = gameState.gameId;
+    if (type !== 'AI') {
+      gameId = this.generateUniqueCode(6);
+      gameState.gameId = gameId;
     }
 
-    const code = this.generateUniqueCode(6);
-    // override generated id with the human-friendly code
-    newRoom.getGameState().gameId = code;
-    newRoom.getGameState().timeControl.moveTimeLimit = createGameDto.moveTimeLimit ?? GAME_CONSTANTS.DEFAULT_MOVE_TIME_LIMIT;
-    newRoom.getGameState().timeControl.gameDurationLimit = createGameDto.gameDurationLimit ?? GAME_CONSTANTS.DEFAULT_TOTAL_TIME_LIMIT;
-    this.gameRooms.set(code, newRoom);
-    this.logger.log(`Created ${type} room ${code}`);
-    return { gameId: code, type };
-  }
+    newRoom.addPlayer(ownerSocketId);
+    this.gameRooms.set(gameId, newRoom);
+    this.socketToRoom.set(ownerSocketId, gameId);
 
-  private generateUniqueCode(length: number) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let code = '';
-    do {
-      code = Array.from({ length })
-        .map(() => chars.charAt(Math.floor(Math.random() * chars.length)))
-        .join('');
-    } while (this.gameRooms.has(code));
-    return code;
+    this.logger.log(
+      `Created ${type} room ${gameId} by player ${ownerSocketId}`,
+    );
+    return { gameId, type };
   }
 
   /**
-   * Find or create a game room for a player
-   * Single Responsibility: Room management
+   * Generates a unique short code for the game
    */
-  findOrCreateRoom(socketId: string): {
-    room: GameRoomEntity;
-    playerNumber: number;
-  } {
-    // Try to find a room with only one player
-    for (const [roomId, room] of this.gameRooms) {
-      if (room.getPlayerCount() === 1) {
-        const playerNumber = 2;
-        room.addPlayer(socketId, playerNumber);
-        this.logger.log(
-          `Player ${socketId} joined room ${roomId} as Player ${playerNumber}`,
+  private generateUniqueCode(length: number): string {
+    const characters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Avoid ambiguous chars
+    let result = '';
+    let isUnique = false;
+
+    while (!isUnique) {
+      result = '';
+      for (let i = 0; i < length; i++) {
+        result += characters.charAt(
+          Math.floor(Math.random() * characters.length),
         );
-        return { room, playerNumber };
+      }
+      if (!this.gameRooms.has(result)) {
+        isUnique = true;
       }
     }
-
-    // Create a new room
-    const newRoom = new GameRoomEntity();
-    const playerNumber = 1;
-    newRoom.addPlayer(socketId, playerNumber);
-    const gameId = newRoom.getGameState().gameId;
-    this.gameRooms.set(gameId, newRoom);
-    this.logger.log(`Created new room ${gameId} for player ${socketId}`);
-
-    return { room: newRoom, playerNumber };
+    return result;
   }
 
   /**
@@ -91,6 +87,13 @@ export class GameRoomService {
    */
   getRoom(gameId: string): GameRoomEntity | undefined {
     return this.gameRooms.get(gameId);
+  }
+
+  /**
+   * Get game ID by player socket ID
+   */
+  getGameIdBySocket(socketId: string): string | undefined {
+    return this.socketToRoom.get(socketId);
   }
 
   /**
@@ -105,8 +108,11 @@ export class GameRoomService {
 
     if (room.getPlayerCount() >= 2) return { error: 'Room full' };
 
-    const playerNumber = room.getPlayerCount() === 0 ? 1 : 2;
-    room.addPlayer(socketId, playerNumber);
+    const playerNumber = room.addPlayer(socketId);
+    if (!playerNumber) return { error: 'Room full' };
+
+    this.socketToRoom.set(socketId, gameId);
+
     this.logger.log(
       `Player ${socketId} joined room ${gameId} as Player ${playerNumber}`,
     );
@@ -114,9 +120,12 @@ export class GameRoomService {
   }
 
   /**
-   * Join a random public room. If none available, creates a new public room and joins it.
+   * Join a random public room.
    */
-  joinRandomPublicRoom(socketId: string): {
+  joinRandomPublicRoom(
+    socketId: string,
+    createGameDto: CreateGameDto = {},
+  ): {
     room: GameRoomEntity;
     playerNumber: number;
   } {
@@ -125,8 +134,9 @@ export class GameRoomService {
         room.getPlayerCount() === 1 &&
         room.getGameState().gameType === 'public'
       ) {
-        const playerNumber = 2;
-        room.addPlayer(socketId, playerNumber);
+        const playerNumber = room.addPlayer(socketId)!;
+        this.socketToRoom.set(socketId, roomId);
+
         this.logger.log(
           `Player ${socketId} joined public room ${roomId} as Player ${playerNumber}`,
         );
@@ -134,15 +144,11 @@ export class GameRoomService {
       }
     }
 
-    // No available public room, create one and join as player 1
-    const { gameId } = this.createRoom('public', socketId, {});
+    // No available public room, create one with the provided settings
+    const { gameId } = this.createRoom('public', socketId, createGameDto);
     const room = this.gameRooms.get(gameId)!;
-    const playerNumber = 1;
-    room.addPlayer(socketId, playerNumber);
-    this.logger.log(
-      `Player ${socketId} created and joined new public room ${gameId} as Player ${playerNumber}`,
-    );
-    return { room, playerNumber };
+
+    return { room, playerNumber: 1 };
   }
 
   /**
@@ -153,6 +159,8 @@ export class GameRoomService {
     if (!room) return;
 
     room.removePlayer(socketId);
+    this.socketToRoom.delete(socketId);
+
     this.logger.log(`Player ${socketId} removed from room ${gameId}`);
 
     // Clean up empty rooms
@@ -190,7 +198,9 @@ export class GameRoomService {
   forcePassTurn(gameId: string) {
     const room = this.gameRooms.get(gameId); // 🟢 Maintenant 'rooms' existe !
     if (!room) {
-      this.logger.error(`Attempted to force pass on non-existent room: ${gameId}`);
+      this.logger.error(
+        `Attempted to force pass on non-existent room: ${gameId}`,
+      );
       return { success: false };
     }
 
@@ -198,7 +208,7 @@ export class GameRoomService {
     const previousPlayer = gameState.currentPlayer;
 
     // 1. Changer de joueur (1 -> 2 ou 2 -> 1)
-    gameState.currentPlayer = (previousPlayer === 1) ? 2 : 1;
+    gameState.currentPlayer = previousPlayer === 1 ? 2 : 1;
 
     // 2. Réinitialiser le chrono pour le nouveau joueur
     const now = Date.now();
@@ -208,12 +218,14 @@ export class GameRoomService {
     // 3. Mettre à jour l'historique du dernier joueur ayant agi
     gameState.lastPlayer = previousPlayer;
 
-    this.logger.log(`Timeout: Player ${previousPlayer} skipped. Now Player ${gameState.currentPlayer}'s turn.`);
+    this.logger.log(
+      `Timeout: Player ${previousPlayer} skipped. Now Player ${gameState.currentPlayer}'s turn.`,
+    );
 
     return {
       success: true,
       previousPlayer,
-      gameState: gameState.toSerializable()
+      gameState: gameState.toSerializable(),
     };
   }
 
@@ -255,7 +267,7 @@ export class GameRoomService {
     }
 
     this.logger.log(
-      `Final score for game ${gameId}: P1=${scores.player1}, P2=${scores.player2}, Winner=${winner}`
+      `Final score for game ${gameId}: P1=${scores.player1}, P2=${scores.player2}, Winner=${winner}`,
     );
 
     return finalScore;

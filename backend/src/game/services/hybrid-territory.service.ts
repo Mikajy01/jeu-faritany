@@ -36,9 +36,6 @@ export class HybridTerritoryService {
           // Ne garder que les territoires avec un propriétaire unique
           if (territory.owner !== null) {
             territories.push(territory);
-            this.logger.debug(
-              `Found territory: ${territory.points.length} points, owner: ${territory.owner}`
-            );
           }
         }
       }
@@ -161,9 +158,5 @@ export class HybridTerritoryService {
     
     // Remplacer capturedAreas par les territoires trouvés
     gameState.capturedAreas = territories;
-
-    this.logger.debug(
-      `Updated captured areas: ${territories.length} territories found`
-    );
   }
 }

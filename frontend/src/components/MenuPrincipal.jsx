@@ -1,120 +1,169 @@
-import React, { useState } from 'react';
-import { Users, Bot, Globe, Plus } from 'lucide-react';
-import backgroundImage from '@/assets/images/background.png';
+import React from "react";
+import { Users, Bot, Globe, Plus, ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
 
+// Grid component for the background
+const Grid = () => (
+  <div className="absolute inset-0 z-0">
+    <div
+      className="absolute inset-0 bg-repeat"
+      style={{
+        backgroundImage:
+          "radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.1) 1px, transparent 0)",
+        backgroundSize: "2rem 2rem",
+      }}
+    />
+  </div>
+);
 
 export const MenuPrincipal = ({ onSelectMode }) => {
-
   const modes = [
     {
-      id: 'create',
+      id: "create",
       icon: Plus,
-      title: 'Créer une partie',
-      description: 'Créez une salle et invitez vos amis',
-      gradient: 'from-blue-500 to-blue-600',
-      hoverGradient: 'hover:from-blue-600 hover:to-blue-700',
+      title: "Créer une partie privée",
+      description: "Invitez un ami pour un duel stratégique.",
+      color: "text-cyan-300",
     },
     {
-      id: 'join',
+      id: "join",
       icon: Users,
-      title: 'Rejoindre une partie',
-      description: 'Entrez un code de salle à 6 caractères',
-      gradient: 'from-purple-500 to-purple-600',
-      hoverGradient: 'hover:from-purple-600 hover:to-purple-700',
+      title: "Rejoindre une partie",
+      description: "Entrez le code d'une salle pour jouer.",
+      color: "text-fuchsia-300",
     },
     {
-      id: 'random',
+      id: "random",
       icon: Globe,
-      title: 'Partie aléatoire',
-      description: 'Rejoignez une salle publique',
-      gradient: 'from-green-500 to-green-600',
-      hoverGradient: 'hover:from-green-600 hover:to-green-700',
+      title: "Partie aléatoire",
+      description: "Affrontez un adversaire du monde entier.",
+      color: "text-lime-300",
     },
     {
-      id: 'ai',
+      id: "ai",
       icon: Bot,
-      title: 'Jouer contre l\'IA',
-      description: 'Affrontez l\'ordinateur',
-      gradient: 'from-orange-500 to-orange-600',
-      hoverGradient: 'hover:from-orange-600 hover:to-orange-700',
+      title: "Jouer contre l'IA",
+      description: "Entraînez-vous contre notre intelligence artificielle.",
+      color: "text-amber-300",
     },
   ];
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.15,
+        delayChildren: 0.2,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: "spring",
+        stiffness: 100,
+      },
+    },
+  };
+
   return (
-    <div className="relative min-h-screen overflow-hidden flex items-center justify-center p-4">
+    <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center bg-slate-900 text-white p-4">
+      {/* Animated Gradient Background */}
+      <div className="absolute inset-0 z-0 h-full w-full bg-gradient-to-r from-slate-900 via-black to-slate-900 animate-gradient-x" />
+      <Grid />
 
-  {/* Background */}
-  <div
-    className="absolute inset-0 bg-cover bg-center scale-105"
-    style={{ backgroundImage: `url(${backgroundImage})` }}
-  />
-
-  <div className="absolute inset-0 bg-black/50" />
-  <div className="absolute inset-0 bg-gradient-to-br from-slate-900/70 via-slate-800/70 to-slate-900/70" />
-
-  {/* Content */}
-  <div className="relative z-10 w-full max-w-5xl">
-        <div className="text-center mb-12">
-          <h1 className="text-5xl md:text-6xl font-bold text-white mb-4 tracking-tight">
+      {/* Main Content */}
+      <motion.div
+        className="relative z-10 flex flex-col lg:flex-row items-center justify-center w-full max-w-6xl mx-auto"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+      >
+        {/* Left Side: Title and Game Board */}
+        <div className="w-full lg:w-1/2 flex flex-col items-center lg:items-start text-center lg:text-left p-8">
+          <motion.h1
+            className="text-6xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 mb-4"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
             Jeu Faritany
-          </h1>
-          <p className="text-xl text-slate-300">
-            Choisissez votre mode de jeu
-          </p>
+          </motion.h1>
+          <motion.p
+            className="text-xl text-slate-300 mb-10"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            La conquête du territoire par l'esprit.
+          </motion.p>
+
+          {/* Stylized Game Board Preview */}
+          <motion.div
+            className="w-64 h-64 md:w-80 md:h-80 bg-slate-800/50 rounded-2xl shadow-2xl flex items-center justify-center p-4 border border-slate-700"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.7, delay: 0.4, ease: "easeOut" }}
+          >
+            <div
+              className="w-full h-full grid grid-cols-9 grid-rows-9"
+              style={{
+                backgroundImage:
+                  "radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px)",
+                backgroundSize: "calc(100% / 9) calc(100% / 9)",
+              }}
+            >
+              {/* Example stones */}
+              <div className="col-start-3 row-start-3 w-full h-full flex items-center justify-center">
+                <div className="w-3/4 h-3/4 rounded-full bg-white/90 shadow-lg" />
+              </div>
+              <div className="col-start-7 row-start-6 w-full h-full flex items-center justify-center">
+                <div className="w-3/4 h-3/4 rounded-full bg-black/90 shadow-lg" />
+              </div>
+            </div>
+          </motion.div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Right Side: Menu Options */}
+        <motion.div
+          className="w-full lg:w-1/2 mt-12 lg:mt-0 flex flex-col space-y-4"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
           {modes.map((mode) => {
             const Icon = mode.icon;
             return (
-              <button
+              <motion.button
                 key={mode.id}
-                onClick={() => 
-                    onSelectMode(mode.id)
-                  
-                }
-                className={`group relative bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 p-8 text-left overflow-hidden`}
+                onClick={() => onSelectMode(mode.id)}
+                className="group relative text-left p-5 rounded-lg transition-all duration-300 ease-in-out overflow-hidden bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700 hover:border-slate-500"
+                variants={itemVariants}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.98 }}
               >
-                <div className={`absolute inset-0 bg-gradient-to-br ${mode.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
-                
-                <div className="relative">
-                  <div className={`inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br ${mode.gradient} rounded-xl mb-4 shadow-lg`}>
-                    <Icon className="w-8 h-8 text-white" />
+                <div className="flex items-center">
+                  <Icon
+                    className={`w-7 h-7 mr-5 transition-colors duration-300 ${mode.color}`}
+                  />
+                  <div>
+                    <h3 className="text-xl font-semibold text-white">
+                      {mode.title}
+                    </h3>
+                    <p className="text-slate-400 text-sm">{mode.description}</p>
                   </div>
-                  
-                  <h3 className="text-2xl font-bold text-slate-800 mb-2">
-                    {mode.title}
-                  </h3>
-                  
-                  <p className="text-slate-600">
-                    {mode.description}
-                  </p>
-
-                  <div className="mt-6 flex items-center text-sm font-semibold">
-                    <span className={`bg-gradient-to-r ${mode.gradient} bg-clip-text text-transparent`}>
-                      Commencer
-                    </span>
-                    <svg 
-                      className={`ml-2 w-4 h-4 text-${mode.gradient.split('-')[1]}-500 transform group-hover:translate-x-1 transition-transform`} 
-                      fill="none" 
-                      viewBox="0 0 24 24" 
-                      stroke="currentColor"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
+                  <ArrowRight className="w-6 h-6 ml-auto text-slate-500 group-hover:text-white transition-all duration-300 transform group-hover:translate-x-1" />
                 </div>
-              </button>
+              </motion.button>
             );
           })}
-        </div>
-
-        <div className="mt-12 text-center">
-          <p className="text-slate-400 text-sm">
-            Placez vos points stratégiquement pour capturer les territoires adverses
-          </p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 };

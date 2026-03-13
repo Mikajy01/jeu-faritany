@@ -29,34 +29,6 @@ export class GameLogicService {
   ): MoveResult {
     const now = Date.now();
 
-    /**
-     * ⏱️ Mise à jour du temps AVANT validation
-     * (le joueur vient de consommer du temps)
-     */
-    // const elapsedSeconds = (now - gameState.clock.lastMoveTimestamp) / 1000;
-
-    // gameState.clock.remainingMoveTime -= elapsedSeconds;
-    // gameState.clock.remainingGameTime -= elapsedSeconds;
-
-    // // ⛔ Timeout
-    // if (gameState.clock.remainingMoveTime <= 0) {
-    //   gameState.gameActive = false;
-    //   return {
-    //     success: false,
-    //     reason: 'MOVE_TIMEOUT',
-    //     gameState: gameState.toSerializable(),
-    //   };
-    // }
-
-    // if (gameState.clock.remainingGameTime <= 0) {
-    //   gameState.gameActive = false;
-    //   return {
-    //     success: false,
-    //     reason: 'GAME_TIMEOUT',
-    //     gameState: gameState.toSerializable(),
-    //   };
-    // }
-
     // Validate move
     const validation = this.validateMove(x, y, player, gameState);
     if (!validation.valid) {
@@ -97,6 +69,18 @@ export class GameLogicService {
     // Mise à jour des territoires
     this.updateCapturedAreasHybrid(gameState, gridSize);
 
+    // Vérifier si un joueur a atteint l'objectif de score (si en mode SCORE)
+    if (gameState.timeControl.gameMode === 'SCORE') {
+      const target = gameState.timeControl.targetScore;
+      if (
+        gameState.scores.player1 >= target ||
+        gameState.scores.player2 >= target
+      ) {
+        gameState.gameActive = false;
+        // La partie est terminée, l'appelant s'occupera de notifier le gagnant
+      }
+    }
+
     /**
      * 🔁 Switch player
      */
@@ -111,7 +95,6 @@ export class GameLogicService {
      * 🔄 Reset du temps pour le prochain coup
      */
     gameState.clock.remainingMoveTime = gameState.timeControl.moveTimeLimit;
-
     gameState.clock.lastMoveTimestamp = now;
 
     return {
@@ -122,7 +105,6 @@ export class GameLogicService {
       capturedAreas: gameState.capturedAreas,
     };
   }
-  
 
   /**
    * NOUVELLE MÉTHODE : Mise à jour hybride des territoires capturés

@@ -35,10 +35,6 @@ export class ScoringService {
       player2: player2Captures,
     };
 
-    this.logger.debug(
-      `Scores calculés: Player 1 = ${player1Captures}, Player 2 = ${player2Captures}`
-    );
-
     return scores;
   }
 }

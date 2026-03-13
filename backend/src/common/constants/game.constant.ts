@@ -7,6 +7,8 @@ export const GAME_CONSTANTS = {
   EMPTY_CELL: 0,
   DEFAULT_MOVE_TIME_LIMIT: 60,      // seconds
   DEFAULT_TOTAL_TIME_LIMIT: 1800,    // seconds
+  DEFAULT_GAME_MODE: 'TIME',
+  DEFAULT_TARGET_SCORE: 20,
 } as const;
 
 export const DIRECTIONS = {

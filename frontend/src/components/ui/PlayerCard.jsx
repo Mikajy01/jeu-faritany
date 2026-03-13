@@ -1,5 +1,7 @@
 import React from 'react';
 import { ChessTimer } from './ChessTimer';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, Trophy } from 'lucide-react';
 
 export const PlayerCard = ({ 
   player, 
@@ -8,179 +10,148 @@ export const PlayerCard = ({
   isActive,
   isYou,
   showTimer = true,
-  timeLeft = 600, // 10 minutes par défaut
+  timeLeft = 600,
   onTimeUp,
-  compact = false
+  compact = false,
+  isOnline = true // ✨ Nouveau prop: statut de connexion
 }) => {
-  const color = player === 1 ? 'red' : 'blue';
-  const colorClasses = {
-    red: {
-      bg: 'bg-red-50',
-      border: 'border-red-300',
-      text: 'text-red-700',
-      dot: 'bg-red-500',
-      active: 'bg-red-100 border-red-400 shadow-lg shadow-red-200',
-      glow: 'shadow-red-300'
+  const isPlayer1 = player === 1;
+  const isActiveTurn = isCurrentPlayer && isActive && isOnline; // Désactivé si offline
+
+  const themes = {
+    p1: {
+      accent: 'text-fuchsia-400',
+      bg: 'bg-fuchsia-500/10',
+      border: 'border-fuchsia-500/30',
+      glow: 'shadow-fuchsia-500/20',
+      gradient: 'from-fuchsia-500 to-purple-600',
+      light: 'bg-fuchsia-400',
     },
-    blue: {
-      bg: 'bg-blue-50',
-      border: 'border-blue-300',
-      text: 'text-blue-700',
-      dot: 'bg-blue-500',
-      active: 'bg-blue-100 border-blue-400 shadow-lg shadow-blue-200',
-      glow: 'shadow-blue-300'
+    p2: {
+      accent: 'text-cyan-400',
+      bg: 'bg-cyan-500/10',
+      border: 'border-cyan-500/30',
+      glow: 'shadow-cyan-500/20',
+      gradient: 'from-cyan-500 to-blue-600',
+      light: 'bg-cyan-400',
     }
   };
 
-  const colors = colorClasses[color];
-  const isActiveTurn = isCurrentPlayer && isActive;
-
-  if (compact) {
-    return (
-      <div className={`
-        relative bg-white rounded-lg border-2 transition-all duration-300
-        ${isActiveTurn ? colors.active : `${colors.bg} ${colors.border}`}
-        ${isActiveTurn ? 'scale-105 z-10 shadow-xl' : 'shadow-md'}
-        overflow-hidden
-        min-w-[140px] max-w-[160px]
-      `}>
-        {/* Barre de couleur en haut */}
-        <div className={`
-          h-0.5 w-full
-          ${isActiveTurn ? colors.dot : 'bg-slate-300'}
-          transition-colors duration-300
-        `} />
-        
-        <div className="p-1.5 space-y-1">
-          {/* En-tête avec nom du joueur et score */}
-          <div className="flex items-center justify-between gap-1.5">
-            <div className="flex items-center gap-1 min-w-0">
-              <div className={`
-                w-2 h-2 rounded-full flex-shrink-0 ${colors.dot}
-                ${isActiveTurn ? 'animate-pulse' : ''}
-              `} />
-              <span className={`
-                font-semibold text-[20px] truncate
-                ${colors.text}
-              `}>
-                J{player}
-                {isYou && (
-                  <span className="ml-0.5 text-[9px] font-normal text-slate-500">
-                    (Vous)
-                  </span>
-                )}
-              </span>
-            </div>
-            
-            {/* Score */}
-            <div className={`
-              px-1.5 py-0.5 rounded font-bold text-[20px] flex-shrink-0
-              ${isActiveTurn ? 'bg-white ' + colors.text : 'bg-slate-100 text-slate-700'}
-              transition-all duration-300
-            `}>
-              {score}
-            </div>
-          </div>
-
-          {/* Pendule compact */}
-          {
-            showTimer && (
-              <div className="flex justify-center">
-                <ChessTimer 
-                  timeLeft={timeLeft}
-                  isActive={isActiveTurn}
-                isLowTime={timeLeft <= 30}
-                onTimeUp={onTimeUp}
-                compact={true}
-              />
-            </div>
-            )
-          }
-        </div>
-
-        {/* Indicateur de tour actif */}
-        {isActiveTurn && (
-          <div className="absolute top-1 right-1">
-            <div className={`
-              w-1.5 h-1.5 rounded-full ${colors.dot} animate-pulse
-            `} />
-          </div>
-        )}
-      </div>
-    );
-  }
+  const theme = isPlayer1 ? themes.p1 : themes.p2;
 
   return (
-    <div className={`
-      relative bg-white rounded-lg sm:rounded-xl border-2 transition-all duration-300
-      ${isActiveTurn ? colors.active : `${colors.bg} ${colors.border}`}
-      ${isActiveTurn ? 'scale-[1.02] sm:scale-105 z-10' : ''}
-      overflow-hidden
-      w-full max-w-[180px] sm:max-w-none
-    `}>
-      {/* Barre de couleur en haut */}
-      <div className={`
-        h-1 w-full
-        ${isActiveTurn ? colors.dot : 'bg-slate-300'}
-        transition-colors duration-300
-      `} />
-      
-      <div className="p-2 sm:p-4 space-y-2 sm:space-y-3">
-        {/* En-tête avec nom du joueur */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+    <motion.div
+      initial={false}
+      animate={{
+        scale: isActiveTurn ? 1.05 : 1,
+        borderColor: isActiveTurn ? 'rgba(255, 255, 255, 0.4)' : (!isOnline ? 'rgba(244, 63, 94, 0.3)' : 'rgba(255, 255, 255, 0.1)'),
+        opacity: isOnline ? 1 : 0.7
+      }}
+      className={`
+        relative overflow-hidden rounded-2xl border backdrop-blur-md transition-all duration-500
+        ${isActiveTurn ? 'bg-slate-800/60 shadow-2xl z-20' : (!isOnline ? 'bg-rose-950/10 z-10' : 'bg-slate-900/40 z-10')}
+        ${compact ? 'w-full' : 'w-full max-w-[240px]'}
+      `}
+    >
+      {/* Offline Overlay Overlay */}
+      <AnimatePresence>
+        {!isOnline && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-rose-950/20 backdrop-blur-[1px] flex items-center justify-center z-30"
+          >
+            <div className="bg-rose-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full shadow-lg uppercase tracking-tighter">
+              Hors ligne
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Animated active border gradient */}
+      <AnimatePresence>
+        {isActiveTurn && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={`absolute inset-0 bg-gradient-to-br ${theme.bg} opacity-20 pointer-events-none`}
+          />
+        )}
+      </AnimatePresence>
+
+      <div className="p-4 space-y-4">
+        {/* Header: Player Info */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <div className={`
-              w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0 ${colors.dot}
-              ${isActiveTurn ? 'animate-pulse' : ''}
-            `} />
-            <span className={`
-              font-semibold text-xs sm:text-base truncate
-              ${colors.text}
+              w-10 h-10 rounded-xl flex items-center justify-center border
+              ${isActiveTurn ? `bg-gradient-to-br ${theme.gradient} border-white/20 shadow-lg` : (isOnline ? `bg-slate-800 border-slate-700` : `bg-rose-900/20 border-rose-500/30`)}
             `}>
-              Joueur {player}
-              {isYou && (
-                <span className="ml-1 sm:ml-2 text-[10px] sm:text-xs font-normal text-slate-500">
-                  (Vous)
+              <User className={`w-5 h-5 ${isActiveTurn ? 'text-white' : (isOnline ? theme.accent : 'text-rose-400')}`} />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className={`font-bold text-sm tracking-tight ${isActiveTurn ? 'text-white' : (isOnline ? 'text-slate-300' : 'text-rose-300')}`}>
+                  Joueur {player}
                 </span>
-              )}
-            </span>
-          </div>
-          
-          {/* Score */}
-          <div className={`
-            px-2 sm:px-3 py-0.5 sm:py-1 rounded-md sm:rounded-lg font-bold text-sm sm:text-lg flex-shrink-0
-            ${isActiveTurn ? 'bg-white ' + colors.text : 'bg-slate-100 text-slate-700'}
-            transition-all duration-300
-          `}>
-            {score}
+                {isYou && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-500 border border-slate-700">
+                    VOUS
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1 mt-0.5">
+                <div className={`w-1.5 h-1.5 rounded-full ${isActiveTurn ? theme.light + ' animate-pulse' : (isOnline ? 'bg-slate-700' : 'bg-rose-500')}`} />
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                  {!isOnline ? 'Déconnecté' : (isActiveTurn ? 'En train de jouer' : 'En attente')}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-         {/* Pendule */}
-          {
-            showTimer && (
-            <div className="flex justify-center">
+        {/* Score & Timer Section */}
+        <div className="flex items-stretch gap-3">
+          {/* Score Display */}
+          <div className="flex-1 bg-slate-950/50 rounded-xl p-3 border border-slate-800/50 flex flex-col items-center justify-center">
+             <Trophy className={`w-3.5 h-3.5 mb-1 ${theme.accent} opacity-50`} />
+             <span className="text-2xl font-black text-white leading-none">
+               {score}
+             </span>
+             <span className="text-[9px] text-slate-500 font-bold uppercase mt-1 tracking-widest">Points</span>
+          </div>
+
+          {/* Timer Display */}
+          {showTimer && (
+            <div className={`
+              flex-1 rounded-xl p-3 border flex flex-col items-center justify-center transition-colors
+              ${isActiveTurn ? 'bg-slate-900 border-slate-700' : 'bg-slate-950/30 border-slate-800/50'}
+            `}>
               <ChessTimer 
                 timeLeft={timeLeft}
                 isActive={isActiveTurn}
                 isLowTime={timeLeft <= 30}
                 onTimeUp={onTimeUp}
+                compact={true}
               />
+              <span className="text-[9px] text-slate-500 font-bold uppercase mt-1 tracking-widest">Temps</span>
             </div>
-            )
-          }
-       
+          )}
+        </div>
       </div>
 
-      {/* Indicateur de tour actif */}
-      {isActiveTurn && (
-        <div className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2">
-          <div className={`
-            w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${colors.dot} animate-pulse
-          `} />
-        </div>
+      {/* Active Turn Progress Bar (Subtle) */}
+      {isActiveTurn && showTimer && (
+        <motion.div 
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${theme.gradient} origin-left`}
+        />
       )}
-    </div>
+    </motion.div>
   );
 };
+
 

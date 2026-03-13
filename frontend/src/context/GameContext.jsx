@@ -15,27 +15,48 @@ export const GameProvider = ({ children }) => {
   const socketRef = useRef(null);
   const [isConnected, setIsConnected] = useState(false); // ✨ Nouveau état
   const [connectionStatus, setConnectionStatus] = useState(
-    "Connexion au serveur..."
+    "Connexion au serveur...",
   );
   const [gameType, setGameType] = useState("public");
   const [moveTimeLimit, setMoveTimeLimit] = useState(600);
-
   const [gameState, setGameState] = useState({
     grid: new Map(),
     currentPlayer: 1,
+    gameId: null,
     code: null,
     scores: { player1: 0, player2: 0 },
     move: null,
     playerId: null,
     gameActive: false,
+    gameOver: null,
     capturedAreas: [],
     player1Score: 0,
     player2Score: 0,
+    player1Online: true, // ✨ Nouveau: statut en ligne P1
+    player2Online: true, // ✨ Nouveau: statut en ligne P2
+    timeControl: {
+      moveTimeLimit: 0,
+      gameDurationLimit: 0,
+      gameMode: "TIME",
+      targetScore: 20,
+    },
+    clock: {
+      remainingMoveTime: 0,
+      remainingGameTime: 0,
+      gameStartTime: null,
+      lastMoveTimestamp: null,
+    },
   });
+  const [roomCode, setRoomCode] = useState(null);
+  const [playerCount, setPlayerCount] = useState(1);
+  const [lastError, setLastError] = useState(null);
   const [gameLog, setGameLog] = useState([
     "Bienvenue dans le jeu faritany !",
     "Placez vos points pour entourer les points et zones adverses.",
   ]);
+
+  // 🚀 OPTIMISTIC UPDATES: Sauvegarder l'état précédent pour rollback
+  const lastGameStateRef = useRef(null);
 
   const addLogEntry = useCallback((message) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -57,9 +78,18 @@ export const GameProvider = ({ children }) => {
     });
 
     socket.on("connect", () => {
-      console.log("✅ Socket connecté avec ID:", socket.id);
-      setConnectionStatus("Connecté au serveur");
-      setIsConnected(true); // ✨ Socket prêt !
+      setIsConnected(true);
+      setConnectionStatus("Connecté");
+
+      // ✨ Tentative de reconnexion automatique via le code de la salle
+      const savedGameId = localStorage.getItem("faritany_current_game");
+      if (savedGameId) {
+        console.log(
+          "🔄 Tentative de rejoindre la partie sauvegardée:",
+          savedGameId,
+        );
+        socket.emit("joinGame", { code: savedGameId });
+      }
     });
 
     socket.on("disconnect", (reason) => {
@@ -108,34 +138,120 @@ export const GameProvider = ({ children }) => {
       setGameState((prev) => ({
         ...prev,
         playerId: data.playerId || prev.playerId,
+        gameId: data.gameState?.gameId || data.code || prev.gameId, // ✨ Mise à jour de l'ID
         gameActive: data.gameState?.gameActive ?? prev.gameActive,
+        gameOver:
+          data.gameState?.gameActive === false && prev.gameActive
+            ? prev.gameOver
+            : data.gameState?.gameActive
+              ? null
+              : prev.gameOver,
         grid: gridMap,
         scores: data.gameState?.scores || prev.scores,
         player1Score: data.gameState?.scores?.player1 || prev.player1Score,
         player2Score: data.gameState?.scores?.player2 || prev.player2Score,
         currentPlayer: data.gameState?.currentPlayer || prev.currentPlayer,
         capturedAreas: data.gameState?.capturedAreas || prev.capturedAreas,
+        timeControl: data.gameState?.timeControl || prev.timeControl,
+        clock: data.gameState?.clock || prev.clock,
         move: type === "moveMade" ? data.move : prev.move,
+        // ✨ On réinitialise le statut online quand on reçoit un état complet
+        player1Online: true,
+        player2Online: true,
       }));
+      // Mettre à jour le nombre de joueurs si fourni
+      setPlayerCount(
+        (prev) => data.playerCount || data.gameState?.playerCount || prev,
+      );
     };
 
-    socket.on("gameJoined", (data) =>
-      handleGameStateUpdate(data, "gameJoined")
-    );
-    socket.on("gameStart", (data) => handleGameStateUpdate(data, "gameStart"));
+    socket.on("gameJoined", (data) => {
+      if (data.gameState?.gameId) {
+        localStorage.setItem("faritany_current_game", data.gameState.gameId);
+      }
+      handleGameStateUpdate(data, "gameJoined");
+      // Si c'est une reconnexion, on peut logger
+      if (data.isReconnection) {
+        addLogEntry(`👋 Vous êtes de retour !`);
+      }
+    });
+    socket.on("gameStart", (data) => {
+      handleGameStateUpdate(data, "gameStart");
+      if (data.isReconnection) {
+        addLogEntry(`🎮 La partie reprend !`);
+      }
+    });
     socket.on("moveMade", (data) => handleGameStateUpdate(data, "moveMade"));
-    socket.on("gameReset", (data) => handleGameStateUpdate(data, "gameReset"));
-    socket.on("moveTimeout", (data) => handleGameStateUpdate(data, "gameReset"));
+    socket.on("gameReset", (data) => {
+      setGameState((prev) => ({ ...prev, gameOver: null }));
+      handleGameStateUpdate(data, "gameReset");
+    });
+    socket.on("moveTimeout", (data) =>
+      handleGameStateUpdate(data, "moveTimeout"),
+    );
 
+    // ❌ Suppression de l'écouteur timeUpdate (on synchronise via les actions)
 
-    socket.on("playerDisconnected", () => {
-      console.log("👤 Adversaire déconnecté");
-      setGameState((prev) => ({ ...prev, gameActive: false }));
-      setConnectionStatus("Adversaire déconnecté");
+    socket.on("gameOver", (data) => {
+      console.log("🏁 Partie terminée:", data);
+      localStorage.removeItem("faritany_current_game");
+      setGameState((prev) => ({
+        ...prev,
+        gameActive: false,
+        gameOver: data,
+        scores: data.scores || prev.scores,
+        player1Score: data.scores?.player1 || prev.player1Score,
+        player2Score: data.scores?.player2 || prev.player2Score,
+      }));
+      addLogEntry(`🏁 ${data.message}`);
+    });
+
+    socket.on("playerDisconnected", (data) => {
+      addLogEntry(`⚠️ ${data.message}`);
+      setGameState((prev) => ({
+        ...prev,
+        gameActive: false,
+        player1Online: data.playerNumber === 1 ? false : prev.player1Online,
+        player2Online: data.playerNumber === 2 ? false : prev.player2Online,
+      }));
+    });
+
+    // Événements liés à la création/join d'une room (UI)
+    socket.on("gameCreated", (data) => {
+      console.log("🎮 Game created (provider):", data);
+      if (data?.code) {
+        setRoomCode(data.code);
+        localStorage.setItem("faritany_current_game", data.code);
+      }
+      if (data?.type) setGameType(data.type);
+      if (data?.playerId)
+        setGameState((prev) => ({ ...prev, playerId: data.playerId }));
+      addLogEntry(`Salle ${data.type || "?"} créée avec le code: ${data.code}`);
+    });
+
+    socket.on("createError", (data) => {
+      console.error("❌ Create error (provider):", data?.reason);
+      setLastError({ type: "create", reason: data?.reason });
+      addLogEntry(`Erreur de création: ${data?.reason}`);
+    });
+
+    socket.on("joinError", (data) => {
+      console.warn("❌ Impossible de rejoindre:", data.reason);
+      localStorage.removeItem("faritany_current_game");
     });
 
     socket.on("moveError", (data) => {
       console.error("❌ Move error:", data.reason);
+      addLogEntry(`❌ Coup invalide: ${data.reason}`);
+
+      // 🚀 ROLLBACK: Restaurer l'état précédent si optimistic update a échoué
+      if (lastGameStateRef.current) {
+        console.log("🔄 Rollback du coup optimiste");
+        setGameState(lastGameStateRef.current);
+        lastGameStateRef.current = null;
+      }
+
+      setLastError({ type: "move", reason: data.reason });
     });
 
     socketRef.current = socket;
@@ -147,6 +263,32 @@ export const GameProvider = ({ children }) => {
       // socket.disconnect();
     };
   }, []);
+
+  // ⏱️ GESTION LOCALE DU TIMER (remainingMoveTime)
+  // Décrémenter le temps localement pour une UI fluide
+  useEffect(() => {
+    let timer;
+    if (gameState.gameActive && !gameState.gameOver) {
+      timer = setInterval(() => {
+        setGameState((prev) => {
+          if (prev.clock && prev.clock.remainingMoveTime > 0) {
+            return {
+              ...prev,
+              clock: {
+                ...prev.clock,
+                remainingMoveTime: Math.max(
+                  0,
+                  prev.clock.remainingMoveTime - 1,
+                ),
+              },
+            };
+          }
+          return prev;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [gameState.gameActive, gameState.gameOver]);
 
   // Effet séparé pour les logs (sans impacter le socket)
   useEffect(() => {
@@ -163,16 +305,91 @@ export const GameProvider = ({ children }) => {
     }
   }, [connectionStatus, addLogEntry]);
 
+  /**
+   * 🚀 OPTIMISTIC UPDATES: Place une pierre immédiatement sur le plateau local
+   * sans attendre la confirmation du serveur
+   */
+  const makeOptimisticMove = useCallback(
+    (x, y) => {
+      // Vérifier que c'est le tour du joueur
+      if (gameState.playerId !== gameState.currentPlayer) {
+        console.warn("❌ Ce n'est pas votre tour");
+        return false;
+      }
+
+      // Vérifier que la position est vide
+      const coordKey = `${x},${y}`;
+      if (gameState.grid.has(coordKey)) {
+        console.warn("❌ Position déjà occupée");
+        return false;
+      }
+
+      // 💾 Sauvegarder l'état actuel pour rollback
+      lastGameStateRef.current = {
+        ...gameState,
+        grid: new Map(gameState.grid),
+      };
+
+      // 🎯 Placer la pierre IMMÉDIATEMENT (optimistic)
+      setGameState((prev) => {
+        const newGrid = new Map(prev.grid);
+        newGrid.set(coordKey, gameState.currentPlayer);
+
+        return {
+          ...prev,
+          grid: newGrid,
+          move: { x, y, player: gameState.currentPlayer },
+          // Le serveur confirmera les scores et le changement de joueur
+        };
+      });
+
+      // ✅ Envoyer au serveur (non-bloquant)
+      socketRef.current?.emit("makeMove", { x, y });
+
+      console.log(`✅ Coup optimiste: (${x}, ${y}) placé immédiatement`);
+      return true;
+    },
+    [gameState, socketRef],
+  );
+
+  const createGame = useCallback(
+    (params) => {
+      socketRef.current?.emit("createGame", params);
+    },
+    [socketRef],
+  );
+
+  const joinGame = useCallback(
+    (code) => {
+      socketRef.current?.emit("joinGame", { code });
+    },
+    [socketRef],
+  );
+
+  const joinPublic = useCallback(
+    (params) => {
+      socketRef.current?.emit("joinPublic", params);
+    },
+    [socketRef],
+  );
+
   const value = {
     socketRef,
     isConnected, // ✨ Exposer le statut de connexion
     connectionStatus,
     gameState,
     setGameState,
+    makeOptimisticMove, // 🚀 Nouvelle fonction pour optimistic updates
     moveTimeLimit,
     gameType,
     gameLog,
     addLogEntry,
+    roomCode,
+    playerCount,
+    lastError,
+    createGame,
+    joinGame,
+    joinPublic,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

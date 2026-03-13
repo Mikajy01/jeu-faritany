@@ -224,159 +224,147 @@ export const GameBoard = ({
   return (
     <div
       ref={containerRef}
-      className="bg-white rounded-xl shadow-lg p-4 sm:p-6 border border-slate-200 w-full relative"
+      className="relative flex flex-col items-center select-none w-full"
     >
-      {/* Desktop: cartes à côté du titre */}
-      <div className="hidden lg:flex justify-between items-center mb-1 sm:mb-4 gap-2">
-        {/* Joueur 1 - Gauche */}
-        <div className="flex-shrink-0">
-          <PlayerCard
-            player={1}
-            score={gameState.scores?.player1 || 0}
-            isCurrentPlayer={gameState.currentPlayer === 1}
-            isActive={gameState.gameActive}
-            isYou={gameState.playerId === 1}
-            timeLeft={moveTimeLimit}
-            compact={true}
-            showTimer={gameType !== "AI"}
-          />
+      {/* Player Cards (Desktop only, positioned around the board) */}
+      <div className="hidden lg:flex w-full justify-between items-center mb-8 gap-4 px-4">
+        <PlayerCard
+          player={1}
+          score={gameState.scores?.player1 || 0}
+          isCurrentPlayer={gameState.currentPlayer === 1}
+          isActive={gameState.gameActive}
+          isYou={gameState.playerId === 1}
+          timeLeft={moveTimeLimit}
+          compact={true}
+          showTimer={gameType !== "AI"}
+        />
+        <div className="flex flex-col items-center">
+           <div className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-500 mb-1">vs</div>
+           <div className="h-8 w-px bg-gradient-to-b from-transparent via-slate-700 to-transparent" />
         </div>
+        <PlayerCard
+          player={2}
+          score={gameState.scores?.player2 || 0}
+          isCurrentPlayer={gameState.currentPlayer === 2}
+          isActive={gameState.gameActive}
+          isYou={gameState.playerId === 2}
+          timeLeft={moveTimeLimit}
+          compact={true}
+          showTimer={gameType !== "AI"}
+        />
+      </div>
 
-        {/* Titre au centre */}
-        <h2 className="text-lg sm:text-xl font-semibold text-slate-800 text-center flex-1">
-          Plateau de Jeu
-        </h2>
+      <div className="relative rounded-[2.5rem] p-4 bg-slate-900/80 backdrop-blur-sm border border-slate-800 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden group">
+        {/* Animated board border */}
+        <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/10 via-transparent to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
+        
+        <Stage
+          width={dimensions.width}
+          height={dimensions.height}
+          scaleX={scale * stageScale}
+          scaleY={scale * stageScale}
+          x={stagePosition.x}
+          y={stagePosition.y}
+          onClick={window.innerWidth >= 1024 ? onStageClick : undefined}
+          onTouchEnd={handleDoubleTap}
+          onTouchMove={handleTouchMove}
+          onMouseMove={onStageMouseMove}
+          onMouseLeave={onStageMouseLeave}
+          ref={stageRef}
+          style={{
+            cursor: window.innerWidth >= 1024 ? "crosshair" : "grab",
+            touchAction: "none",
+            maxWidth: "100%",
+            display: "block",
+          }}
+          draggable={window.innerWidth < 1024 && stageScale > 1}
+          onDragEnd={(e) => {
+            if (window.innerWidth < 1024) {
+              setStagePosition({ x: e.target.x(), y: e.target.y() });
+            }
+          }}
+        >
+          <Layer>
+            {/* Dark board base */}
+            <Rect
+              width={STAGE_WIDTH}
+              height={STAGE_HEIGHT}
+              fill="#0f172a" // slate-900
+              shadowBlur={20}
+              shadowColor="black"
+              shadowOpacity={0.5}
+            />
+            <GridLines />
+          </Layer>
 
-        {/* Joueur 2 - Droite */}
-        <div className="flex-shrink-0">
-          <PlayerCard
-            player={2}
-            score={gameState.scores?.player2 || 0}
-            isCurrentPlayer={gameState.currentPlayer === 2}
-            isActive={gameState.gameActive}
-            isYou={gameState.playerId === 2}
-            timeLeft={moveTimeLimit}
-            compact={true}
-            showTimer={gameType !== "AI"}
+          <Layer>
+            <CapturedAreas
+              capturedAreas={gameState.capturedAreas}
+              grid={gameState.grid}
+            />
+            <GameStones
+              grid={gameState.grid}
+              lastMove={gameState.move}
+              animationFrame={animationFrame}
+            />
+          </Layer>
 
-          />
+          <Layer>
+            <HoverEffect
+              hoveredCoord={hoveredCoord}
+              currentPlayer={gameState.currentPlayer}
+              gameActive={gameState.gameActive}
+              playerId={gameState.playerId}
+              animationFrame={animationFrame}
+              grid={gameState.grid}
+            />
+          </Layer>
+        </Stage>
+      </div>
+
+      {/* Legend & Game Info */}
+      <div className="mt-8 w-full flex flex-col sm:flex-row items-center justify-between gap-6 px-4">
+        <Legend
+          stageScale={stageScale}
+          onZoomChange={setStageScale}
+          onResetZoom={resetZoom}
+        />
+        <div className="flex items-center gap-4 bg-slate-900/40 backdrop-blur-md px-6 py-3 rounded-2xl border border-slate-800/50">
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Temps / Tour</span>
+            <span className="text-lg font-mono font-bold text-fuchsia-400">{moveTimeLimit}s</span>
+          </div>
+          <div className="w-px h-8 bg-slate-800" />
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Mode</span>
+            <span className="text-sm font-bold text-slate-300 uppercase">{gameType === 'AI' ? 'IA' : 'Joueur'}</span>
+          </div>
         </div>
       </div>
 
-      {/* Mobile: titre puis cartes en dessous */}
-      <div className="lg:hidden mb-3 sm:mb-4">
-        <div className="flex justify-between items-center mb-2 gap-2">
-          <h2 className="text-lg sm:text-xl font-semibold text-slate-800 text-center flex-1">
-            Plateau de Jeu
-          </h2>
-          {/* Bouton reset zoom (mobile uniquement) */}
-          {window.innerWidth < 1024 && stageScale > 1 && (
-            <button
-              onClick={resetZoom}
-              className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors"
-            >
-              Reset Zoom
-            </button>
-          )}
-        </div>
-        {/* Cartes en dessous du titre sur mobile */}
-        <div className="flex justify-between items-center gap-2">
-          <PlayerCard
-            player={1}
-            score={gameState.scores?.player1 || 0}
-            isCurrentPlayer={gameState.currentPlayer === 1}
-            isActive={gameState.gameActive}
-            isYou={gameState.playerId === 1}
-            timeLeft={moveTimeLimit}
-            showTimer={gameType !== "AI"}
-
-            compact={true}
-          />
-          <PlayerCard
-            player={2}
-            score={gameState.scores?.player2 || 0}
-            isCurrentPlayer={gameState.currentPlayer === 2}
-            isActive={gameState.gameActive}
-            isYou={gameState.playerId === 2}
-            timeLeft={moveTimeLimit}
-            compact={true}
-            showTimer={gameType !== "AI"}
-
-          />
-        </div>
+      {/* Mobile Player Cards (Small at bottom) */}
+      <div className="lg:hidden grid grid-cols-2 w-full gap-4 mt-8 px-4">
+        <PlayerCard
+          player={1}
+          score={gameState.scores?.player1 || 0}
+          isCurrentPlayer={gameState.currentPlayer === 1}
+          isActive={gameState.gameActive}
+          isYou={gameState.playerId === 1}
+          timeLeft={moveTimeLimit}
+          compact={true}
+          showTimer={gameType !== "AI"}
+        />
+        <PlayerCard
+          player={2}
+          score={gameState.scores?.player2 || 0}
+          isCurrentPlayer={gameState.currentPlayer === 2}
+          isActive={gameState.gameActive}
+          isYou={gameState.playerId === 2}
+          timeLeft={moveTimeLimit}
+          compact={true}
+          showTimer={gameType !== "AI"}
+        />
       </div>
-
-      <div className="flex justify-center items-center overflow-hidden relative">
-        <div className="bg-amber-50 rounded-xl border-2 border-slate-300 shadow-inner p-1 sm:p-2">
-          <Stage
-            width={dimensions.width}
-            height={dimensions.height}
-            scaleX={scale * stageScale}
-            scaleY={scale * stageScale}
-            x={stagePosition.x}
-            y={stagePosition.y}
-            onClick={window.innerWidth >= 1024 ? onStageClick : undefined}
-            onTap={undefined} // Désactivé car géré par onTouchEnd
-            onTouchEnd={handleDoubleTap}
-            onTouchMove={handleTouchMove}
-            onMouseMove={onStageMouseMove}
-            onMouseLeave={onStageMouseLeave}
-            ref={stageRef}
-            style={{
-              cursor: window.innerWidth >= 1024 ? "crosshair" : "grab",
-              touchAction: "none",
-              maxWidth: "100%",
-              display: "block",
-            }}
-            draggable={window.innerWidth < 1024 && stageScale > 1}
-            onDragEnd={(e) => {
-              if (window.innerWidth < 1024) {
-                setStagePosition({ x: e.target.x(), y: e.target.y() });
-              }
-            }}
-          >
-            <Layer>
-              <Rect
-                x={0}
-                y={0}
-                width={STAGE_WIDTH}
-                height={STAGE_HEIGHT}
-                fill="#fef7ed"
-              />
-              <GridLines />
-            </Layer>
-
-            <Layer>
-              <CapturedAreas
-                capturedAreas={gameState.capturedAreas}
-                grid={gameState.grid}
-              />
-              <GameStones
-                grid={gameState.grid}
-                lastMove={gameState.move}
-                animationFrame={animationFrame}
-              />
-            </Layer>
-
-            <Layer>
-              <HoverEffect
-                hoveredCoord={hoveredCoord}
-                currentPlayer={gameState.currentPlayer}
-                gameActive={gameState.gameActive}
-                playerId={gameState.playerId}
-                animationFrame={animationFrame}
-                grid={gameState.grid}
-              />
-            </Layer>
-          </Stage>
-        </div>
-      </div>
-
-      <Legend
-        stageScale={stageScale}
-        onZoomChange={setStageScale}
-        onResetZoom={resetZoom}
-      />
     </div>
   );
 };

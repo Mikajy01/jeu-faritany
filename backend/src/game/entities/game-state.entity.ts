@@ -1,4 +1,10 @@
-import { GridState, Scores, Territory } from '../interfaces/game.interface';
+import { GAME_CONSTANTS } from '../../common/constants/game.constant';
+import {
+  GridState,
+  Scores,
+  Territory,
+  GameState,
+} from '../interfaces/game.interface';
 
 export class GameStateEntity {
   grid: GridState;
@@ -16,20 +22,23 @@ export class GameStateEntity {
   capturedAreas: Territory[];
 
   /**
-   * Configuration du temps
+   * Configuration du temps et objectifs
    */
   timeControl: {
-    moveTimeLimit: number;      // seconds
-    gameDurationLimit: number;  // seconds
+    moveTimeLimit: number; // seconds
+    gameDurationLimit: number; // seconds (pour mode TIME)
+    gameMode: 'TIME' | 'SCORE';
+    targetScore: number; // score à atteindre (pour mode SCORE)
   };
 
   /**
    * État runtime des pendules
    */
   clock: {
-    remainingMoveTime: number;  // seconds
-    remainingGameTime: number;  // seconds
-    lastMoveTimestamp: number;  // Date.now()
+    remainingMoveTime: number; // seconds for current move
+    remainingGameTime: number; // seconds total game (limit)
+    gameStartTime: number; // timestamp
+    lastMoveTimestamp: number; // timestamp
   };
 
   constructor() {
@@ -47,17 +56,30 @@ export class GameStateEntity {
     this.deadStones = new Set();
     this.capturedAreas = [];
 
-    // Temps par défaut
+    // Temps par défaut (en secondes) et mode par défaut
     this.timeControl = {
-      moveTimeLimit: 0,
-      gameDurationLimit: 0,
+      moveTimeLimit: GAME_CONSTANTS.DEFAULT_MOVE_TIME_LIMIT,
+      gameDurationLimit: GAME_CONSTANTS.DEFAULT_TOTAL_TIME_LIMIT,
+      gameMode: GAME_CONSTANTS.DEFAULT_GAME_MODE,
+      targetScore: GAME_CONSTANTS.DEFAULT_TARGET_SCORE,
     };
 
     this.clock = {
-      remainingMoveTime: 0,
-      remainingGameTime: 0,
+      remainingMoveTime: GAME_CONSTANTS.DEFAULT_MOVE_TIME_LIMIT,
+      remainingGameTime: GAME_CONSTANTS.DEFAULT_TOTAL_TIME_LIMIT,
+      gameStartTime: Date.now(),
       lastMoveTimestamp: Date.now(),
     };
+  }
+
+  /**
+   * Applique les paramètres de temps à l'état de l'horloge
+   */
+  applyTimeControl() {
+    this.clock.remainingMoveTime = this.timeControl.moveTimeLimit;
+    this.clock.remainingGameTime = this.timeControl.gameDurationLimit;
+    this.clock.gameStartTime = Date.now();
+    this.clock.lastMoveTimestamp = Date.now();
   }
 
   private generateGameId(): string {
@@ -67,7 +89,7 @@ export class GameStateEntity {
   /**
    * Version sérialisable (Socket / JSON)
    */
-  toSerializable() {
+  toSerializable(): GameState {
     return {
       grid: { ...this.grid },
       currentPlayer: this.currentPlayer,
@@ -106,6 +128,7 @@ export class GameStateEntity {
     this.clock = {
       remainingMoveTime: this.timeControl.moveTimeLimit,
       remainingGameTime: this.timeControl.gameDurationLimit,
+      gameStartTime: Date.now(),
       lastMoveTimestamp: Date.now(),
     };
   }

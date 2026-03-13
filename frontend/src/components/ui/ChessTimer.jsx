@@ -56,55 +56,20 @@ export const ChessTimer = ({
   const isLow = displayTime <= 30 || isLowTime;
   const isCritical = displayTime <= 10;
 
-  if (compact) {
-    return (
-      <div className={`
-        relative px-1.5 py-0.5 rounded font-mono font-bold text-[10px]
-        transition-all duration-300
-        ${isActive 
-          ? isCritical 
-            ? 'bg-red-500 text-white shadow-md shadow-red-500/50 animate-pulse' 
-            : isLow 
-              ? 'bg-orange-500 text-white shadow-sm' 
-              : 'bg-slate-700 text-white shadow-sm'
-          : 'bg-slate-200 text-slate-600'
-        }
-      `}>
-        <div className="flex items-center justify-center gap-1">
-          {isActive && (
-            <div className={`
-              w-1 h-1 rounded-full flex-shrink-0
-              ${isCritical ? 'bg-white animate-pulse' : isLow ? 'bg-white' : 'bg-green-400'}
-            `} />
-          )}
-          <span className="tabular-nums">{formatTime(displayTime)}</span>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className={`
-      relative px-2 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg font-mono font-bold text-sm sm:text-lg
-      transition-all duration-300
+      relative font-mono font-black tabular-nums transition-all duration-300
+      ${compact ? 'text-lg' : 'text-2xl sm:text-3xl'}
       ${isActive 
         ? isCritical 
-          ? 'bg-red-500 text-white shadow-lg shadow-red-500/50 animate-pulse' 
+          ? 'text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.5)] animate-pulse' 
           : isLow 
-            ? 'bg-orange-500 text-white shadow-md' 
-            : 'bg-slate-700 text-white shadow-md'
-        : 'bg-slate-200 text-slate-600'
+            ? 'text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.3)]' 
+            : 'text-white'
+        : 'text-slate-600'
       }
     `}>
-      <div className="flex items-center justify-center gap-1.5 sm:gap-2">
-        {isActive && (
-          <div className={`
-            w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full flex-shrink-0
-            ${isCritical ? 'bg-white animate-pulse' : isLow ? 'bg-white' : 'bg-green-400'}
-          `} />
-        )}
-        <span className="tabular-nums">{formatTime(displayTime)}</span>
-      </div>
+      {formatTime(displayTime)}
     </div>
   );
 };

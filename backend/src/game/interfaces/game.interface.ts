@@ -19,20 +19,28 @@ export interface Territory {
 }
 
 /**
- * Configuration du temps de jeu
+ * Type de mode de jeu
+ */
+export type GameMode = 'TIME' | 'SCORE';
+
+/**
+ * Configuration du temps de jeu et objectifs
  */
 export interface TimeControl {
-  moveTimeLimit: number;        // seconds (max par coup)
-  gameDurationLimit: number;    // seconds (durée max de la partie)
+  moveTimeLimit: number; // seconds (max par coup)
+  gameDurationLimit: number; // seconds (durée max de la partie, seulement pour mode TIME)
+  gameMode: GameMode;
+  targetScore: number; // Score à atteindre pour gagner (seulement pour mode SCORE)
 }
 
 /**
  * État runtime des pendules
  */
 export interface ClockState {
-  remainingMoveTime: number;    // seconds
-  remainingGameTime: number;    // seconds
-  lastMoveTimestamp: number;    // Date.now()
+  remainingMoveTime: number; // seconds for current move
+  remainingGameTime: number; // initial limit (seconds)
+  gameStartTime: number; // Date.now() when game started
+  lastMoveTimestamp: number; // Date.now() of last move
 }
 
 export interface GameState {
@@ -45,7 +53,7 @@ export interface GameState {
   timeControl: TimeControl;
   clock: ClockState;
 
-  lastPlayer: number;           // 1 or 2
+  lastPlayer: number; // 1 or 2
   gameType: 'public' | 'private' | 'AI';
   gameId: string;
 

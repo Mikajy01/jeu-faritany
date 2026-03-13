@@ -1,14 +1,21 @@
 import React from 'react';
+import { Wifi, WifiOff, Loader2 } from 'lucide-react';
 
 export const ConnectionStatus = ({ status }) => {
-  const getStatusColor = () => {
-    if (status.includes('Connecté')) return 'text-green-600 bg-green-100';
-    if (status.includes('Erreur') || status.includes('Déconnecté')) return 'text-red-600 bg-red-100';
-    return 'text-yellow-600 bg-yellow-100';
-  };
+  const isConnected = status.toLowerCase().includes('connecté');
+  const isError = status.toLowerCase().includes('erreur') || status.toLowerCase().includes('déconnecté');
+  const isConnecting = !isConnected && !isError;
 
   return (
-    <div className={`text-sm font-medium px-3 py-2 rounded-lg text-center mb-4 ${getStatusColor()}`}>
+    <div className={`
+      flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest transition-all duration-500
+      ${isConnected ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : ''}
+      ${isError ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : ''}
+      ${isConnecting ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : ''}
+    `}>
+      {isConnected && <Wifi className="w-3 h-3" />}
+      {isError && <WifiOff className="w-3 h-3" />}
+      {isConnecting && <Loader2 className="w-3 h-3 animate-spin" />}
       {status}
     </div>
   );

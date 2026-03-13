@@ -1,30 +1,40 @@
-import { ScrollText } from "lucide-react";
+import React, { useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
-export const GameLog = ({ logs }) => (
-  <div className="bg-white rounded-xl shadow-lg p-4 border border-slate-200">
-    <div className="flex items-center gap-2 mb-4">
-      <div className="p-2 bg-slate-100 rounded-lg">
-        <ScrollText className="w-5 h-5 text-slate-700" />
-      </div>
+export const GameLog = ({ logs }) => {
+  const scrollRef = useRef(null);
 
-      <div className="flex-1">
-        <h3 className="font-semibold text-slate-800">Journal de Jeu</h3>
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [logs]);
 
-        <p className="text-xs text-slate-500">
-          {logs.length}
-          événements
-        </p>
-      </div>
-    </div>
-    <div className="max-h-64 overflow-y-auto space-y-1">
-      {logs.map((entry, index) => (
-        <div
-          key={index}
-          className="text-xs text-slate-600 p-2 bg-slate-50 rounded border-l-2 border-slate-300"
-        >
-          {entry}
+  return (
+    <div 
+      ref={scrollRef}
+      className="h-full overflow-y-auto p-4 space-y-2 custom-scrollbar"
+    >
+      <AnimatePresence initial={false}>
+        {logs.map((entry, index) => (
+          <motion.div
+            key={`${index}-${entry}`}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-[11px] font-medium text-slate-400 p-3 bg-slate-900/40 rounded-xl border border-slate-800/50 flex items-start gap-3 group hover:bg-slate-800/60 transition-colors"
+          >
+            <span className="text-fuchsia-500/50 font-mono mt-0.5">[{index + 1}]</span>
+            <span className="group-hover:text-slate-300 transition-colors">{entry}</span>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+      
+      {logs.length === 0 && (
+        <div className="h-full flex flex-col items-center justify-center text-slate-600 gap-2 opacity-50">
+          <p className="text-xs font-bold uppercase tracking-widest">Aucun événement</p>
         </div>
-      ))}
+      )}
     </div>
-  </div>
-);
+  );
+};
+
