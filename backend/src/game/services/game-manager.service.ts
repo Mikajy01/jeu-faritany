@@ -140,11 +140,13 @@ export class GameManagerService {
       message:
         reason === 'TIMEOUT'
           ? `Temps global écoulé pour le joueur ${loserPlayer} ! Le joueur ${winner} gagne.`
-          : reason === 'FINISH'
-            ? winner === 0
-              ? 'Match nul !'
-              : `Partie terminée ! Le joueur ${winner} gagne.`
-            : `Partie terminée ! Le joueur ${winner} gagne.`,
+          : reason === 'RESIGN'
+            ? `Le joueur ${loserPlayer} a abandonné. Le joueur ${winner} gagne.`
+            : reason === 'FINISH'
+              ? winner === 0
+                ? 'Match nul !'
+                : `Partie terminée ! Le joueur ${winner} gagne.`
+              : `Partie terminée ! Le joueur ${winner} gagne.`,
     });
 
     this.logger.log(
@@ -209,7 +211,7 @@ export class GameManagerService {
   /**
    * Orchestrate AI move
    */
-  private async triggerAiMove(gameId: string) {
+  async triggerAiMove(gameId: string) {
     const room = this.gameRoomService.getRoom(gameId);
     if (!room) return;
 
@@ -296,7 +298,8 @@ export class GameManagerService {
    * Handle player disconnection
    */
   handlePlayerDisconnected(gameId: string, socketId: string) {
-    this.clearTimeouts(gameId);
+    // Ne pas arrêter les timers immédiatement pour permettre le re-join
+    // this.clearTimeouts(gameId);
 
     const room = this.gameRoomService.getRoom(gameId);
     if (room) {
@@ -330,7 +333,7 @@ export class GameManagerService {
    */
   afterPlayerJoined(gameId: string) {
     const room = this.gameRoomService.getRoom(gameId);
-    if (room && room.getPlayerCount() === 2) {
+    if (room && room.getOnlinePlayerCount() === 2) {
       room.getGameState().gameActive = true;
       this.scheduleTimeouts(gameId);
     }

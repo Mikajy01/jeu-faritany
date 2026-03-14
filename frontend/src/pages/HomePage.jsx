@@ -6,27 +6,49 @@ import { GameConfigModal } from "../components/ui/GameConfigModal";
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { socketRef, addLogEntry, gameState } = useGameContext();
+  const { isConnected, checkGameStatus } = useGameContext();
   const [configModal, setConfigModal] = useState({ isOpen: false, mode: null });
+  const [isChecking, setIsChecking] = useState(false);
 
-  // ✨ Redirection automatique si une partie est détectée (reconnexion)
+  // ✨ Vérification réelle au backend au montage
   useEffect(() => {
-    if (gameState?.gameId || gameState?.code) {
-      if (gameState.gameActive && !gameState.gameOver) {
-        console.log("🚀 Partie active détectée, redirection...");
-        navigate("/game");
-      } else if (!gameState.gameActive && !gameState.gameOver) {
-        console.log("⏳ Waiting room détectée, redirection...");
-        navigate("/waiting-room");
+    let isMounted = true;
+
+    const verifySavedGame = async () => {
+      const savedGameId = localStorage.getItem("faritany_current_game");
+      if (!savedGameId) return;
+
+      setIsChecking(true);
+      const status = await checkGameStatus();
+
+      if (isMounted && status) {
+        if (status.gameActive) {
+          console.log(
+            "🚀 Partie active confirmée par le backend, redirection...",
+          );
+          navigate("/game");
+        } else {
+          console.log(
+            "⏳ Salle d'attente confirmée par le backend, redirection...",
+          );
+          navigate("/waiting-room", {
+            state: {
+              roomCode: status.gameId,
+              gameType: "private", // On suppose privé si on a un code sauvegardé
+              isRejoin: true,
+            },
+          });
+        }
       }
-    }
-  }, [
-    gameState?.gameId,
-    gameState?.code,
-    gameState?.gameActive,
-    gameState?.gameOver,
-    navigate,
-  ]);
+      if (isMounted) setIsChecking(false);
+    };
+
+    verifySavedGame();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [checkGameStatus, navigate]);
 
   const handleConfirmConfig = useCallback(
     (settings) => {
@@ -36,7 +58,7 @@ export default function HomePage() {
       if (mode === "create") {
         // La création effective se fera dans WaitingRoomPage avec ces paramètres
         navigate("/waiting-room", {
-          state: { gameType: "private", settings },
+          state: { gameType: settings.type, settings },
         });
       } else if (mode === "ai") {
         navigate("/ai", {
@@ -68,8 +90,21 @@ export default function HomePage() {
           break;
       }
     },
-    [socketRef, addLogEntry, navigate],
+    [navigate],
   );
+
+  if (isChecking) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-slate-400 font-medium animate-pulse">
+            Vérification de la partie...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

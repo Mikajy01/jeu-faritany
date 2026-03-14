@@ -35,7 +35,14 @@ export default function GamePage() {
     gameState,
     gameLog,
     makeOptimisticMove,
+    validateJoin,
+    userId,
+    addLogEntry,
+    resignGame,
+    rematchRequestedBy, // ✨ Nouvel état du contexte
   } = useGameContext();
+
+  const isConnected = connectionStatus === "connected";
   const animationFrame = useAnimation();
   const [hoveredCoord, setHoveredCoord] = useState(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
@@ -53,6 +60,41 @@ export default function GamePage() {
     socket.on("gameCreated", handleGameCreated);
     return () => socket.off("gameCreated", handleGameCreated);
   }, [socketRef]);
+
+  // 🔄 Gestion de la reconnexion automatique
+  useEffect(() => {
+    if (isConnected && socketRef.current && !gameState.gameActive) {
+      const roomCode = localStorage.getItem("faritany_current_game");
+      if (roomCode) {
+        const joinCode = localStorage.getItem(`faritany_joincode_${roomCode}`);
+
+        console.log("🔄 Tentative de reconnexion REST:", roomCode);
+
+        validateJoin(roomCode, joinCode).then((data) => {
+          if (data.success) {
+            socketRef.current.emit("joinGame", {
+              code: roomCode,
+              userId,
+              joinCode: data.joinCode,
+            });
+            addLogEntry("Tentative de reconnexion...");
+          } else {
+            console.warn("❌ Échec de reconnexion REST:", data.error);
+            localStorage.removeItem("faritany_current_game");
+            navigate("/");
+          }
+        });
+      }
+    }
+  }, [
+    isConnected,
+    socketRef,
+    gameState.gameActive,
+    userId,
+    validateJoin,
+    addLogEntry,
+    navigate,
+  ]);
 
   // Fermer le drawer quand on clique en dehors (mobile uniquement)
   useEffect(() => {
@@ -276,6 +318,7 @@ export default function GamePage() {
                       gameLog={gameLog}
                       onResetGame={resetGame}
                       onBackToMenu={handleBackToMenu}
+                      onResign={resignGame} // ✨ Passer la fonction
                       roomCode={roomCode}
                     />
                   </div>
@@ -307,6 +350,7 @@ export default function GamePage() {
         reason={gameState.gameOver?.reason}
         onReset={resetGame}
         onBackToMenu={handleBackToMenu}
+        rematchRequestedBy={rematchRequestedBy}
       />
 
       <style jsx>{`

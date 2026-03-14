@@ -1,13 +1,18 @@
 import { GAME_CONSTANTS } from 'src/common/constants/game.constant';
 import { GameStateEntity } from './game-state.entity';
+import { Logger } from '@nestjs/common';
 
 export class GameRoomEntity {
   private players: Map<string, number>; // socketId -> playerNumber (1 or 2)
+  private userToPlayer: Map<string, number>; // userId -> playerNumber (1 or 2)
   private gameState: GameStateEntity;
   readonly gridSize: number;
 
+  private readonly logger = new Logger(GameRoomEntity.name);
+
   constructor() {
     this.players = new Map();
+    this.userToPlayer = new Map();
     this.gameState = new GameStateEntity();
     this.gridSize = GAME_CONSTANTS.GRID_SIZE;
   }
@@ -15,28 +20,77 @@ export class GameRoomEntity {
   /**
    * Adds a player to the room in an available slot (1 or 2)
    */
-  addPlayer(socketId: string): number | undefined {
-    if (this.players.size >= 2) return undefined;
+  addPlayer(socketId: string, userId?: string): number | undefined {
+  this.logger.log(`addPlayer called with socketId=${socketId}, userId=${userId}`);
 
-    // Trouver le slot libre (1 ou 2)
-    const usedSlots = Array.from(this.players.values());
-    const playerNumber = usedSlots.includes(1) ? 2 : 1;
+  // Si l'utilisateur est déjà présent via son socketId
+  if (this.players.has(socketId)) {
+    const player = this.players.get(socketId);
+    this.logger.log(
+      `Socket ${socketId} already registered as player ${player}`,
+    );
+    return player;
+  }
+
+  if (this.players.size >= 2) {
+    this.logger.log(
+      `Room already full (${this.players.size} players). Rejecting socket ${socketId}`,
+    );
+    return undefined;
+  }
+
+  // Utiliser le socketId comme userId de secours si absent
+  const effectiveUserId = userId || socketId;
+  this.logger.log(`Effective userId resolved to ${effectiveUserId}`);
+
+  // Si l'utilisateur a déjà un numéro attribué (reconnexion)
+  if (this.userToPlayer.has(effectiveUserId)) {
+    const playerNumber = this.userToPlayer.get(effectiveUserId)!;
+    this.logger.log(
+      `User ${effectiveUserId} reconnecting. Reassigning playerNumber=${playerNumber} to socket ${socketId}`,
+    );
 
     this.players.set(socketId, playerNumber);
-    
-    if (this.players.size === 2) {
-      this.gameState.gameActive = true;
-    }
     return playerNumber;
   }
 
+  // Trouver le slot libre (1 ou 2) en regardant les numéros déjà attribués
+  const usedSlots = Array.from(this.userToPlayer.values());
+  this.logger.log(`Currently used slots: ${usedSlots.join(', ') || 'none'}`);
+
+  const playerNumber = usedSlots.includes(1) ? 2 : 1;
+  this.logger.log(
+    `Assigning playerNumber=${playerNumber} to user ${effectiveUserId}`,
+  );
+
+  this.players.set(socketId, playerNumber);
+  this.userToPlayer.set(effectiveUserId, playerNumber);
+
+  this.logger.log(
+    `Player registered: socket=${socketId}, user=${effectiveUserId}, playerNumber=${playerNumber}`,
+  );
+
+  if (this.userToPlayer.size === 2) {
+    this.gameState.gameActive = true;
+    this.logger.log(`Two players connected. Game is now ACTIVE`);
+  } else {
+    this.logger.log(
+      `Waiting for second player. Current player count=${this.userToPlayer.size}`,
+    );
+  }
+
+  return playerNumber;
+}
+
+
   /**
-   * Removes a player and stops the game
+   * Removes a player (disconnect but keep user mapping for rejoin)
    */
   removePlayer(socketId: string): void {
     if (this.players.has(socketId)) {
       this.players.delete(socketId);
-      this.gameState.gameActive = false;
+      // On ne désactive plus le jeu immédiatement pour permettre le re-join
+      // this.gameState.gameActive = false; 
     }
   }
 
@@ -44,7 +98,15 @@ export class GameRoomEntity {
     return this.players.get(socketId);
   }
 
+  getPlayerNumberByUserId(userId: string): number | undefined {
+    return this.userToPlayer.get(userId);
+  }
+
   getPlayerCount(): number {
+    return this.userToPlayer.size;
+  }
+
+  getOnlinePlayerCount(): number {
     return this.players.size;
   }
 

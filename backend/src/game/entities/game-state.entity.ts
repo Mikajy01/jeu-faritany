@@ -17,6 +17,7 @@ export class GameStateEntity {
 
   gameType: 'public' | 'private' | 'AI';
   gameId: string;
+  joinCode?: string;
 
   deadStones: Set<string>;
   capturedAreas: Territory[];
@@ -100,6 +101,7 @@ export class GameStateEntity {
 
       gameType: this.gameType,
       gameId: this.gameId,
+      joinCode: this.joinCode,
 
       timeControl: { ...this.timeControl },
       clock: { ...this.clock },
@@ -110,7 +112,7 @@ export class GameStateEntity {
   }
 
   /**
-   * Reset complet de la partie
+   * Reset complet de la partie (garde le même ID pour la revanche)
    */
   reset() {
     this.grid = {};
@@ -120,7 +122,8 @@ export class GameStateEntity {
     this.scores = { player1: 0, player2: 0 };
     this.gameActive = false;
 
-    this.gameId = this.generateGameId();
+    // On ne change pas le gameId pour permettre la revanche dans la même room
+    // this.gameId = this.generateGameId();
 
     this.deadStones = new Set();
     this.capturedAreas = [];

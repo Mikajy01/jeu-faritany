@@ -13,6 +13,13 @@ const GameContext = createContext();
 
 export const GameProvider = ({ children }) => {
   const socketRef = useRef(null);
+  const [userId] = useState(() => {
+    const savedId = localStorage.getItem("faritany_user_id");
+    if (savedId) return savedId;
+    const newId = Math.random().toString(36).substring(2, 15);
+    localStorage.setItem("faritany_user_id", newId);
+    return newId;
+  });
   const [isConnected, setIsConnected] = useState(false); // ✨ Nouveau état
   const [connectionStatus, setConnectionStatus] = useState(
     "Connexion au serveur...",
@@ -50,6 +57,7 @@ export const GameProvider = ({ children }) => {
   const [roomCode, setRoomCode] = useState(null);
   const [playerCount, setPlayerCount] = useState(1);
   const [lastError, setLastError] = useState(null);
+  const [rematchRequestedBy, setRematchRequestedBy] = useState(null); // ✨ Nouveau: qui demande la revanche
   const [gameLog, setGameLog] = useState([
     "Bienvenue dans le jeu faritany !",
     "Placez vos points pour entourer les points et zones adverses.",
@@ -80,16 +88,7 @@ export const GameProvider = ({ children }) => {
     socket.on("connect", () => {
       setIsConnected(true);
       setConnectionStatus("Connecté");
-
-      // ✨ Tentative de reconnexion automatique via le code de la salle
-      const savedGameId = localStorage.getItem("faritany_current_game");
-      if (savedGameId) {
-        console.log(
-          "🔄 Tentative de rejoindre la partie sauvegardée:",
-          savedGameId,
-        );
-        socket.emit("joinGame", { code: savedGameId });
-      }
+      console.log("✅ Socket connecté");
     });
 
     socket.on("disconnect", (reason) => {
@@ -122,47 +121,59 @@ export const GameProvider = ({ children }) => {
     });
 
     const handleGameStateUpdate = (data, type) => {
-      console.log(`📩 Événement reçu: ${type}`, data);
-      const gridMap = new Map();
-      if (data.gameState && data.gameState.grid) {
-        Object.entries(data.gameState.grid).forEach(([key, value]) => {
-          if (value !== 0) gridMap.set(key, value);
-        });
-      }
+      console.log(`📩 Événement [${type}] reçu:`, data);
 
-      if (type === "gameStart" || type === "gameJoined") {
-        setGameType(data.gameState.gameType || "public");
-        setMoveTimeLimit(data.gameState.timeControl?.moveTimeLimit || 60);
-      }
+      setGameState((prev) => {
+        // Déterminer le nouveau playerId (priorité à la donnée reçue, sinon conserver l'existant)
+        const newPlayerId = data.playerId || prev.playerId;
 
-      setGameState((prev) => ({
-        ...prev,
-        playerId: data.playerId || prev.playerId,
-        gameId: data.gameState?.gameId || data.code || prev.gameId, // ✨ Mise à jour de l'ID
-        gameActive: data.gameState?.gameActive ?? prev.gameActive,
-        gameOver:
-          data.gameState?.gameActive === false && prev.gameActive
-            ? prev.gameOver
-            : data.gameState?.gameActive
-              ? null
-              : prev.gameOver,
-        grid: gridMap,
-        scores: data.gameState?.scores || prev.scores,
-        player1Score: data.gameState?.scores?.player1 || prev.player1Score,
-        player2Score: data.gameState?.scores?.player2 || prev.player2Score,
-        currentPlayer: data.gameState?.currentPlayer || prev.currentPlayer,
-        capturedAreas: data.gameState?.capturedAreas || prev.capturedAreas,
-        timeControl: data.gameState?.timeControl || prev.timeControl,
-        clock: data.gameState?.clock || prev.clock,
-        move: type === "moveMade" ? data.move : prev.move,
-        // ✨ On réinitialise le statut online quand on reçoit un état complet
-        player1Online: true,
-        player2Online: true,
-      }));
+        if (newPlayerId) {
+          console.log(`👤 Mon PlayerID est: ${newPlayerId}`);
+        }
+
+        const gridMap = new Map();
+        if (data.gameState && data.gameState.grid) {
+          Object.entries(data.gameState.grid).forEach(([key, value]) => {
+            if (value !== 0) gridMap.set(key, value);
+          });
+        }
+
+        if (type === "gameStart" || type === "gameJoined") {
+          setGameType(data.gameState?.gameType || "public");
+          setMoveTimeLimit(data.gameState?.timeControl?.moveTimeLimit || 60);
+        }
+
+        const newState = {
+          ...prev,
+          playerId: newPlayerId,
+          gameId: data.gameState?.gameId || data.code || prev.gameId,
+          gameActive: data.gameState?.gameActive ?? prev.gameActive,
+          gameOver:
+            data.gameState?.gameActive === false && prev.gameActive
+              ? prev.gameOver
+              : data.gameState?.gameActive
+                ? null
+                : prev.gameOver,
+          grid: data.gameState?.grid ? gridMap : prev.grid,
+          scores: data.gameState?.scores || prev.scores,
+          player1Score: data.gameState?.scores?.player1 || prev.player1Score,
+          player2Score: data.gameState?.scores?.player2 || prev.player2Score,
+          currentPlayer: data.gameState?.currentPlayer || prev.currentPlayer,
+          capturedAreas: data.gameState?.capturedAreas || prev.capturedAreas,
+          timeControl: data.gameState?.timeControl || prev.timeControl,
+          clock: data.gameState?.clock || prev.clock,
+          move: type === "moveMade" ? data.move : prev.move,
+          player1Online: true,
+          player2Online: true,
+        };
+
+        return newState;
+      });
+
       // Mettre à jour le nombre de joueurs si fourni
-      setPlayerCount(
-        (prev) => data.playerCount || data.gameState?.playerCount || prev,
-      );
+      if (data.playerCount || data.gameState?.playerCount) {
+        setPlayerCount(data.playerCount || data.gameState.playerCount);
+      }
     };
 
     socket.on("gameJoined", (data) => {
@@ -184,7 +195,16 @@ export const GameProvider = ({ children }) => {
     socket.on("moveMade", (data) => handleGameStateUpdate(data, "moveMade"));
     socket.on("gameReset", (data) => {
       setGameState((prev) => ({ ...prev, gameOver: null }));
+      setRematchRequestedBy(null); // ✨ Reset des demandes
       handleGameStateUpdate(data, "gameReset");
+      addLogEntry("🔄 La revanche commence ! Bonne chance.");
+    });
+
+    socket.on("rematchRequest", (data) => {
+      console.log("🔄 Demande de revanche reçue:", data);
+      setRematchRequestedBy(data.playerNumber);
+      // On ne vérifie pas playerId ici pour le log, car on l'a dans le state
+      addLogEntry(`🔄 L'adversaire souhaite rejouer !`);
     });
     socket.on("moveTimeout", (data) =>
       handleGameStateUpdate(data, "moveTimeout"),
@@ -311,45 +331,48 @@ export const GameProvider = ({ children }) => {
    */
   const makeOptimisticMove = useCallback(
     (x, y) => {
-      // Vérifier que c'est le tour du joueur
-      if (gameState.playerId !== gameState.currentPlayer) {
-        console.warn("❌ Ce n'est pas votre tour");
-        return false;
-      }
+      let success = false;
 
-      // Vérifier que la position est vide
-      const coordKey = `${x},${y}`;
-      if (gameState.grid.has(coordKey)) {
-        console.warn("❌ Position déjà occupée");
-        return false;
-      }
-
-      // 💾 Sauvegarder l'état actuel pour rollback
-      lastGameStateRef.current = {
-        ...gameState,
-        grid: new Map(gameState.grid),
-      };
-
-      // 🎯 Placer la pierre IMMÉDIATEMENT (optimistic)
       setGameState((prev) => {
-        const newGrid = new Map(prev.grid);
-        newGrid.set(coordKey, gameState.currentPlayer);
+        // Vérifier que c'est le tour du joueur
+        if (prev.playerId !== prev.currentPlayer) {
+          console.warn("❌ Ce n'est pas votre tour");
+          return prev;
+        }
 
+        // Vérifier que la position est vide
+        const coordKey = `${x},${y}`;
+        if (prev.grid.has(coordKey)) {
+          console.warn("❌ Position déjà occupée");
+          return prev;
+        }
+
+        // 💾 Sauvegarder l'état actuel pour rollback
+        lastGameStateRef.current = {
+          ...prev,
+          grid: new Map(prev.grid),
+        };
+
+        const newGrid = new Map(prev.grid);
+        newGrid.set(coordKey, prev.currentPlayer);
+
+        success = true;
         return {
           ...prev,
           grid: newGrid,
-          move: { x, y, player: gameState.currentPlayer },
-          // Le serveur confirmera les scores et le changement de joueur
+          move: { x, y, player: prev.currentPlayer },
         };
       });
 
-      // ✅ Envoyer au serveur (non-bloquant)
-      socketRef.current?.emit("makeMove", { x, y });
+      if (success) {
+        // ✅ Envoyer au serveur (non-bloquant)
+        socketRef.current?.emit("makeMove", { x, y });
+        console.log(`✅ Coup optimiste: (${x}, ${y}) envoyé`);
+      }
 
-      console.log(`✅ Coup optimiste: (${x}, ${y}) placé immédiatement`);
-      return true;
+      return success;
     },
-    [gameState, socketRef],
+    [socketRef],
   );
 
   const createGame = useCallback(
@@ -361,20 +384,200 @@ export const GameProvider = ({ children }) => {
 
   const joinGame = useCallback(
     (code) => {
-      socketRef.current?.emit("joinGame", { code });
+      const joinCode = localStorage.getItem(`faritany_joincode_${code}`);
+      socketRef.current?.emit("joinGame", { code, userId, joinCode });
     },
-    [socketRef],
+    [socketRef, userId],
   );
 
   const joinPublic = useCallback(
     (params) => {
-      socketRef.current?.emit("joinPublic", params);
+      socketRef.current?.emit("joinPublic", { ...params, userId });
     },
-    [socketRef],
+    [socketRef, userId],
+  );
+
+  const resignGame = useCallback(() => {
+    if (socketRef.current && isConnected && gameState.gameActive) {
+      socketRef.current.emit("resignGame");
+      addLogEntry("Vous avez abandonné la partie.");
+    }
+  }, [socketRef, isConnected, gameState.gameActive, addLogEntry]);
+
+  const requestRematch = useCallback(() => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit("resetGame");
+      setRematchRequestedBy(gameState.playerId);
+      addLogEntry("Vous avez proposé une revanche.");
+    }
+  }, [socketRef, isConnected, gameState.playerId, addLogEntry]);
+
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5555";
+
+  // ✨ Nouvelle fonction pour créer une salle via REST
+  const createRoom = useCallback(
+    async (settings) => {
+      try {
+        const response = await fetch(`${API_URL}/game/create`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(settings),
+        });
+        if (!response.ok) throw new Error("Erreur lors de la création");
+        const data = await response.json();
+        console.log("✅ Salle créée via REST:", data);
+        return data; // { gameId, type, joinCode }
+      } catch (err) {
+        console.error("❌ Erreur creation room:", err);
+        throw err;
+      }
+    },
+    [API_URL],
+  );
+
+  // ✨ Nouvelle fonction pour rejoindre une partie publique via REST
+  const joinPublicRoom = useCallback(
+    async (settings) => {
+      try {
+        const response = await fetch(`${API_URL}/game/join-public`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(settings),
+        });
+        if (!response.ok) throw new Error("Erreur matchmaking");
+        const data = await response.json();
+        console.log("✅ Matchmaking via REST:", data);
+        return data; // { gameId, gameType, isNew, playerNumber }
+      } catch (err) {
+        console.error("❌ Erreur matchmaking:", err);
+        throw err;
+      }
+    },
+    [API_URL],
+  );
+
+  // ✨ Nouvelle fonction pour valider une jointure via REST
+  const validateJoin = useCallback(
+    async (gameId, joinCode = null) => {
+      try {
+        const response = await fetch(`${API_URL}/game/validate-join`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ gameId, userId, joinCode }),
+        });
+        if (!response.ok) throw new Error("Erreur validation jointure");
+        const data = await response.json();
+        if (data.success && data.joinCode) {
+          // Stocker le joinCode pour reconnexion future
+          localStorage.setItem(`faritany_joincode_${gameId}`, data.joinCode);
+        }
+        return data; // { success, gameId, gameType, playerNumber, isRejoin, joinCode }
+      } catch (err) {
+        console.error("❌ Erreur validation join:", err);
+        throw err;
+      }
+    },
+    [API_URL, userId],
+  );
+
+  // ✨ Nouvelle fonction pour récupérer les infos d'une salle via REST
+  const getRoomInfo = useCallback(
+    async (gameId) => {
+      try {
+        const response = await fetch(`${API_URL}/game/room/${gameId}`);
+        if (!response.ok) {
+          if (response.status === 404) throw new Error("Salle introuvable.");
+          throw new Error("Erreur lors de la récupération des infos.");
+        }
+        return await response.json(); // { gameId, gameType, playerCount, gameActive }
+      } catch (err) {
+        console.error("❌ Erreur getRoomInfo:", err);
+        throw err;
+      }
+    },
+    [API_URL],
+  );
+
+  // ✨ Nouvelle fonction pour vérifier le statut d'une partie et se reconnecter si besoin
+  const checkGameStatus = useCallback(async () => {
+    const savedGameId = localStorage.getItem("faritany_current_game");
+    if (!savedGameId) return null;
+
+    try {
+      console.log(
+        "🔍 Vérification du statut de la partie sauvegardée:",
+        savedGameId,
+      );
+      const room = await getRoomInfo(savedGameId);
+
+      // Si la partie est terminée, on nettoie
+      if (room.gameOver) {
+        console.log("🏁 La partie sauvegardée est terminée.");
+        localStorage.removeItem("faritany_current_game");
+        return null;
+      }
+
+      // Valider si on peut toujours rejoindre (rejoin)
+      const joinCode = localStorage.getItem(`faritany_joincode_${savedGameId}`);
+      const validation = await validateJoin(savedGameId, joinCode);
+
+      if (!validation.success) {
+        console.warn(
+          "⚠️ Impossible de se reconnecter à la partie:",
+          validation.error,
+        );
+        localStorage.removeItem("faritany_current_game");
+        return null;
+      }
+
+      return {
+        gameId: savedGameId,
+        gameActive: validation.gameActive,
+        playerNumber: validation.playerNumber,
+        isRejoin: validation.isRejoin,
+      };
+    } catch (err) {
+      console.error("❌ Erreur lors de la vérification du statut:", err);
+      // Ne pas supprimer le localStorage immédiatement en cas d'erreur réseau
+      return null;
+    }
+  }, [getRoomInfo, validateJoin]);
+
+  // ✨ Nouvelle fonction unifiée pour rejoindre une salle (REST puis Socket)
+  const joinRoom = useCallback(
+    async (gameId, joinCode = null) => {
+      try {
+        const validation = await validateJoin(gameId, joinCode);
+
+        if (!validation.success) {
+          throw new Error(
+            validation.error || "Impossible de rejoindre la salle.",
+          );
+        }
+
+        // Si validation OK, on lance la connexion socket
+        if (socketRef.current && isConnected) {
+          socketRef.current.emit("joinGame", {
+            code: gameId,
+            userId,
+            joinCode: validation.joinCode || joinCode,
+          });
+          localStorage.setItem("faritany_current_game", gameId);
+          return validation;
+        } else {
+          throw new Error("Connexion au serveur perdue.");
+        }
+      } catch (err) {
+        console.error("❌ Erreur joinRoom:", err);
+        throw err;
+      }
+    },
+    [validateJoin, socketRef, isConnected, userId],
   );
 
   const value = {
     socketRef,
+    userId,
     isConnected, // ✨ Exposer le statut de connexion
     connectionStatus,
     gameState,
@@ -387,9 +590,15 @@ export const GameProvider = ({ children }) => {
     roomCode,
     playerCount,
     lastError,
-    createGame,
-    joinGame,
-    joinPublic,
+    createRoom,
+    joinPublicRoom,
+    validateJoin,
+    joinRoom, // ✨ Nouvelle fonction
+    getRoomInfo,
+    checkGameStatus,
+    resignGame,
+    requestRematch, // ✨ Nouvelle fonction
+    rematchRequestedBy, // ✨ Nouvel état
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

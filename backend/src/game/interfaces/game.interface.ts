@@ -56,6 +56,7 @@ export interface GameState {
   lastPlayer: number; // 1 or 2
   gameType: 'public' | 'private' | 'AI';
   gameId: string;
+  joinCode?: string; // 4-digit code for private rooms
 
   deadStones: string[];
   capturedAreas: Territory[];

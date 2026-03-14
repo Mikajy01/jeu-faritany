@@ -1,5 +1,13 @@
 import React from "react";
-import { Users, Copy, Share2, CheckCircle, ArrowLeft, Loader2 } from "lucide-react";
+import {
+  Users,
+  Copy,
+  Share2,
+  CheckCircle,
+  ArrowLeft,
+  Loader2,
+  Globe,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Grid component for the background
@@ -18,18 +26,30 @@ const Grid = () => (
 
 export function WaitingRoom({
   roomCode,
+  joinCode,
+  gameType,
   playerCount,
   onCancel,
   onStartGame,
   onShareLink,
 }) {
   const [copied, setCopied] = React.useState(false);
+  const [copiedJoinCode, setCopiedJoinCode] = React.useState(false);
 
   const handleCopyCode = () => {
     if (navigator.clipboard && roomCode) {
       navigator.clipboard.writeText(roomCode).then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+      });
+    }
+  };
+
+  const handleCopyJoinCode = () => {
+    if (navigator.clipboard && joinCode) {
+      navigator.clipboard.writeText(joinCode).then(() => {
+        setCopiedJoinCode(true);
+        setTimeout(() => setCopiedJoinCode(false), 2000);
       });
     }
   };
@@ -100,58 +120,73 @@ export function WaitingRoom({
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className="bg-slate-900/60 rounded-2xl p-6 border border-slate-700/50 relative group"
+                  className={`grid grid-cols-1 ${gameType === "private" ? "md:grid-cols-2" : ""} gap-6`}
                 >
-                  <div className="text-center">
-                    <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-4">
-                      Code de la partie
-                    </p>
-                    <div className="relative inline-block">
-                      <div
-                        onClick={handleCopyCode}
-                        className="text-4xl md:text-5xl font-mono font-bold text-white tracking-[0.2em] cursor-pointer hover:text-fuchsia-400 transition-colors select-all"
-                      >
+                  {/* Room ID */}
+                  <div className="bg-slate-900/60 rounded-2xl p-6 border border-slate-700/50 relative group overflow-hidden">
+                    <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                      <Users className="w-12 h-12" />
+                    </div>
+                    <div className="relative z-10 flex flex-col items-center">
+                      <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-500 mb-2">
+                        ID de la salle
+                      </div>
+                      <div className="text-3xl font-mono font-bold text-fuchsia-400 tracking-wider mb-4">
                         {roomCode}
                       </div>
-                      <AnimatePresence>
-                        {copied && (
-                          <motion.div
-                            initial={{ scale: 0, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0, opacity: 0 }}
-                            className="absolute -top-4 -right-8"
-                          >
-                            <CheckCircle className="w-6 h-6 text-emerald-400" />
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                      <div className="flex gap-2 w-full">
+                        <button
+                          onClick={handleCopyCode}
+                          className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all border border-slate-700 text-xs font-bold text-slate-300"
+                        >
+                          {copied ? (
+                            <>
+                              <CheckCircle className="w-4 h-4 text-emerald-400" />
+                              Copié
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-4 h-4" />
+                              Copier ID
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-500 mt-4 group-hover:text-slate-400 transition-colors">
-                      Cliquez sur le code pour le copier
-                    </p>
                   </div>
 
-                  {/* Share Buttons */}
-                  <div className="grid grid-cols-2 gap-4 mt-8">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={handleCopyCode}
-                      className="flex items-center justify-center gap-3 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-semibold transition-all border border-slate-700"
-                    >
-                      <Copy className="w-4 h-4 text-fuchsia-400" />
-                      Copier
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={handleShareLink}
-                      className="flex items-center justify-center gap-3 px-4 py-3 bg-gradient-to-r from-fuchsia-600 to-purple-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-purple-900/20 transition-all"
-                    >
-                      <Share2 className="w-4 h-4" />
-                      Partager
-                    </motion.button>
-                  </div>
+                  {/* Join Code (Private only) */}
+                  {gameType === "private" && joinCode && (
+                    <div className="bg-slate-900/60 rounded-2xl p-6 border border-emerald-500/20 relative group overflow-hidden">
+                      <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <CheckCircle className="w-12 h-12 text-emerald-400" />
+                      </div>
+                      <div className="relative z-10 flex flex-col items-center">
+                        <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-500 mb-2">
+                          Code secret (4 chiffres)
+                        </div>
+                        <div className="text-3xl font-mono font-bold text-emerald-400 tracking-widest mb-4">
+                          {joinCode}
+                        </div>
+                        <button
+                          onClick={handleCopyJoinCode}
+                          className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-xl transition-all border border-emerald-500/30 text-xs font-bold text-emerald-400"
+                        >
+                          {copiedJoinCode ? (
+                            <>
+                              <CheckCircle className="w-4 h-4" />
+                              Copié
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-4 h-4" />
+                              Copier Code
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -170,11 +205,13 @@ export function WaitingRoom({
                   <div className="h-px w-12 bg-slate-700" />
 
                   <div className="relative">
-                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold border-2 transition-all duration-500 ${
-                      playerCount >= 2 
-                      ? "bg-gradient-to-br from-blue-500 to-cyan-600 text-white border-slate-700 shadow-xl" 
-                      : "bg-slate-800 text-slate-600 border-slate-700/50"
-                    }`}>
+                    <div
+                      className={`w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold border-2 transition-all duration-500 ${
+                        playerCount >= 2
+                          ? "bg-gradient-to-br from-blue-500 to-cyan-600 text-white border-slate-700 shadow-xl"
+                          : "bg-slate-800 text-slate-600 border-slate-700/50"
+                      }`}
+                    >
                       {playerCount >= 2 ? "2" : "?"}
                     </div>
                     {playerCount < 2 && (
@@ -189,7 +226,9 @@ export function WaitingRoom({
                     {playerCount}/2 Joueurs
                   </span>
                   <p className="text-sm text-slate-500 mt-1">
-                    {playerCount < 2 ? "Recherche d'un adversaire..." : "Adversaire prêt !"}
+                    {playerCount < 2
+                      ? "Recherche d'un adversaire..."
+                      : "Adversaire prêt !"}
                   </p>
                 </div>
               </div>

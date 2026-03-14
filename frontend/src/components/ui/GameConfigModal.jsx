@@ -7,10 +7,13 @@ import {
   Play,
   ChevronRight,
   Trophy,
+  Globe,
+  Users,
 } from "lucide-react";
 
 export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
   const [gameMode, setGameMode] = useState("TIME"); // "TIME" or "SCORE"
+  const [visibility, setVisibility] = useState("public"); // "public" or "private"
   const [moveTime, setMoveTime] = useState(30);
   const [totalTime, setTotalTime] = useState(600);
   const [targetScore, setTargetScore] = useState(20);
@@ -37,6 +40,11 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
     { label: "30 pts", value: 30 },
     { label: "50 pts", value: 50 },
     { label: "100 pts", value: 100 },
+  ];
+
+  const visibilityOptions = [
+    { id: "public", label: "Partie Publique", icon: Globe },
+    { id: "private", label: "Partie Privée", icon: Users },
   ];
 
   if (!isOpen) return null;
@@ -77,6 +85,42 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
           </div>
 
           <div className="p-8 space-y-8">
+            {/* Visibility Selection (Public/Private) - Only for 'create' mode */}
+            {mode === "create" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-slate-500" />
+                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+                      Type de Salon
+                    </span>
+                  </div>
+                  <span className="text-xs font-mono text-cyan-400 bg-cyan-400/10 px-2 py-1 rounded">
+                    {visibility === "public" ? "Matchmaking" : "Code Requis"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {visibilityOptions.map((opt) => {
+                    const Icon = opt.icon;
+                    return (
+                      <button
+                        key={opt.id}
+                        onClick={() => setVisibility(opt.id)}
+                        className={`flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all border ${
+                          visibility === opt.id
+                            ? "bg-cyan-600 border-cyan-500 text-white shadow-lg shadow-cyan-900/20"
+                            : "bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800 hover:border-slate-600"
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Game Mode Selection */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -219,6 +263,7 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
                   gameDurationLimit: totalTime,
                   gameMode: gameMode,
                   targetScore: targetScore,
+                  type: mode === "ai" ? "AI" : visibility,
                 })
               }
               className="w-full bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-500 hover:to-purple-600 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-xl shadow-purple-900/20 flex items-center justify-center gap-3 group"

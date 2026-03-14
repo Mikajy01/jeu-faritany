@@ -12,6 +12,7 @@ import {
   Terminal,
   Trophy,
   Timer,
+  Flag,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -22,6 +23,7 @@ export const InfoPanel = ({
   gameLog,
   onResetGame,
   onBackToMenu,
+  onResign, // ✨ Nouvelle prop pour abandonner
   roomCode,
 }) => {
   const [copied, setCopied] = React.useState(false);
@@ -171,15 +173,35 @@ export const InfoPanel = ({
             />
           </div>
 
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={onResetGame}
-            className="w-full bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-500 hover:to-purple-600 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-lg shadow-purple-900/20 flex items-center justify-center gap-3"
-          >
-            <RefreshCw className="w-5 h-5" />
-            {isGameOver ? "Nouvelle Partie" : "Réinitialiser"}
-          </motion.button>
+          <div className="flex gap-3">
+            {isGameOver ? (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={onResetGame}
+                className="flex-1 bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-500 hover:to-purple-600 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-lg shadow-purple-900/20 flex items-center justify-center gap-3"
+              >
+                <RefreshCw className="w-5 h-5" />
+                Nouvelle Partie
+              </motion.button>
+            ) : (
+              onResign && (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    if (window.confirm("Voulez-vous vraiment abandonner ?")) {
+                      onResign();
+                    }
+                  }}
+                  className="flex-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 font-bold py-4 px-6 rounded-2xl transition-all border border-rose-500/30 flex items-center justify-center gap-3"
+                >
+                  <Flag className="w-5 h-5" />
+                  Abandonner
+                </motion.button>
+              )
+            )}
+          </div>
         </div>
       </div>
 

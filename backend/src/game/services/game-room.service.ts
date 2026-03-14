@@ -20,12 +20,13 @@ export class GameRoomService {
 
   /**
    * Create a new room with optional type (public|private|AI)
-   * Returns the created game id
+   * Returns the created game id and join code if private
    */
   createRoom(
     type: 'public' | 'private' | 'AI' = 'public',
-    ownerSocketId: string,
     createGameDto: CreateGameDto,
+    ownerSocketId?: string,
+    ownerUserId?: string,
   ) {
     const newRoom = new GameRoomEntity();
     const gameState = newRoom.getGameState();
@@ -45,19 +46,29 @@ export class GameRoomService {
     gameState.applyTimeControl();
 
     let gameId = gameState.gameId;
+    let joinCode: string | undefined;
+
     if (type !== 'AI') {
       gameId = this.generateUniqueCode(6);
       gameState.gameId = gameId;
+
+      if (type === 'private') {
+        joinCode = Math.floor(1000 + Math.random() * 9000).toString();
+        gameState.joinCode = joinCode;
+      }
     }
 
-    newRoom.addPlayer(ownerSocketId);
+    if (ownerSocketId) {
+      newRoom.addPlayer(ownerSocketId, ownerUserId);
+      this.socketToRoom.set(ownerSocketId, gameId);
+    }
+
     this.gameRooms.set(gameId, newRoom);
-    this.socketToRoom.set(ownerSocketId, gameId);
 
     this.logger.log(
-      `Created ${type} room ${gameId} by player ${ownerSocketId}`,
+      `Created ${type} room ${gameId} ${joinCode ? `with joinCode ${joinCode}` : ''}`,
     );
-    return { gameId, type };
+    return { gameId, type, joinCode };
   }
 
   /**
@@ -97,58 +108,94 @@ export class GameRoomService {
   }
 
   /**
-   * Join a room by its game id/code
+   * Bind a socket ID to a room ID
    */
-  joinRoomByCode(
-    gameId: string,
-    socketId: string,
-  ): { room?: GameRoomEntity; playerNumber?: number; error?: string } {
-    const room = this.gameRooms.get(gameId);
-    if (!room) return { error: 'Room not found' };
-
-    if (room.getPlayerCount() >= 2) return { error: 'Room full' };
-
-    const playerNumber = room.addPlayer(socketId);
-    if (!playerNumber) return { error: 'Room full' };
-
+  bindSocketToRoom(socketId: string, gameId: string): void {
     this.socketToRoom.set(socketId, gameId);
-
-    this.logger.log(
-      `Player ${socketId} joined room ${gameId} as Player ${playerNumber}`,
-    );
-    return { room, playerNumber };
+    this.logger.log(`Socket ${socketId} bound to room ${gameId}`);
   }
 
   /**
-   * Join a random public room.
+   * Verify if a player can join or rejoin a room
    */
-  joinRandomPublicRoom(
-    socketId: string,
+  validateJoinRequest(
+    gameId: string,
+    userId: string,
+    joinCode?: string,
+  ): { 
+    room?: GameRoomEntity; 
+    playerNumber?: number; 
+    error?: string;
+    isRejoin?: boolean;
+  } {
+    const room = this.gameRooms.get(gameId);
+    if (!room) return { error: 'Room not found' };
+
+    const gameState = room.getGameState();
+
+    // 1. Check if it's a re-join (player already in room by userId)
+    const existingPlayerNumber = room.getPlayerNumberByUserId(userId);
+    if (existingPlayerNumber) {
+      return { room, playerNumber: existingPlayerNumber, isRejoin: true };
+    }
+
+    // 2. New player joining - Verify join code for private rooms
+    if (gameState.gameType === 'private') {
+      if (!joinCode || gameState.joinCode !== joinCode) {
+        return { error: 'Invalid join code' };
+      }
+    }
+
+    // 3. Check if room is full
+    // Utiliser getPlayerCount qui compte les entrées dans userToPlayer
+    if (room.getPlayerCount() >= 2) return { error: 'Room full' };
+
+    // Note: On ne détermine pas le playerNumber définitif ici pour éviter les race conditions
+    // On renvoie juste une estimation pour l'UI REST
+    return { room, playerNumber: room.getPlayerCount() + 1, isRejoin: false };
+  }
+
+  /**
+   * Join or create a random public room.
+   */
+  joinOrCreateRandomPublicRoom(
+    socketId?: string,
     createGameDto: CreateGameDto = {},
+    userId?: string,
   ): {
     room: GameRoomEntity;
     playerNumber: number;
+    gameId: string;
+    isNew: boolean;
   } {
     for (const [roomId, room] of this.gameRooms) {
       if (
         room.getPlayerCount() === 1 &&
         room.getGameState().gameType === 'public'
       ) {
-        const playerNumber = room.addPlayer(socketId)!;
-        this.socketToRoom.set(socketId, roomId);
+        let playerNumber = 2;
+        if (socketId) {
+          playerNumber = room.addPlayer(socketId, userId)!;
+          this.socketToRoom.set(socketId, roomId);
+        }
 
         this.logger.log(
-          `Player ${socketId} joined public room ${roomId} as Player ${playerNumber}`,
+          `${socketId ? `Player ${socketId}` : 'A player'} joined public room ${roomId} as Player ${playerNumber}`,
         );
-        return { room, playerNumber };
+        return { room, playerNumber, gameId: roomId, isNew: false };
       }
     }
 
     // No available public room, create one with the provided settings
-    const { gameId } = this.createRoom('public', socketId, createGameDto);
+    const { gameId } = this.createRoom(
+      'public',
+      createGameDto,
+      socketId,
+      userId,
+    );
     const room = this.gameRooms.get(gameId)!;
 
-    return { room, playerNumber: 1 };
+    return { room, playerNumber: 1, gameId, isNew: true };
   }
 
   /**

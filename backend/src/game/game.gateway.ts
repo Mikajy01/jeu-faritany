@@ -78,7 +78,12 @@ export class GameGateway
     this.logger.log(`Create game request: ${JSON.stringify(payload)}`);
     const type = payload?.type || 'public';
 
-    const result = this.gameRoomService.createRoom(type, client.id, payload);
+    const result = this.gameRoomService.createRoom(
+      type as any,
+      payload,
+      client.id,
+      payload.userId,
+    );
     const gameId = result.gameId;
 
     client.join(gameId);
@@ -92,7 +97,9 @@ export class GameGateway
 
     if (type === 'AI') {
       // For AI games, immediately join the AI bot
-      this.gameRoomService.joinRoomByCode(gameId, GAME_CONSTANTS.AI_PLAYER_ID);
+      this.gameRoomService
+        .getRoom(gameId)
+        ?.addPlayer(GAME_CONSTANTS.AI_PLAYER_ID, 'AI_USER');
 
       const room = this.gameRoomService.getRoom(gameId);
       if (room) {
@@ -100,10 +107,9 @@ export class GameGateway
           gameState: room.getGameState().toSerializable(),
           playerCount: 2,
         });
+        this.gameManagerService.afterGameCreated(gameId, type);
       }
     }
-
-    this.gameManagerService.afterGameCreated(gameId, type);
     this.logger.log(`${type} game created: ${gameId} by player 1`);
   }
 
@@ -122,31 +128,46 @@ export class GameGateway
       return;
     }
 
-    const result = this.gameRoomService.joinRoomByCode(code, client.id);
+    const result = this.gameRoomService.validateJoinRequest(
+      code,
+      payload.userId || client.id, // Fallback au socket ID si pas de userId
+      payload.joinCode,
+    );
     if (result.error) {
       client.emit('joinError', { reason: result.error });
       return;
     }
 
     const room = result.room!;
-    const playerNumber = result.playerNumber!;
+    const playerNumber = room.addPlayer(client.id, payload.userId)!;
     const gameId = room.getGameState().gameId;
+
+    // ✨ Lier le socket à la room pour les futurs coups
+    this.gameRoomService.bindSocketToRoom(client.id, gameId);
 
     client.join(gameId);
     client.join(`${gameId}-p${playerNumber}`);
 
-    this.notificationService.notifyPlayer(gameId, playerNumber, 'gameJoined', {
+    // Utiliser client.emit directement pour être sûr qu'il reçoive son playerId
+    client.emit('gameJoined', {
       playerId: playerNumber,
       gameState: room.getGameState().toSerializable(),
       playerCount: room.getPlayerCount(),
+      onlineCount: room.getOnlinePlayerCount(),
     });
 
-    if (room.getPlayerCount() === 2) {
+    if (room.getOnlinePlayerCount() === 2) {
       this.notificationService.notifyBothPlayers(gameId, 'gameStart', {
         gameState: room.getGameState().toSerializable(),
         playerCount: 2,
       });
       this.gameManagerService.afterPlayerJoined(gameId);
+    } else {
+      // Re-notifier l'autre joueur que quelqu'un est là
+      this.notificationService.notifyBothPlayers(gameId, 'playerJoined', {
+        playerCount: room.getPlayerCount(),
+        onlineCount: room.getOnlinePlayerCount(),
+      });
     }
 
     this.logger.log(
@@ -163,11 +184,16 @@ export class GameGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: CreateGameDto,
   ) {
-    const { room, playerNumber } = this.gameRoomService.joinRandomPublicRoom(
-      client.id,
-      payload,
-    );
+    const { room, playerNumber } =
+      this.gameRoomService.joinOrCreateRandomPublicRoom(
+        client.id,
+        payload,
+        payload.userId,
+      );
     const gameId = room.getGameState().gameId;
+
+    // ✨ Lier le socket à la room
+    this.gameRoomService.bindSocketToRoom(client.id, gameId);
 
     client.join(gameId);
     client.join(`${gameId}-p${playerNumber}`);
@@ -178,7 +204,7 @@ export class GameGateway
       playerCount: room.getPlayerCount(),
     });
 
-    if (room.getPlayerCount() === 2) {
+    if (room.getOnlinePlayerCount() === 2) {
       this.notificationService.notifyBothPlayers(gameId, 'gameStart', {
         gameState: room.getGameState().toSerializable(),
         playerCount: 2,
@@ -197,9 +223,16 @@ export class GameGateway
   @SubscribeMessage('resignGame')
   handleResign(@ConnectedSocket() client: Socket) {
     const gameId = this.gameRoomService.getGameIdBySocket(client.id);
-    if (gameId) {
-      this.gameManagerService.handlePlayerDisconnected(gameId, client.id);
-    }
+    if (!gameId) return;
+
+    const room = this.gameRoomService.getRoom(gameId);
+    if (!room) return;
+
+    const playerNumber = room.getPlayerNumber(client.id);
+    if (!playerNumber) return;
+
+    this.gameManagerService.handleGameOver(gameId, playerNumber, 'RESIGN');
+    this.logger.log(`Player ${playerNumber} resigned in game ${gameId}`);
   }
 
   /**
@@ -248,7 +281,7 @@ export class GameGateway
   }
 
   /**
-   * Handle game reset
+   * Handle game reset (rematch request)
    */
   @SubscribeMessage('resetGame')
   handleResetGame(@ConnectedSocket() client: Socket) {
@@ -258,16 +291,52 @@ export class GameGateway
       return;
     }
 
-    const success = this.gameRoomService.resetGame(gameId);
-    if (success) {
-      const room = this.gameRoomService.getRoom(gameId);
-      if (room) {
+    const room = this.gameRoomService.getRoom(gameId);
+    if (!room) return;
+
+    const playerNumber = room.getPlayerNumber(client.id);
+    if (!playerNumber) return;
+
+    const gameState = room.getGameState();
+    const type = gameState.gameType;
+
+    if (type === 'AI') {
+      // Pour l'IA, on reset immédiatement
+      const success = this.gameRoomService.resetGame(gameId);
+      if (success) {
         this.notificationService.notifyBothPlayers(gameId, 'gameReset', {
           gameState: room.getGameState().toSerializable(),
         });
+        // Redémarrer les timers/IA
+        this.gameManagerService.afterGameCreated(gameId, 'AI');
       }
     } else {
-      client.emit('resetError', { reason: 'Failed to reset game' });
+      // Pour le multijoueur, on gère les intentions de revanche
+      if (!gameState['rematchVotes']) {
+        gameState['rematchVotes'] = new Set<number>();
+      }
+
+      const votes = gameState['rematchVotes'] as Set<number>;
+      votes.add(playerNumber);
+
+      if (votes.size === 2) {
+        // Les deux joueurs veulent rejouer
+        const success = this.gameRoomService.resetGame(gameId);
+        if (success) {
+          delete gameState['rematchVotes'];
+          this.notificationService.notifyBothPlayers(gameId, 'gameReset', {
+            gameState: room.getGameState().toSerializable(),
+          });
+          // Redémarrer les timers
+          this.gameManagerService.afterPlayerJoined(gameId);
+        }
+      } else {
+        // Un seul joueur a voté, on notifie l'autre
+        this.notificationService.notifyBothPlayers(gameId, 'rematchRequest', {
+          playerNumber,
+          message: `Le joueur ${playerNumber} souhaite rejouer !`,
+        });
+      }
     }
   }
 }

@@ -1,4 +1,4 @@
-import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class CreateGameDto {
   @IsOptional()
@@ -26,4 +26,8 @@ export class CreateGameDto {
   @Min(5)
   @Max(100)
   targetScore?: number; // score to reach to win
+
+  @IsOptional()
+  @IsString()
+  userId?: string;
 }

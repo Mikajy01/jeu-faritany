@@ -18,9 +18,13 @@ export const GameOverModal = ({
   reason,
   onReset,
   onBackToMenu,
+  rematchRequestedBy, // ✨ Nouveau
 }) => {
   const isWinner = winner === myPlayerId;
   const isDraw = winner === 0;
+  const hasRequestedRematch = rematchRequestedBy === myPlayerId;
+  const opponentRequestedRematch =
+    rematchRequestedBy && rematchRequestedBy !== myPlayerId;
 
   useEffect(() => {
     if (isOpen && isWinner) {
@@ -115,7 +119,11 @@ export const GameOverModal = ({
               <br />
               <span className="mt-1 block text-[10px] opacity-50 uppercase tracking-widest">
                 Raison :{" "}
-                {reason === "TIMEOUT" ? "Temps écoulé" : "Fin de partie"}
+                {reason === "TIMEOUT"
+                  ? "Temps écoulé"
+                  : reason === "RESIGN"
+                    ? "Abandon"
+                    : "Fin de partie"}
               </span>
             </p>
 
@@ -145,14 +153,25 @@ export const GameOverModal = ({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={onReset}
+                disabled={hasRequestedRematch}
                 className={`flex w-full items-center justify-center gap-2 rounded-2xl py-4 font-black uppercase tracking-widest transition-all shadow-lg ${
-                  isWinner
-                    ? "bg-yellow-500 text-slate-950 hover:bg-yellow-400 shadow-yellow-500/20"
-                    : "bg-white text-slate-950 hover:bg-slate-100"
+                  hasRequestedRematch
+                    ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                    : opponentRequestedRematch
+                      ? "bg-emerald-500 text-white hover:bg-emerald-400 shadow-emerald-500/20"
+                      : isWinner
+                        ? "bg-yellow-500 text-slate-950 hover:bg-yellow-400 shadow-yellow-500/20"
+                        : "bg-white text-slate-950 hover:bg-slate-100"
                 }`}
               >
-                <RotateCcw className="h-5 w-5" />
-                Rejouer
+                <RotateCcw
+                  className={`h-5 w-5 ${hasRequestedRematch ? "animate-spin" : ""}`}
+                />
+                {hasRequestedRematch
+                  ? "Attente adversaire..."
+                  : opponentRequestedRematch
+                    ? "Accepter Revanche"
+                    : "Rejouer"}
               </motion.button>
 
               <button

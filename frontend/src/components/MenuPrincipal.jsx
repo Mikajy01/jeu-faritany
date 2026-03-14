@@ -21,8 +21,8 @@ export const MenuPrincipal = ({ onSelectMode }) => {
     {
       id: "create",
       icon: Plus,
-      title: "Créer une partie privée",
-      description: "Invitez un ami pour un duel stratégique.",
+      title: "Créer une partie",
+      description: "Lancez un duel public ou privé entre amis.",
       color: "text-cyan-300",
     },
     {
@@ -31,13 +31,6 @@ export const MenuPrincipal = ({ onSelectMode }) => {
       title: "Rejoindre une partie",
       description: "Entrez le code d'une salle pour jouer.",
       color: "text-fuchsia-300",
-    },
-    {
-      id: "random",
-      icon: Globe,
-      title: "Partie aléatoire",
-      description: "Affrontez un adversaire du monde entier.",
-      color: "text-lime-300",
     },
     {
       id: "ai",
