@@ -194,8 +194,13 @@ export const GameProvider = ({ children }) => {
     });
     socket.on("moveMade", (data) => handleGameStateUpdate(data, "moveMade"));
     socket.on("gameReset", (data) => {
-      setGameState((prev) => ({ ...prev, gameOver: null }));
-      setRematchRequestedBy(null); // ✨ Reset des demandes
+      console.log("🔄 Revanche acceptée, réinitialisation...");
+      setGameState((prev) => ({
+        ...prev,
+        gameOver: null,
+        gameActive: true, // ✨ Forcer l'activation immédiate
+      }));
+      setRematchRequestedBy(null);
       handleGameStateUpdate(data, "gameReset");
       addLogEntry("🔄 La revanche commence ! Bonne chance.");
     });

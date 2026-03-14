@@ -324,6 +324,10 @@ export class GameGateway
         const success = this.gameRoomService.resetGame(gameId);
         if (success) {
           delete gameState['rematchVotes'];
+
+          // ✨ IMPORTANT: S'assurer que gameActive est bien à true
+          room.getGameState().gameActive = true;
+
           this.notificationService.notifyBothPlayers(gameId, 'gameReset', {
             gameState: room.getGameState().toSerializable(),
           });

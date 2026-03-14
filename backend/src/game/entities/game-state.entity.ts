@@ -120,10 +120,7 @@ export class GameStateEntity {
     this.lastPlayer = 0;
 
     this.scores = { player1: 0, player2: 0 };
-    this.gameActive = false;
-
-    // On ne change pas le gameId pour permettre la revanche dans la même room
-    // this.gameId = this.generateGameId();
+    this.gameActive = true; // ✨ Redémarrer immédiatement après reset
 
     this.deadStones = new Set();
     this.capturedAreas = [];
