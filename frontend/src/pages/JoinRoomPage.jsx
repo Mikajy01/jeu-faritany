@@ -6,12 +6,12 @@ import { motion, AnimatePresence } from "framer-motion";
 
 // Grid component for the background
 const Grid = () => (
-  <div className="absolute inset-0 z-0">
+  <div className="absolute inset-0 z-0 pointer-events-none">
     <div
-      className="absolute inset-0 bg-repeat opacity-20"
+      className="absolute inset-0 bg-repeat opacity-[0.05] dark:opacity-20"
       style={{
         backgroundImage:
-          "radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.1) 1px, transparent 0)",
+          "radial-gradient(circle at 1px 1px, var(--text-muted) 1px, transparent 0)",
         backgroundSize: "2rem 2rem",
       }}
     />
@@ -36,8 +36,11 @@ const JoinRoomPage = () => {
     addLogEntry,
     userId,
     getRoomInfo,
-    joinRoom, // ✨ Utiliser la fonction unifiée
+    joinRoom,
+    theme,
   } = useGameContext();
+
+  const isDarkMode = theme === "dark";
 
   useEffect(() => {
     let isMounted = true;
@@ -155,24 +158,24 @@ const JoinRoomPage = () => {
 
   if (isLoading) {
     return (
-      <div className="relative min-h-screen w-full overflow-hidden flex flex-col items-center justify-center bg-slate-900 text-white p-4">
-        <div className="absolute inset-0 z-0 h-full w-full bg-gradient-to-r from-slate-900 via-black to-slate-900 animate-gradient-x" />
+      <div className="relative min-h-screen w-full overflow-hidden flex flex-col items-center justify-center bg-[var(--bg-primary)] text-[var(--text-primary)] p-4 transition-colors duration-300">
+        <div className="absolute inset-0 z-0 h-full w-full bg-gradient-to-r from-[var(--bg-primary)] via-[var(--bg-secondary)] to-[var(--bg-primary)] animate-gradient-x opacity-50 dark:opacity-100" />
         <Grid />
 
         <div className="relative z-10 flex flex-col items-center gap-6">
           <div className="relative">
-            <div className="w-24 h-24 rounded-3xl bg-slate-800/50 border border-slate-700 flex items-center justify-center backdrop-blur-xl">
-              <Loader2 className="w-10 h-10 text-fuchsia-500 animate-spin" />
+            <div className="w-24 h-24 rounded-3xl bg-[var(--bg-surface)] border border-[var(--border-primary)] flex items-center justify-center backdrop-blur-xl">
+              <Loader2 className="w-10 h-10 text-[var(--accent-fuchsia)] animate-spin" />
             </div>
-            <div className="absolute -inset-4 bg-fuchsia-500/20 blur-3xl rounded-full animate-pulse -z-10" />
+            <div className="absolute -inset-4 bg-[var(--accent-fuchsia)]/20 blur-3xl rounded-full animate-pulse -z-10" />
           </div>
           <div className="text-center">
-            <h2 className="text-xl font-bold tracking-tight text-white mb-2">
-              Connexion à la partie
+            <h2 className="text-xl font-bold tracking-tight text-[var(--text-primary)] mb-2 uppercase">
+              Connexion...
             </h2>
-            <p className="text-slate-400">
-              Code:{" "}
-              <span className="font-mono text-fuchsia-400 font-bold">
+            <p className="text-[var(--text-secondary)]">
+              Salle:{" "}
+              <span className="font-mono text-[var(--accent-fuchsia)] font-black">
                 {roomCode}
               </span>
             </p>
@@ -183,8 +186,8 @@ const JoinRoomPage = () => {
   }
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center bg-slate-900 text-white p-4">
-      <div className="absolute inset-0 z-0 h-full w-full bg-gradient-to-r from-slate-900 via-black to-slate-900 animate-gradient-x" />
+    <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center bg-[var(--bg-primary)] text-[var(--text-primary)] p-4 transition-colors duration-300">
+      <div className="absolute inset-0 z-0 h-full w-full bg-gradient-to-r from-[var(--bg-primary)] via-[var(--bg-secondary)] to-[var(--bg-primary)] animate-gradient-x opacity-50 dark:opacity-100" />
       <Grid />
 
       <motion.div
@@ -193,29 +196,29 @@ const JoinRoomPage = () => {
         transition={{ duration: 0.5 }}
         className="relative z-10 w-full max-w-md"
       >
-        <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8 space-y-8">
+        <div className="bg-[var(--bg-surface)] backdrop-blur-xl rounded-3xl border border-[var(--border-primary)] shadow-2xl p-8 space-y-8">
           <div className="text-center">
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-              className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-fuchsia-500/20 to-purple-600/20 rounded-2xl mb-6 border border-purple-500/30"
+              className="inline-flex items-center justify-center w-20 h-20 bg-[var(--accent-fuchsia)]/10 rounded-2xl mb-6 border border-[var(--accent-fuchsia)]/20"
             >
-              <Hash className="w-10 h-10 text-fuchsia-400" />
+              <Hash className="w-10 h-10 text-[var(--accent-fuchsia)]" />
             </motion.div>
-            <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400 mb-2">
-              Rejoindre une partie
+            <h2 className="text-3xl font-black text-[var(--text-primary)] mb-2 uppercase tracking-tight">
+              Rejoindre
             </h2>
-            <p className="text-slate-400">
+            <p className="text-[var(--text-secondary)] font-medium">
               {urlCode
-                ? `Code détecté dans le lien`
-                : "Saisissez le code secret de la salle"}
+                ? `Code détecté via le lien`
+                : "Entrez l'ID de la salle pour rejoindre"}
             </p>
           </div>
 
           <div className="space-y-6">
             <div className="relative group">
-              <label className="block text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 ml-1 group-focus-within:text-fuchsia-400 transition-colors">
+              <label className="block text-xs font-black uppercase tracking-widest text-[var(--text-muted)] mb-3 ml-1 group-focus-within:text-[var(--accent-fuchsia)] transition-colors">
                 ID de la salle
               </label>
               <input
@@ -227,7 +230,7 @@ const JoinRoomPage = () => {
                   setError("");
                 }}
                 placeholder="ABC123"
-                className={`w-full bg-slate-900/60 border-2 ${error ? "border-rose-500/50" : "border-slate-700"} rounded-2xl px-4 py-5 text-center text-4xl font-mono font-bold tracking-[0.3em] text-white placeholder:text-slate-700 focus:outline-none focus:border-fuchsia-500/50 focus:ring-4 focus:ring-fuchsia-500/10 transition-all uppercase ${isPrivate ? "opacity-50" : ""}`}
+                className={`w-full bg-[var(--bg-primary)]/40 border-2 ${error ? "border-[var(--accent-rose)]/50" : "border-[var(--border-primary)]"} rounded-2xl px-4 py-5 text-center text-4xl font-mono font-black tracking-[0.3em] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]/20 focus:outline-none focus:border-[var(--accent-fuchsia)]/50 focus:ring-4 focus:ring-[var(--accent-fuchsia)]/10 transition-all uppercase ${isPrivate ? "opacity-50" : ""}`}
                 disabled={isLoading || !isConnected || isPrivate}
               />
             </div>
@@ -240,7 +243,7 @@ const JoinRoomPage = () => {
                   exit={{ opacity: 0, height: 0 }}
                   className="relative group"
                 >
-                  <label className="block text-xs font-semibold uppercase tracking-widest text-emerald-500 mb-3 ml-1">
+                  <label className="block text-xs font-black uppercase tracking-widest text-[var(--accent-emerald)] mb-3 ml-1">
                     Code Secret (4 chiffres)
                   </label>
                   <input
@@ -251,13 +254,12 @@ const JoinRoomPage = () => {
                       setJoinCode(e.target.value.replace(/\D/g, ""));
                       setError("");
                     }}
-                    className={`w-full bg-slate-900/50 border-2 ${error ? "border-rose-500/50" : "border-emerald-500/30"} rounded-2xl px-6 py-4 font-mono text-3xl tracking-[0.5em] text-center focus:outline-none focus:border-emerald-500/50 transition-all placeholder:text-slate-800 text-emerald-400`}
+                    className={`w-full bg-[var(--bg-primary)]/40 border-2 ${error ? "border-[var(--accent-rose)]/50" : "border-[var(--accent-emerald)]/30"} rounded-2xl px-6 py-4 font-mono text-3xl tracking-[0.5em] text-center focus:outline-none focus:border-[var(--accent-emerald)]/50 transition-all placeholder:text-[var(--text-muted)]/20 text-[var(--accent-emerald)]`}
                     placeholder="0000"
                     autoFocus
                   />
-                  <p className="text-[10px] text-slate-500 mt-2 text-center uppercase tracking-wider">
-                    Cette salle est privée. Veuillez entrer le code à 4
-                    chiffres.
+                  <p className="text-[10px] text-[var(--text-muted)] mt-2 text-center uppercase tracking-widest font-bold">
+                    Cette salle est privée. Entrez le code à 4 chiffres.
                   </p>
                 </motion.div>
               )}
@@ -269,14 +271,14 @@ const JoinRoomPage = () => {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="mt-3 text-sm text-rose-400 text-center font-medium"
+                  className="mt-3 text-sm text-[var(--accent-rose)] text-center font-bold uppercase tracking-tight"
                 >
                   {error}
                 </motion.p>
               )}
             </AnimatePresence>
             {!isConnected && (
-              <p className="mt-3 text-sm text-amber-400 text-center flex items-center justify-center gap-2">
+              <p className="mt-3 text-sm text-[var(--accent-amber)] text-center font-bold flex items-center justify-center gap-2 uppercase tracking-widest">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Connexion au serveur...
               </p>
@@ -289,7 +291,7 @@ const JoinRoomPage = () => {
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate("/")}
               disabled={isLoading}
-              className="flex-1 px-6 py-4 bg-slate-800/50 hover:bg-slate-800 text-slate-300 rounded-2xl text-sm font-bold border border-slate-700 transition-colors flex items-center justify-center gap-2"
+              className="flex-1 px-6 py-4 bg-[var(--bg-surface)] hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)] rounded-2xl text-sm font-bold border border-[var(--border-primary)] transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
             >
               <ArrowLeft className="w-4 h-4" />
               Retour
@@ -304,14 +306,14 @@ const JoinRoomPage = () => {
                 !isConnected ||
                 (isPrivate && joinCode.length !== 4)
               }
-              className="flex-1 px-6 py-4 bg-gradient-to-r from-fuchsia-600 to-purple-700 text-white rounded-2xl text-sm font-bold shadow-lg shadow-purple-900/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="flex-1 px-6 py-4 bg-gradient-to-r from-[var(--accent-fuchsia)] to-purple-700 text-white rounded-2xl text-sm font-bold shadow-lg shadow-purple-900/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center uppercase tracking-widest"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : isPrivate ? (
-                "Valider Code"
+                "Valider"
               ) : (
-                "Rejoindre l'arène"
+                "Rejoindre"
               )}
             </motion.button>
           </div>

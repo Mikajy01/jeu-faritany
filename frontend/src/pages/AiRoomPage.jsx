@@ -8,10 +8,10 @@ import { motion } from "framer-motion";
 const Grid = () => (
   <div className="absolute inset-0 z-0 pointer-events-none">
     <div
-      className="absolute inset-0 bg-repeat opacity-20"
+      className="absolute inset-0 bg-repeat opacity-[0.05] dark:opacity-20"
       style={{
         backgroundImage:
-          "radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.1) 1px, transparent 0)",
+          "radial-gradient(circle at 1px 1px, var(--text-muted) 1px, transparent 0)",
         backgroundSize: "2rem 2rem",
       }}
     />
@@ -21,8 +21,10 @@ const Grid = () => (
 export default function AiRoomPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { socketRef, isConnected, addLogEntry, userId } = useGameContext();
+  const { socketRef, isConnected, addLogEntry, userId, theme } =
+    useGameContext();
   const [isLoading, setIsLoading] = useState(true);
+  const isDarkMode = theme === "dark";
 
   // Attendre que le socket soit connecté et créer la room
   useEffect(() => {
@@ -41,7 +43,7 @@ export default function AiRoomPage() {
     } else {
       setIsLoading(true);
     }
-  }, [isConnected, socketRef, addLogEntry, location.state]);
+  }, [isConnected, socketRef, addLogEntry, location.state, userId]);
 
   // Écouter les événements de la salle d'attente
   useEffect(() => {
@@ -71,9 +73,9 @@ export default function AiRoomPage() {
   }, [isConnected, socketRef, addLogEntry, navigate]);
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden flex flex-col items-center justify-center bg-slate-950 text-white p-4">
+    <div className="relative min-h-screen w-full overflow-hidden flex flex-col items-center justify-center bg-[var(--bg-primary)] text-[var(--text-primary)] p-4 transition-colors duration-300">
       {/* Animated Gradient Background */}
-      <div className="absolute inset-0 z-0 h-full w-full bg-gradient-to-br from-slate-950 via-slate-900 to-black animate-gradient-x pointer-events-none" />
+      <div className="absolute inset-0 z-0 h-full w-full bg-gradient-to-br from-[var(--bg-primary)] via-[var(--bg-secondary)] to-black/20 animate-gradient-x pointer-events-none opacity-50 dark:opacity-100" />
       <Grid />
 
       <motion.div
@@ -88,21 +90,21 @@ export default function AiRoomPage() {
               borderRadius: ["2rem", "3rem", "2rem"],
             }}
             transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-            className="w-32 h-32 bg-gradient-to-br from-amber-500/20 to-orange-600/20 border border-amber-500/30 flex items-center justify-center backdrop-blur-xl relative"
+            className="w-32 h-32 bg-gradient-to-br from-[var(--accent-amber)]/10 to-[var(--accent-amber)]/20 border border-[var(--accent-amber)]/30 flex items-center justify-center backdrop-blur-xl relative"
           >
-            <Bot className="w-14 h-14 text-amber-400" />
+            <Bot className="w-14 h-14 text-[var(--accent-amber)]" />
           </motion.div>
 
           {/* Animated rings around the icon */}
           <motion.div
             animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.5, 0.2] }}
             transition={{ duration: 3, repeat: Infinity }}
-            className="absolute -inset-4 border border-amber-500/20 rounded-full -z-10"
+            className="absolute -inset-4 border border-[var(--accent-amber)]/20 rounded-full -z-10"
           />
           <motion.div
             animate={{ scale: [1, 1.4, 1], opacity: [0.1, 0.3, 0.1] }}
             transition={{ duration: 4, repeat: Infinity, delay: 0.5 }}
-            className="absolute -inset-8 border border-amber-500/10 rounded-full -z-10"
+            className="absolute -inset-8 border border-[var(--accent-amber)]/10 rounded-full -z-10"
           />
         </div>
 
@@ -112,19 +114,19 @@ export default function AiRoomPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <h2 className="text-3xl font-black tracking-tight text-white mb-2 flex items-center justify-center gap-3">
-              <Sparkles className="w-6 h-6 text-amber-400" />
-              Initialisation de l'IA
+            <h2 className="text-3xl font-black tracking-tight text-[var(--text-primary)] mb-2 flex items-center justify-center gap-3 uppercase">
+              <Sparkles className="w-6 h-6 text-[var(--accent-amber)]" />
+              Initialisation IA
             </h2>
-            <p className="text-slate-400 max-w-xs mx-auto">
+            <p className="text-[var(--text-secondary)] max-w-xs mx-auto font-medium">
               Nous préparons une intelligence artificielle à votre mesure...
             </p>
           </motion.div>
 
-          <div className="flex items-center justify-center gap-3 px-6 py-3 bg-slate-900/60 rounded-2xl border border-slate-800/50">
-            <Loader2 className="w-4 h-4 text-amber-500 animate-spin" />
-            <span className="text-xs font-bold uppercase tracking-[0.2em] text-amber-500/80 animate-pulse">
-              Calcul des vecteurs stratégiques
+          <div className="flex items-center justify-center gap-3 px-6 py-3 bg-[var(--bg-surface)] rounded-2xl border border-[var(--border-primary)] shadow-lg">
+            <Loader2 className="w-4 h-4 text-[var(--accent-amber)] animate-spin" />
+            <span className="text-xs font-black uppercase tracking-[0.2em] text-[var(--accent-amber)] animate-pulse">
+              Calcul stratégique...
             </span>
           </div>
         </div>
@@ -134,7 +136,7 @@ export default function AiRoomPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1 }}
-        className="absolute bottom-8 text-slate-600 text-[10px] font-bold uppercase tracking-[0.3em]"
+        className="absolute bottom-8 text-[var(--text-muted)] text-[10px] font-black uppercase tracking-[0.3em] opacity-40"
       >
         Faritany Engine v2.0 • Neural Network Ready
       </motion.p>

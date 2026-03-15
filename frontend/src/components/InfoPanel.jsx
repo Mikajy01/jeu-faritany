@@ -30,6 +30,7 @@ export const InfoPanel = ({
   const { gameType } = useGameContext();
   const [copied, setCopied] = React.useState(false);
   const [showResignConfirm, setShowResignConfirm] = React.useState(false); // ✨ State pour le modal d'abandon
+  const [showBackConfirm, setShowBackConfirm] = React.useState(false); // ✨ State pour le modal de retour
 
   const handleCopyRoomCode = () => {
     if (roomCode) {
@@ -113,7 +114,13 @@ export const InfoPanel = ({
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={onBackToMenu}
+              onClick={() => {
+                if (isGameOver) {
+                  onBackToMenu();
+                } else {
+                  setShowBackConfirm(true);
+                }
+              }}
               className="p-2.5 bg-[var(--bg-surface)] hover:bg-[var(--bg-secondary)] rounded-xl transition-colors border border-[var(--border-primary)]"
               title="Retour au menu"
             >
@@ -223,6 +230,20 @@ export const InfoPanel = ({
         }}
         onCancel={() => setShowResignConfirm(false)}
         variant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={showBackConfirm}
+        title="Quitter la partie ?"
+        message="Voulez-vous vraiment quitter la partie ? Elle sera perdue si vous ne revenez pas à temps."
+        confirmLabel="Oui, Quitter"
+        cancelLabel="Non, Rester"
+        onConfirm={() => {
+          onBackToMenu();
+          setShowBackConfirm(false);
+        }}
+        onCancel={() => setShowBackConfirm(false)}
+        variant="warning"
       />
 
       {/* Grid Coordinates Card */}
