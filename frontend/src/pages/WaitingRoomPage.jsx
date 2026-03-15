@@ -8,14 +8,12 @@ export default function WaitingRoomPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const {
-    socketRef,
     isConnected,
     addLogEntry,
     lastError,
     gameState,
     gameType: ctxGameType,
-    userId,
-    playerCount: contextPlayerCount, // ✨ Utiliser le compte du contexte
+    playerCount: contextPlayerCount,
     createRoom,
     joinPublicRoom,
     joinRoom,
@@ -44,7 +42,7 @@ export default function WaitingRoomPage() {
       }
 
       // 2. Attendre que le socket soit prêt
-      if (!isConnected || !socketRef.current) return;
+      if (!isConnected) return;
 
       // 3. Utiliser une promesse partagée pour éviter la double création (StrictMode)
       if (!initializationPromise.current) {
@@ -93,8 +91,6 @@ export default function WaitingRoomPage() {
   }, [
     location.state,
     isConnected,
-    socketRef,
-    userId,
     createRoom,
     joinPublicRoom,
     addLogEntry,
@@ -105,16 +101,10 @@ export default function WaitingRoomPage() {
 
   // 📡 Écouter les mises à jour de la room (via WebSocket)
   useEffect(() => {
-    if (!isConnected || !socketRef.current) return;
-    const socket = socketRef.current;
-
-    const handlePlayerJoined = (data) => {
-      addLogEntry(`Un joueur a rejoint la salle (${data.playerCount}/2)`);
-    };
-
-    socket.on("playerJoined", handlePlayerJoined);
-    return () => socket.off("playerJoined", handlePlayerJoined);
-  }, [isConnected, socketRef, addLogEntry]);
+    if (!isConnected) return;
+    // playerJoined est déjà loggé dans GameContext via handleGameStateUpdate ou similaire
+    // Mais on peut garder une écoute spécifique si besoin
+  }, [isConnected, addLogEntry]);
 
   // Si la partie démarre (gérée par le provider), naviguer vers le jeu
   useEffect(() => {

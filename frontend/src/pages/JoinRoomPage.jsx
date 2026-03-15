@@ -2,6 +2,7 @@ import { Users, Loader2, ArrowLeft, Hash } from "lucide-react";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useGameContext } from "../context/GameContext";
+import { useTheme } from "../context/ThemeContext";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Grid component for the background
@@ -35,15 +36,9 @@ const JoinRoomPage = () => {
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5555";
 
-  const {
-    socketRef,
-    isConnected,
-    addLogEntry,
-    userId,
-    getRoomInfo,
-    joinRoom,
-    theme,
-  } = useGameContext();
+  const { isConnected, addLogEntry, getRoomInfo, joinRoom, lastError } =
+    useGameContext();
+  const { theme } = useTheme();
 
   const isDarkMode = theme === "dark";
 
@@ -67,8 +62,8 @@ const JoinRoomPage = () => {
       return;
     }
 
-    // 2. Attendre que le socket soit connecté ET qu'il ait un ID (prêt à émettre)
-    if (!isConnected || !socketRef.current?.id) {
+    // 2. Attendre que le socket soit connecté (prêt à émettre)
+    if (!isConnected) {
       console.log("⏳ En attente du socket pour auto-join...");
       setIsChecking(true);
       return;
@@ -143,7 +138,6 @@ const JoinRoomPage = () => {
     urlCode,
     urlPwd,
     isConnected,
-    socketRef.current?.id, // ✨ Dépendre explicitement de l'ID du socket
     addLogEntry,
     isLoading,
     getRoomInfo,
@@ -151,21 +145,14 @@ const JoinRoomPage = () => {
     navigate,
   ]);
 
-  // 📡 Écouter les erreurs de jointure via socket (pour le feedback)
+  // Si erreur de jointure (gérée par le provider), mettre à jour l'UI locale
   useEffect(() => {
-    if (!isConnected || !socketRef.current) return;
-
-    const socket = socketRef.current;
-    const handleJoinError = ({ reason }) => {
-      addLogEntry(`Erreur socket: ${reason}`);
-      setError(reason);
+    if (lastError?.type === "join") {
+      setError(lastError.reason || "Impossible de rejoindre.");
       setIsLoading(false);
       autoJoinAttempted.current = false;
-    };
-
-    socket.on("joinError", handleJoinError);
-    return () => socket.off("joinError", handleJoinError);
-  }, [isConnected, socketRef, addLogEntry]);
+    }
+  }, [lastError]);
 
   const handleJoinWithCode = async () => {
     if (roomCode.length !== 6) {

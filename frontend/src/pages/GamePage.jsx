@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAnimation } from "../hooks/useAnimation";
 import { useGameContext } from "../context/GameContext";
+import { useTheme } from "../context/ThemeContext";
 import {
   pixelToGrid,
   coordToKey,
@@ -30,20 +31,21 @@ const Grid = () => (
 export default function GamePage() {
   const navigate = useNavigate();
   const {
-    socketRef,
+    isConnected,
     connectionStatus,
     gameState,
     gameLog,
     makeOptimisticMove,
-    validateJoin,
-    userId,
     addLogEntry,
     resignGame,
-    leaveRoom, // ✨ Nouvel état du contexte
-    rematchRequestedBy, // ✨ Nouvel état du contexte
+    leaveRoom,
+    rematchRequestedBy,
+    requestRematch,
+    joinRoom,
   } = useGameContext();
+  const { theme, toggleTheme } = useTheme();
 
-  const isConnected = connectionStatus === "connected";
+  const isConnectedStatus = connectionStatus === "connected";
   const animationFrame = useAnimation();
   const [hoveredCoord, setHoveredCoord] = useState(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
@@ -51,51 +53,25 @@ export default function GamePage() {
 
   // Récupérer le room code si disponible
   useEffect(() => {
-    if (!socketRef.current) return;
-    const socket = socketRef.current;
-
-    const handleGameCreated = ({ code }) => {
-      setRoomCode(code);
-    };
-
-    socket.on("gameCreated", handleGameCreated);
-    return () => socket.off("gameCreated", handleGameCreated);
-  }, [socketRef]);
+    if (gameState?.gameId) {
+      setRoomCode(gameState.gameId);
+    }
+  }, [gameState.gameId]);
 
   // 🔄 Gestion de la reconnexion automatique
   useEffect(() => {
-    if (isConnected && socketRef.current && !gameState.gameActive) {
+    if (isConnected && !gameState.gameActive) {
       const roomCode = localStorage.getItem("faritany_current_game");
       if (roomCode) {
-        const joinCode = localStorage.getItem(`faritany_joincode_${roomCode}`);
-
-        console.log("🔄 Tentative de reconnexion REST:", roomCode);
-
-        validateJoin(roomCode, joinCode).then((data) => {
-          if (data.success) {
-            socketRef.current.emit("joinGame", {
-              code: roomCode,
-              userId,
-              joinCode: data.joinCode,
-            });
-            addLogEntry("Tentative de reconnexion...");
-          } else {
-            console.warn("❌ Échec de reconnexion REST:", data.error);
-            localStorage.removeItem("faritany_current_game");
-            navigate("/");
-          }
+        console.log("🔄 Tentative de reconnexion:", roomCode);
+        joinRoom(roomCode).catch((err) => {
+          console.warn("❌ Échec de reconnexion:", err);
+          localStorage.removeItem("faritany_current_game");
+          navigate("/");
         });
       }
     }
-  }, [
-    isConnected,
-    socketRef,
-    gameState.gameActive,
-    userId,
-    validateJoin,
-    addLogEntry,
-    navigate,
-  ]);
+  }, [isConnected, gameState.gameActive, joinRoom, navigate]);
 
   // Fermer le drawer quand on clique en dehors (mobile uniquement)
   useEffect(() => {
@@ -204,8 +180,8 @@ export default function GamePage() {
   }, []);
 
   const resetGame = useCallback(() => {
-    socketRef.current?.emit("resetGame");
-  }, [socketRef]);
+    requestRematch();
+  }, [requestRematch]);
 
   const handleBackToMenu = useCallback(() => {
     leaveRoom();
@@ -362,22 +338,6 @@ export default function GamePage() {
         onBackToMenu={handleBackToMenu}
         rematchRequestedBy={rematchRequestedBy}
       />
-
-      <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.2);
-        }
-      `}</style>
     </div>
   );
 }

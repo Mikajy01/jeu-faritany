@@ -21,8 +21,15 @@ const Grid = () => (
 export default function AiRoomPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { socketRef, isConnected, addLogEntry, userId, theme } =
-    useGameContext();
+  const {
+    isConnected,
+    addLogEntry,
+    userId,
+    theme,
+    createSocketGame,
+    gameState,
+    lastError,
+  } = useGameContext();
   const [isLoading, setIsLoading] = useState(true);
   const isDarkMode = theme === "dark";
 
@@ -31,46 +38,31 @@ export default function AiRoomPage() {
     if (isConnected) {
       setIsLoading(false);
 
-      if (socketRef.current) {
-        const settings = location.state?.settings || {};
-        socketRef.current.emit("createGame", {
-          type: "AI",
-          userId,
-          ...settings,
-        });
-        addLogEntry(`Initialisation du duel contre l'IA...`);
-      }
+      const settings = location.state?.settings || {};
+      createSocketGame({
+        type: "AI",
+        userId,
+        ...settings,
+      });
     } else {
       setIsLoading(true);
     }
-  }, [isConnected, socketRef, addLogEntry, location.state, userId]);
+  }, [isConnected, createSocketGame, location.state, userId]);
 
-  // Écouter les événements de la salle d'attente
+  // Si la partie démarre (gérée par le provider), naviguer vers le jeu
   useEffect(() => {
-    if (!isConnected) return;
+    if (gameState?.gameActive) {
+      // Petit délai pour l'effet visuel
+      setTimeout(() => navigate("/game"), 1500);
+    }
+  }, [gameState?.gameActive, navigate]);
 
-    const socket = socketRef.current;
-
-    const handleGameCreated = ({ type }) => {
-      if (type === "AI") {
-        // Petit délai pour l'effet visuel
-        setTimeout(() => navigate("/game"), 1500);
-      }
-    };
-
-    const handleCreateError = ({ reason }) => {
-      addLogEntry(`Erreur de création: ${reason}`);
+  // Si erreur de création, revenir au menu
+  useEffect(() => {
+    if (lastError?.type === "create") {
       setTimeout(() => navigate("/"), 2000);
-    };
-
-    socket.on("gameCreated", handleGameCreated);
-    socket.on("createError", handleCreateError);
-
-    return () => {
-      socket.off("gameCreated", handleGameCreated);
-      socket.off("createError", handleCreateError);
-    };
-  }, [isConnected, socketRef, addLogEntry, navigate]);
+    }
+  }, [lastError, navigate]);
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden flex flex-col items-center justify-center bg-[var(--bg-primary)] text-[var(--text-primary)] p-4 transition-colors duration-300">

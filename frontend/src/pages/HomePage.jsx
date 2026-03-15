@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGameContext } from "../context/GameContext";
+import { useTheme } from "../context/ThemeContext";
 import { MenuPrincipal } from "../components/MenuPrincipal";
 import { GameConfigModal } from "../components/ui/GameConfigModal";
 import { Moon, Sun } from "lucide-react";
@@ -8,15 +9,9 @@ import { motion } from "framer-motion";
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const {
-    isConnected,
-    checkGameStatus,
-    publicRooms,
-    theme,
-    toggleTheme,
-    joinRoom,
-    addLogEntry,
-  } = useGameContext();
+  const { isConnected, publicRooms, joinRoom, addLogEntry, checkGameStatus } =
+    useGameContext();
+  const { theme, toggleTheme } = useTheme();
   const [configModal, setConfigModal] = useState({ isOpen: false, mode: null });
   const [isChecking, setIsChecking] = useState(false);
   const [isJoining, setIsJoining] = useState(null); // ID de la salle en cours de jointure

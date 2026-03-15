@@ -8,6 +8,7 @@ import { HoverEffect } from "./canvas/HoverEffect";
 import { Legend } from "./ui/Legend";
 import { PlayerCard } from "./ui/PlayerCard";
 import { useGameContext } from "../context/GameContext";
+import { useTheme } from "../context/ThemeContext";
 
 export const GameBoard = ({
   gameState,
@@ -17,7 +18,8 @@ export const GameBoard = ({
   onStageMouseMove,
   onStageMouseLeave,
 }) => {
-  const { gameType, moveTimeLimit, theme: currentTheme } = useGameContext();
+  const { gameType, moveTimeLimit } = useGameContext();
+  const { theme: currentTheme } = useTheme();
   const stageRef = useRef(null);
   const containerRef = useRef(null);
   const [scale, setScale] = useState(1);

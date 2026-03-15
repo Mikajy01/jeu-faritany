@@ -12,6 +12,7 @@ export const ChessClock = ({
   targetScore = 20,
 }) => {
   const [gameDisplay, setGameDisplay] = useState(remainingGameTime);
+  const [moveDisplay, setMoveDisplay] = useState(remainingMoveTime);
   const timerRef = useRef(null);
 
   // Fonction de calcul du temps global restant
@@ -24,6 +25,7 @@ export const ChessClock = ({
   // Synchronisation avec les props
   useEffect(() => {
     setGameDisplay(calculateGlobalRemaining());
+    setMoveDisplay(remainingMoveTime);
   }, [remainingMoveTime, remainingGameTime, gameStartTime, lastMoveTimestamp]);
 
   // Tick local pour la fluidité
@@ -126,6 +128,29 @@ export const ChessClock = ({
           </div>
         )}
       </div>
+
+      {/* ⏱️ TEMPS DU TOUR ACTUEL */}
+      {gameActive && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative w-full bg-[var(--bg-surface)]/60 backdrop-blur-md p-4 rounded-2xl border border-[var(--border-primary)] shadow-xl overflow-hidden text-center"
+        >
+          <div className="relative z-10 flex items-center justify-center gap-4">
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-[var(--accent-fuchsia)]" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+                Temps du Tour
+              </span>
+            </div>
+            <div
+              className={`text-2xl font-mono font-black tabular-nums tracking-tight ${moveDisplay <= 10 ? "text-[var(--accent-rose)] animate-pulse" : "text-[var(--text-primary)]"}`}
+            >
+              {formatTime(moveDisplay)}
+            </div>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 };

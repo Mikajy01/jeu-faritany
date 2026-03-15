@@ -2,6 +2,7 @@ import { User, Trophy, Flag, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChessTimer } from "./ChessTimer";
 import { useGameContext } from "../../context/GameContext";
+import { useTheme } from "../../context/ThemeContext";
 
 export const PlayerCard = ({
   player,
@@ -16,7 +17,7 @@ export const PlayerCard = ({
   minimalist = false,
   isOnline = true, // ✨ Nouveau prop: statut de connexion
 }) => {
-  const { theme: currentTheme } = useGameContext();
+  const { theme: currentTheme } = useTheme();
   const isPlayer1 = player === 1;
   const isActiveTurn = isCurrentPlayer && isActive && isOnline; // Désactivé si offline
 
