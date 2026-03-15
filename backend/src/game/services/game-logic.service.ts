@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { GameStateEntity } from '../entities/game-state.entity';
 import { MoveResult } from '../interfaces/game.interface';
 import { CycleDetectionService } from './cycle-detection.service';
-import { TerritoryService } from './territory.service';
 import { ScoringService } from './scoring.service';
 import { HybridTerritoryService } from './hybrid-territory.service'; // NOUVEAU
 import { CoordinateUtil } from '../../common/utils/coordinate.util';
@@ -15,7 +14,6 @@ export class GameLogicService {
 
   constructor(
     private readonly cycleDetectionService: CycleDetectionService,
-    private readonly territoryService: TerritoryService,
     private readonly scoringService: ScoringService,
     private readonly hybridTerritoryService: HybridTerritoryService, // NOUVEAU
   ) {}

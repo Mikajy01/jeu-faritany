@@ -4,7 +4,6 @@ import { GameController } from './game.controller';
 import { GameRoomService } from './services/game-room.service';
 import { GameLogicService } from './services/game-logic.service';
 import { CycleDetectionService } from './services/cycle-detection.service';
-import { TerritoryService } from './services/territory.service';
 import { ScoringService } from './services/scoring.service';
 import { NotificationService } from './services/notification.service';
 import { AiService } from './services/ai.service';
@@ -19,7 +18,6 @@ import { GameManagerService } from './services/game-manager.service';
     GameLogicService,
     NotificationService,
     CycleDetectionService,
-    TerritoryService,
     ScoringService,
     AiService,
     HybridTerritoryService,
