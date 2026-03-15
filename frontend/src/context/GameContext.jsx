@@ -188,7 +188,7 @@ export const GameProvider = ({ children }) => {
       }),
 
       socketService.on("moveTimeout", (data) => {
-        addLogEntry(`⏰ Temps écoulé pour le joueur ${data.playerNumber} !`);
+        addLogEntry(`⏰ Temps écoulé pour le joueur ${data.timedOutPlayer} !`);
         setGameState((prev) => {
           const newState = GameState.fromServer(data);
           if (!newState.playerId && prev.playerId) {
