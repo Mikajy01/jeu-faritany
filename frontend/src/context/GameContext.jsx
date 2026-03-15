@@ -66,6 +66,20 @@ export const GameProvider = ({ children }) => {
     "Placez vos points pour entourer les points et zones adverses.",
   ]);
 
+  // --- THEME MANAGEMENT ---
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("faritany_theme") || "dark",
+  );
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("faritany_theme", theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  }, []);
+
   // 🚀 OPTIMISTIC UPDATES: Sauvegarder l'état précédent pour rollback
   const lastGameStateRef = useRef(null);
 
@@ -655,6 +669,8 @@ export const GameProvider = ({ children }) => {
     requestRematch,
     rematchRequestedBy,
     publicRooms, // ✨ Exposer la liste des salles
+    theme,
+    toggleTheme,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

@@ -68,7 +68,7 @@ export const GameOverModal = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-slate-950/90 backdrop-blur-md"
+          className="absolute inset-0 bg-[var(--bg-primary)]/90 backdrop-blur-md"
         />
 
         {/* Modal */}
@@ -78,11 +78,11 @@ export const GameOverModal = ({
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
           className={`relative w-full max-w-md overflow-hidden rounded-[2.5rem] border p-1 shadow-2xl ${
             isWinner
-              ? "border-yellow-500/50 bg-gradient-to-b from-yellow-500/10 to-slate-900"
-              : "border-slate-700/50 bg-slate-900"
+              ? "border-[var(--accent-amber)]/50 bg-gradient-to-b from-[var(--accent-amber)]/10 to-[var(--bg-secondary)]"
+              : "border-[var(--border-primary)] bg-[var(--bg-secondary)]"
           }`}
         >
-          <div className="bg-slate-900 rounded-[2.4rem] p-8 flex flex-col items-center text-center">
+          <div className="bg-[var(--bg-secondary)] rounded-[2.4rem] p-8 flex flex-col items-center text-center">
             {/* Header Icon */}
             <motion.div
               initial={{ scale: 0 }}
@@ -90,8 +90,8 @@ export const GameOverModal = ({
               transition={{ type: "spring", damping: 12, delay: 0.2 }}
               className={`mb-6 flex h-24 w-24 items-center justify-center rounded-3xl shadow-2xl ${
                 isWinner
-                  ? "bg-gradient-to-br from-yellow-400 to-orange-600 text-white shadow-yellow-500/20"
-                  : "bg-slate-800 text-slate-400 shadow-black/20"
+                  ? "bg-gradient-to-br from-[var(--accent-amber)] to-orange-600 text-white shadow-[var(--accent-amber)]/20"
+                  : "bg-[var(--bg-surface)] text-[var(--text-muted)] shadow-black/20"
               }`}
             >
               {isWinner ? (
@@ -105,19 +105,19 @@ export const GameOverModal = ({
 
             {/* Result Title */}
             <h2
-              className={`mb-2 text-4xl font-black uppercase tracking-tighter ${isWinner ? "text-yellow-400" : "text-white"}`}
+              className={`mb-2 text-4xl font-black uppercase tracking-tighter ${isWinner ? "text-[var(--accent-amber)]" : "text-[var(--text-primary)]"}`}
             >
               {isWinner ? "Victoire !" : isDraw ? "Match Nul" : "Défaite"}
             </h2>
 
-            <p className="mb-8 text-slate-400 text-sm font-medium">
+            <p className="mb-8 text-[var(--text-secondary)] text-sm font-medium">
               {isWinner
                 ? "Félicitations ! Vous avez dominé le territoire."
                 : isDraw
                   ? "Une égalité parfaite ! Belle bataille."
                   : "Pas de chance cette fois... Continuez à vous entraîner !"}
               <br />
-              <span className="mt-1 block text-[10px] opacity-50 uppercase tracking-widest">
+              <span className="mt-1 block text-[10px] opacity-50 uppercase tracking-widest text-[var(--text-muted)]">
                 Raison :{" "}
                 {reason === "TIMEOUT"
                   ? "Temps écoulé"
@@ -129,19 +129,19 @@ export const GameOverModal = ({
 
             {/* Scores Card */}
             <div className="mb-8 grid w-full grid-cols-2 gap-4">
-              <div className="rounded-2xl bg-slate-800/50 p-4 border border-slate-700/30">
-                <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">
+              <div className="rounded-2xl bg-[var(--bg-surface)] p-4 border border-[var(--border-primary)]">
+                <div className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-1">
                   Joueur 1 {myPlayerId === 1 && "(Vous)"}
                 </div>
-                <div className="text-3xl font-mono font-black text-fuchsia-400">
+                <div className="text-3xl font-mono font-black text-[var(--accent-fuchsia)]">
                   {scores?.player1 || 0}
                 </div>
               </div>
-              <div className="rounded-2xl bg-slate-800/50 p-4 border border-slate-700/30">
-                <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">
+              <div className="rounded-2xl bg-[var(--bg-surface)] p-4 border border-[var(--border-primary)]">
+                <div className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-1">
                   Joueur 2 {myPlayerId === 2 && "(Vous)"}
                 </div>
-                <div className="text-3xl font-mono font-black text-cyan-400">
+                <div className="text-3xl font-mono font-black text-[var(--accent-cyan)]">
                   {scores?.player2 || 0}
                 </div>
               </div>
@@ -156,12 +156,12 @@ export const GameOverModal = ({
                 disabled={hasRequestedRematch}
                 className={`flex w-full items-center justify-center gap-2 rounded-2xl py-4 font-black uppercase tracking-widest transition-all shadow-lg ${
                   hasRequestedRematch
-                    ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                    ? "bg-[var(--bg-surface)] text-[var(--text-muted)] cursor-not-allowed"
                     : opponentRequestedRematch
-                      ? "bg-emerald-500 text-white hover:bg-emerald-400 shadow-emerald-500/20"
+                      ? "bg-[var(--accent-emerald)] text-white hover:opacity-90 shadow-[var(--accent-emerald)]/20"
                       : isWinner
-                        ? "bg-yellow-500 text-slate-950 hover:bg-yellow-400 shadow-yellow-500/20"
-                        : "bg-white text-slate-950 hover:bg-slate-100"
+                        ? "bg-[var(--accent-amber)] text-slate-950 hover:opacity-90 shadow-[var(--accent-amber)]/20"
+                        : "bg-[var(--text-primary)] text-[var(--bg-primary)] hover:opacity-90"
                 }`}
               >
                 <RotateCcw
@@ -176,7 +176,7 @@ export const GameOverModal = ({
 
               <button
                 onClick={onBackToMenu}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 font-bold text-slate-500 hover:text-white transition-colors"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 font-bold text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
               >
                 <Home className="h-5 w-5" />
                 Retour au menu

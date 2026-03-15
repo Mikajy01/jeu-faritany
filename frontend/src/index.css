@@ -1,1 +1,130 @@
 @import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Base Colors - Dark Theme (Default) */
+    --bg-primary: #020617; /* slate-950 */
+    --bg-secondary: #0f172a; /* slate-900 */
+    --bg-surface: rgba(30, 41, 59, 0.4); /* slate-800/40 */
+    --bg-card: rgba(15, 23, 42, 0.8); /* slate-900/80 */
+
+    --text-primary: #f8fafc; /* slate-50 */
+    --text-secondary: #94a3b8; /* slate-400 */
+    --text-muted: #64748b; /* slate-500 */
+
+    --border-primary: rgba(51, 65, 85, 0.5); /* slate-700/50 */
+    --border-secondary: rgba(30, 41, 59, 0.5); /* slate-800/50 */
+
+    --accent-fuchsia: #e879f9; /* fuchsia-400 */
+    --accent-cyan: #22d3ee; /* cyan-400 */
+    --accent-emerald: #34d399; /* emerald-400 */
+    --accent-amber: #fbbf24; /* amber-400 */
+    --accent-rose: #fb7185; /* rose-400 */
+
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md:
+      0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg:
+      0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-xl:
+      0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+
+  [data-theme="light"] {
+    /* Base Colors - Light Theme */
+    --bg-primary: #f1f5f9; /* slate-100 */
+    --bg-secondary: #ffffff; /* white */
+    --bg-surface: #e2e8f0; /* slate-200 */
+    --bg-card: rgba(255, 255, 255, 0.95);
+
+    --text-primary: #0f172a; /* slate-900 */
+    --text-secondary: #334155; /* slate-700 */
+    --text-muted: #64748b; /* slate-500 */
+
+    --border-primary: #cbd5e1; /* slate-300 */
+    --border-secondary: #e2e8f0; /* slate-200 */
+
+    --accent-fuchsia: #a21caf; /* fuchsia-700 pour meilleur contraste */
+    --accent-cyan: #0e7490; /* cyan-700 pour meilleur contraste */
+    --accent-emerald: #047857; /* emerald-700 */
+    --accent-amber: #b45309; /* amber-700 */
+    --accent-rose: #be123c; /* rose-700 */
+  }
+
+  /* Global Utility Classes using Variables */
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
+  }
+
+  /* Responsive Typography for Mobile */
+  @media (max-width: 640px) {
+    html {
+      font-size: 14px;
+    }
+
+    h1 {
+      font-size: 1.5rem !important;
+      line-height: 2rem !important;
+    }
+
+    h2 {
+      font-size: 1.25rem !important;
+      line-height: 1.75rem !important;
+    }
+
+    .text-6xl {
+      font-size: 2.5rem !important;
+      line-height: 3rem !important;
+    }
+
+    .text-2xl {
+      font-size: 1.1rem !important;
+      line-height: 1.5rem !important;
+    }
+
+    /* InfoPanel Specific Responsive Fixes */
+    .info-panel-drawer {
+      font-size: 0.875rem;
+    }
+
+    .info-panel-drawer .text-xl {
+      font-size: 1rem !important;
+    }
+
+    .info-panel-drawer .p-6 {
+      padding: 1rem !important;
+    }
+
+    .info-panel-drawer .gap-6 {
+      gap: 0.75rem !important;
+    }
+
+    .info-panel-drawer .mb-8 {
+      margin-bottom: 1rem !important;
+    }
+
+    /* PlayerCard in Drawer */
+    .info-panel-drawer .grid-cols-2 {
+      gap: 0.5rem !important;
+    }
+  }
+}
+
+/* Custom Scrollbar for better UX on mobile/web */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

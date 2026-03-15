@@ -58,7 +58,7 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
+          className="absolute inset-0 bg-[var(--bg-primary)]/80 backdrop-blur-md"
         />
 
         {/* Modal Content */}
@@ -66,19 +66,19 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+          className="relative w-full max-w-lg bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-3xl shadow-2xl overflow-hidden flex flex-col"
         >
           {/* Header */}
-          <div className="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+          <div className="p-6 border-b border-[var(--border-primary)] flex items-center justify-between bg-[var(--bg-secondary)]/50">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-fuchsia-500/10 rounded-xl border border-fuchsia-500/20">
-                <Timer className="w-5 h-5 text-fuchsia-400" />
+              <div className="p-2 bg-[var(--accent-fuchsia)]/10 rounded-xl border border-[var(--accent-fuchsia)]/20">
+                <Timer className="w-5 h-5 text-[var(--accent-fuchsia)]" />
               </div>
-              <h2 className="text-xl font-bold text-white">Configuration</h2>
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">Configuration</h2>
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white"
+              className="p-2 hover:bg-[var(--bg-surface)] rounded-full transition-colors text-[var(--text-muted)] hover:text-[var(--text-primary)]"
             >
               <X className="w-5 h-5" />
             </button>
@@ -90,12 +90,12 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-slate-500" />
-                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+                    <Globe className="w-4 h-4 text-[var(--text-muted)]" />
+                    <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">
                       Type de Salon
                     </span>
                   </div>
-                  <span className="text-xs font-mono text-cyan-400 bg-cyan-400/10 px-2 py-1 rounded">
+                  <span className="text-xs font-mono text-[var(--accent-cyan)] bg-[var(--accent-cyan)]/10 px-2 py-1 rounded">
                     {visibility === "public" ? "Matchmaking" : "Code Requis"}
                   </span>
                 </div>
@@ -108,8 +108,8 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
                         onClick={() => setVisibility(opt.id)}
                         className={`flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all border ${
                           visibility === opt.id
-                            ? "bg-cyan-600 border-cyan-500 text-white shadow-lg shadow-cyan-900/20"
-                            : "bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800 hover:border-slate-600"
+                            ? "bg-[var(--accent-cyan)] border-[var(--accent-cyan)] text-white shadow-lg shadow-cyan-900/20"
+                            : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
                         }`}
                       >
                         <Icon className="w-4 h-4" />
@@ -125,12 +125,12 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-slate-500" />
-                  <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+                  <Trophy className="w-4 h-4 text-[var(--text-muted)]" />
+                  <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">
                     Mode de jeu
                   </span>
                 </div>
-                <span className="text-xs font-mono text-amber-400 bg-amber-400/10 px-2 py-1 rounded">
+                <span className="text-xs font-mono text-[var(--accent-amber)] bg-[var(--accent-amber)]/10 px-2 py-1 rounded">
                   {gameMode === "TIME" ? "Au temps" : "Au score"}
                 </span>
               </div>
@@ -139,8 +139,8 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
                   onClick={() => setGameMode("TIME")}
                   className={`py-2 rounded-xl text-xs font-bold transition-all border ${
                     gameMode === "TIME"
-                      ? "bg-amber-600 border-amber-500 text-white shadow-lg shadow-amber-900/20"
-                      : "bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800 hover:border-slate-600"
+                      ? "bg-[var(--accent-amber)] border-[var(--accent-amber)] text-white shadow-lg shadow-amber-900/20"
+                      : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
                   }`}
                 >
                   Limite de Temps
@@ -149,8 +149,8 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
                   onClick={() => setGameMode("SCORE")}
                   className={`py-2 rounded-xl text-xs font-bold transition-all border ${
                     gameMode === "SCORE"
-                      ? "bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-900/20"
-                      : "bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800 hover:border-slate-600"
+                      ? "bg-[var(--accent-emerald)] border-[var(--accent-emerald)] text-white shadow-lg shadow-emerald-900/20"
+                      : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
                   }`}
                 >
                   Objectif Score
@@ -162,12 +162,12 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <ClockIcon className="w-4 h-4 text-slate-500" />
-                  <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+                  <ClockIcon className="w-4 h-4 text-[var(--text-muted)]" />
+                  <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">
                     Temps par coup
                   </span>
                 </div>
-                <span className="text-xs font-mono text-fuchsia-400 bg-fuchsia-400/10 px-2 py-1 rounded">
+                <span className="text-xs font-mono text-[var(--accent-fuchsia)] bg-[var(--accent-fuchsia)]/10 px-2 py-1 rounded">
                   {moveTime >= 60 ? `${moveTime / 60}m` : `${moveTime}s`}
                 </span>
               </div>
@@ -178,8 +178,8 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
                     onClick={() => setMoveTime(opt.value)}
                     className={`py-2 rounded-xl text-xs font-bold transition-all border ${
                       moveTime === opt.value
-                        ? "bg-fuchsia-600 border-fuchsia-500 text-white shadow-lg shadow-fuchsia-900/20"
-                        : "bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800 hover:border-slate-600"
+                        ? "bg-[var(--accent-fuchsia)] border-[var(--accent-fuchsia)] text-white shadow-lg shadow-fuchsia-900/20"
+                        : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
                     }`}
                   >
                     {opt.label}
@@ -193,12 +193,12 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Timer className="w-4 h-4 text-slate-500" />
-                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+                    <Timer className="w-4 h-4 text-[var(--text-muted)]" />
+                    <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">
                       Temps total
                     </span>
                   </div>
-                  <span className="text-xs font-mono text-cyan-400 bg-cyan-400/10 px-2 py-1 rounded">
+                  <span className="text-xs font-mono text-[var(--accent-cyan)] bg-[var(--accent-cyan)]/10 px-2 py-1 rounded">
                     {totalTime >= 3600
                       ? `${totalTime / 3600}h`
                       : `${totalTime / 60}m`}
@@ -211,8 +211,8 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
                       onClick={() => setTotalTime(opt.value)}
                       className={`py-2 rounded-xl text-xs font-bold transition-all border ${
                         totalTime === opt.value
-                          ? "bg-cyan-600 border-cyan-500 text-white shadow-lg shadow-cyan-900/20"
-                          : "bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800 hover:border-slate-600"
+                          ? "bg-[var(--accent-cyan)] border-[var(--accent-cyan)] text-white shadow-lg shadow-cyan-900/20"
+                          : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
                       }`}
                     >
                       {opt.label}
@@ -224,12 +224,12 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-slate-500" />
-                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+                    <Trophy className="w-4 h-4 text-[var(--text-muted)]" />
+                    <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">
                       Objectif Score
                     </span>
                   </div>
-                  <span className="text-xs font-mono text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded">
+                  <span className="text-xs font-mono text-[var(--accent-emerald)] bg-[var(--accent-emerald)]/10 px-2 py-1 rounded">
                     {targetScore} points
                   </span>
                 </div>
@@ -240,8 +240,8 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
                       onClick={() => setTargetScore(opt.value)}
                       className={`py-2 rounded-xl text-xs font-bold transition-all border ${
                         targetScore === opt.value
-                          ? "bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-900/20"
-                          : "bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800 hover:border-slate-600"
+                          ? "bg-[var(--accent-emerald)] border-[var(--accent-emerald)] text-white shadow-lg shadow-emerald-900/20"
+                          : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
                       }`}
                     >
                       {opt.label}
@@ -253,7 +253,7 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
           </div>
 
           {/* Footer Action */}
-          <div className="p-6 bg-slate-950/50 border-t border-slate-800">
+          <div className="p-6 bg-[var(--bg-primary)]/50 border-t border-[var(--border-primary)]">
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -266,7 +266,7 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
                   type: mode === "ai" ? "AI" : visibility,
                 })
               }
-              className="w-full bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-500 hover:to-purple-600 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-xl shadow-purple-900/20 flex items-center justify-center gap-3 group"
+              className="w-full bg-gradient-to-r from-[var(--accent-fuchsia)] to-purple-700 hover:from-[var(--accent-fuchsia)] hover:to-purple-600 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-xl shadow-purple-900/20 flex items-center justify-center gap-3 group"
             >
               <Play className="w-5 h-5 fill-current" />
               Lancer la partie

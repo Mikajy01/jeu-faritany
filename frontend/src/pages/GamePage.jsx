@@ -10,7 +10,7 @@ import {
 import { InfoPanel } from "../components/InfoPanel";
 import { GameBoard } from "../components/GameBoard";
 import { GameOverModal } from "../components/ui/GameOverModal";
-import { Menu, X, LayoutDashboard } from "lucide-react";
+import { Menu, X, LayoutDashboard, Flag } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Grid component for the background
@@ -39,6 +39,7 @@ export default function GamePage() {
     userId,
     addLogEntry,
     resignGame,
+    leaveRoom, // ✨ Nouvel état du contexte
     rematchRequestedBy, // ✨ Nouvel état du contexte
   } = useGameContext();
 
@@ -207,39 +208,48 @@ export default function GamePage() {
   }, [socketRef]);
 
   const handleBackToMenu = useCallback(() => {
-    localStorage.removeItem("faritany_current_game");
-    socketRef.current?.disconnect();
-    socketRef.current?.connect();
+    leaveRoom();
     setShowInfoPanel(false);
     navigate("/");
-  }, [socketRef, navigate]);
+  }, [leaveRoom, navigate]);
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-slate-950 text-white font-sans selection:bg-fuchsia-500/30">
+    <div className="relative min-h-screen w-full overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans selection:bg-[var(--accent-fuchsia)]/30 transition-colors duration-300">
       {/* Animated Gradient Background */}
-      <div className="absolute inset-0 z-0 h-full w-full bg-gradient-to-br from-slate-950 via-slate-900 to-black animate-gradient-x pointer-events-none" />
+      <div className="absolute inset-0 z-0 h-full w-full bg-gradient-to-br from-[var(--bg-primary)] via-[var(--bg-secondary)] to-black animate-gradient-x pointer-events-none" />
       <Grid />
 
       <div className="relative z-10 min-h-screen flex flex-col">
         {/* Header / Top Bar (Mobile Only) */}
-        <header className="lg:hidden flex items-center justify-between p-4 bg-slate-900/40 backdrop-blur-md border-b border-slate-800/50">
+        <header className="lg:hidden flex items-center justify-between p-4 bg-[var(--bg-secondary)]/40 backdrop-blur-md border-b border-[var(--border-primary)]">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowInfoPanel(true)}
-              className="menu-toggle-btn p-2.5 bg-slate-800/50 rounded-xl border border-slate-700/50 hover:bg-slate-700 transition-colors"
+              className="menu-toggle-btn p-2.5 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] transition-colors"
               aria-label="Ouvrir le menu"
             >
-              <LayoutDashboard className="w-6 h-6 text-fuchsia-400" />
+              <LayoutDashboard className="w-6 h-6 text-[var(--accent-fuchsia)]" />
             </button>
-            <h1 className="text-lg font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+            <h1 className="text-lg font-bold tracking-tight text-[var(--text-primary)]">
               Jeu Faritany
             </h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <div
-              className={`w-2 h-2 rounded-full ${connectionStatus === "connected" ? "bg-emerald-400" : "bg-rose-400"} animate-pulse`}
+              className={`w-2 h-2 rounded-full ${connectionStatus === "connected" ? "bg-[var(--accent-emerald)]" : "bg-[var(--accent-rose)]"} animate-pulse`}
             />
-            <span className="text-xs text-slate-400 uppercase tracking-widest font-bold">
+            {gameState.gameActive && !gameState.gameOver && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => resignGame()}
+                className="p-2 bg-[var(--accent-rose)]/10 hover:bg-[var(--accent-rose)]/20 text-[var(--accent-rose)] rounded-xl border border-[var(--accent-rose)]/30 transition-colors"
+                title="Abandonner"
+              >
+                <Flag className="w-5 h-5" />
+              </motion.button>
+            )}
+            <span className="text-xs text-[var(--text-muted)] uppercase tracking-widest font-bold">
               Live
             </span>
           </div>
@@ -257,7 +267,7 @@ export default function GamePage() {
             >
               <div className="relative group">
                 {/* Decorative glow behind the board */}
-                <div className="absolute -inset-4 bg-gradient-to-r from-fuchsia-500/10 via-purple-500/10 to-blue-500/10 blur-3xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity duration-700 -z-10" />
+                <div className="absolute -inset-4 bg-gradient-to-r from-[var(--accent-fuchsia)]/10 via-purple-500/10 to-[var(--accent-cyan)]/10 blur-3xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity duration-700 -z-10" />
 
                 <GameBoard
                   gameState={gameState}
@@ -292,21 +302,21 @@ export default function GamePage() {
                     info-panel-drawer
                     fixed lg:relative inset-y-0 left-0 z-50
                     w-[85vw] sm:w-96 lg:w-[400px]
-                    bg-slate-900/90 lg:bg-transparent backdrop-blur-2xl lg:backdrop-blur-none
-                    border-r border-slate-800/50 lg:border-0
+                    bg-[var(--bg-secondary)]/90 lg:bg-transparent backdrop-blur-2xl lg:backdrop-blur-none
+                    border-r border-[var(--border-primary)] lg:border-0
                     p-6 lg:p-0 flex flex-col
                   `}
                 >
                   {/* Close button (Mobile only) */}
                   <div className="lg:hidden flex items-center justify-between mb-8">
-                    <h2 className="text-xl font-bold text-white">
+                    <h2 className="text-xl font-bold text-[var(--text-primary)]">
                       Tableau de Bord
                     </h2>
                     <button
                       onClick={() => setShowInfoPanel(false)}
-                      className="p-2 bg-slate-800/50 rounded-lg hover:bg-slate-700 transition-colors"
+                      className="p-2 bg-[var(--bg-surface)] rounded-lg hover:bg-[var(--bg-secondary)] transition-colors"
                     >
-                      <X className="w-5 h-5 text-slate-400" />
+                      <X className="w-5 h-5 text-[var(--text-muted)]" />
                     </button>
                   </div>
 

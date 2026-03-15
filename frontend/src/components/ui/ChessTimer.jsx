@@ -64,11 +64,11 @@ export const ChessTimer = ({
       ${
         isActive
           ? isCritical
-            ? "text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.5)] animate-pulse"
+            ? "text-[var(--accent-rose)] drop-shadow-[0_0_8px_rgba(244,63,94,0.5)] animate-pulse"
             : isLow
-              ? "text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.3)]"
-              : "text-white"
-          : "text-slate-600"
+              ? "text-[var(--accent-amber)] drop-shadow-[0_0_5px_rgba(251,191,36,0.3)]"
+              : "text-[var(--text-primary)]"
+          : "text-[var(--text-muted)]"
       }
     `}
     >

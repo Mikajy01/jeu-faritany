@@ -3,7 +3,7 @@ import { Circle, Group } from 'react-konva';
 import { COLORS, STONE_RADIUS } from '../../constants/game';
 import { keyToCoord, gridToPixel } from '../../utils/coordinates';
 
-export const GameStones = ({ grid, lastMove, animationFrame }) => {
+export const GameStones = ({ grid, lastMove, animationFrame, isDarkMode = true }) => {
   const stones = [];
   
   grid.forEach((player, coordKey) => {
@@ -28,25 +28,30 @@ export const GameStones = ({ grid, lastMove, animationFrame }) => {
           />
         )}
         
+        {/* Shadow - adapt visibility to theme */}
         <Circle
           x={pixel.x + 1}
           y={pixel.y + 2}
           radius={STONE_RADIUS * pulseScale}
-          fill={playerColors.shadow}
-          opacity={0.4}
+          fill={isDarkMode ? playerColors.shadow : "#000"}
+          opacity={isDarkMode ? 0.4 : 0.2}
         />
         
+        {/* Main Stone */}
         <Circle
           x={pixel.x}
           y={pixel.y}
           radius={STONE_RADIUS * pulseScale}
           fill={playerColors.main}
+          stroke={isDarkMode ? "transparent" : "rgba(0,0,0,0.1)"}
+          strokeWidth={1}
           shadowColor={playerColors.shadow}
-          shadowBlur={4}
+          shadowBlur={isDarkMode ? 4 : 2}
           shadowOffset={{ x: 1, y: 2 }}
-          shadowOpacity={0.3}
+          shadowOpacity={isDarkMode ? 0.3 : 0.5}
         />
         
+        {/* Highlight Reflection */}
         <Circle
           x={pixel.x - 2}
           y={pixel.y - 2}

@@ -6,10 +6,10 @@ export const CursorPosition = ({ coord }) => {
   return (
     <div className="px-4 py-3 flex items-center justify-between min-h-[64px]">
       <div className="flex items-center gap-3">
-        <div className="p-2 bg-slate-900/50 rounded-lg border border-slate-700/50">
-          <Target className="w-4 h-4 text-fuchsia-400" />
+        <div className="p-2 bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-primary)]">
+          <Target className="w-4 h-4 text-[var(--accent-fuchsia)]" />
         </div>
-        <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Coordonnées</span>
+        <span className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">Coordonnées</span>
       </div>
       
       <AnimatePresence mode="wait">
@@ -22,13 +22,13 @@ export const CursorPosition = ({ coord }) => {
             className="flex items-center gap-4"
           >
              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-600 font-bold uppercase">X</span>
-                <span className="font-mono text-xl font-black text-white">{coord.x}</span>
+                <span className="text-[10px] text-[var(--text-muted)] font-black uppercase">X</span>
+                <span className="font-mono text-xl font-black text-[var(--text-primary)]">{coord.x}</span>
              </div>
-             <div className="w-px h-4 bg-slate-800" />
+             <div className="w-px h-4 bg-[var(--border-primary)]" />
              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-600 font-bold uppercase">Y</span>
-                <span className="font-mono text-xl font-black text-white">{coord.y}</span>
+                <span className="text-[10px] text-[var(--text-muted)] font-black uppercase">Y</span>
+                <span className="font-mono text-xl font-black text-[var(--text-primary)]">{coord.y}</span>
              </div>
           </motion.div>
         ) : (
@@ -36,7 +36,7 @@ export const CursorPosition = ({ coord }) => {
             key="no-coord"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex items-center gap-2 text-slate-600 italic text-xs"
+            className="flex items-center gap-2 text-[var(--text-muted)] italic text-xs font-medium"
           >
             <Move className="w-3 h-3" />
             Survolez le plateau

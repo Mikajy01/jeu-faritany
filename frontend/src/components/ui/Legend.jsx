@@ -29,15 +29,15 @@ export const Legend = ({ stageScale, onZoomChange, onResetZoom }) => {
 
   return (
     <div className="lg:hidden mt-4 space-y-3">
-      <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 text-center">
+      <div className="p-2 bg-[var(--accent-cyan)]/10 border border-[var(--accent-cyan)]/20 rounded-lg text-xs text-[var(--accent-cyan)] text-center">
         <p>Double-tap pour placer un point</p>
       </div>
       
       {/* Contrôle de zoom */}
-      <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+      <div className="p-3 bg-[var(--bg-surface)] border border-[var(--border-primary)] rounded-lg">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-slate-700">Zoom</span>
-          <span className="text-xs font-semibold text-slate-800">{zoomPercentage}%</span>
+          <span className="text-xs font-medium text-[var(--text-secondary)]">Zoom</span>
+          <span className="text-xs font-semibold text-[var(--text-primary)]">{zoomPercentage}%</span>
         </div>
         
         <div className="flex items-center gap-2">
@@ -45,10 +45,10 @@ export const Legend = ({ stageScale, onZoomChange, onResetZoom }) => {
           <button
             onClick={handleZoomOut}
             disabled={stageScale <= minZoom}
-            className="p-1.5 bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-1.5 bg-[var(--bg-surface)] border border-[var(--border-primary)] rounded-md hover:bg-[var(--bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             aria-label="Zoom arrière"
           >
-            <ZoomOut className="w-4 h-4 text-slate-700" />
+            <ZoomOut className="w-4 h-4 text-[var(--text-secondary)]" />
           </button>
           
           {/* Slider */}
@@ -59,9 +59,9 @@ export const Legend = ({ stageScale, onZoomChange, onResetZoom }) => {
             step={0.1}
             value={stageScale}
             onChange={handleSliderChange}
-            className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+            className="flex-1 h-2 bg-[var(--bg-secondary)] rounded-lg appearance-none cursor-pointer accent-[var(--accent-cyan)]"
             style={{
-              background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((stageScale - minZoom) / (maxZoom - minZoom)) * 100}%, #e2e8f0 ${((stageScale - minZoom) / (maxZoom - minZoom)) * 100}%, #e2e8f0 100%)`
+              background: `linear-gradient(to right, var(--accent-cyan) 0%, var(--accent-cyan) ${((stageScale - minZoom) / (maxZoom - minZoom)) * 100}%, var(--bg-secondary) ${((stageScale - minZoom) / (maxZoom - minZoom)) * 100}%, var(--bg-secondary) 100%)`
             }}
           />
           
@@ -69,21 +69,21 @@ export const Legend = ({ stageScale, onZoomChange, onResetZoom }) => {
           <button
             onClick={handleZoomIn}
             disabled={stageScale >= maxZoom}
-            className="p-1.5 bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-1.5 bg-[var(--bg-surface)] border border-[var(--border-primary)] rounded-md hover:bg-[var(--bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             aria-label="Zoom avant"
           >
-            <ZoomIn className="w-4 h-4 text-slate-700" />
+            <ZoomIn className="w-4 h-4 text-[var(--text-secondary)]" />
           </button>
           
           {/* Bouton reset */}
           {stageScale > 1 && (
             <button
               onClick={onResetZoom}
-              className="p-1.5 bg-white border border-slate-300 rounded-md hover:bg-slate-50 transition-colors"
+              className="p-1.5 bg-[var(--bg-surface)] border border-[var(--border-primary)] rounded-md hover:bg-[var(--bg-secondary)] transition-colors"
               aria-label="Réinitialiser le zoom"
               title="Réinitialiser le zoom"
             >
-              <RotateCcw className="w-4 h-4 text-slate-700" />
+              <RotateCcw className="w-4 h-4 text-[var(--text-secondary)]" />
             </button>
           )}
         </div>

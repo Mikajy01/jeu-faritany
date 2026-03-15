@@ -1,43 +1,47 @@
 import React from "react";
-import { Users, Bot, Globe, Plus, ArrowRight } from "lucide-react";
+import { Users, Bot, Globe, Plus, ArrowRight, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 // Grid component for the background
 const Grid = () => (
   <div className="absolute inset-0 z-0">
     <div
-      className="absolute inset-0 bg-repeat"
+      className="absolute inset-0 bg-repeat opacity-[0.05] dark:opacity-20"
       style={{
         backgroundImage:
-          "radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.1) 1px, transparent 0)",
+          "radial-gradient(circle at 1px 1px, var(--text-muted) 1px, transparent 0)",
         backgroundSize: "2rem 2rem",
       }}
     />
   </div>
 );
 
-export const MenuPrincipal = ({ onSelectMode, publicRooms = [] }) => {
+export const MenuPrincipal = ({
+  onSelectMode,
+  publicRooms = [],
+  isJoining = null,
+}) => {
   const modes = [
     {
       id: "create",
       icon: Plus,
       title: "Créer une partie",
       description: "Lancez un duel public ou privé entre amis.",
-      color: "text-cyan-300",
+      color: "text-[var(--accent-cyan)]",
     },
     {
       id: "join",
       icon: Users,
       title: "Rejoindre une partie",
       description: "Entrez le code d'une salle pour jouer.",
-      color: "text-fuchsia-300",
+      color: "text-[var(--accent-fuchsia)]",
     },
     {
       id: "ai",
       icon: Bot,
       title: "Jouer contre l'IA",
       description: "Entraînez-vous contre notre intelligence artificielle.",
-      color: "text-amber-300",
+      color: "text-[var(--accent-amber)]",
     },
   ];
 
@@ -65,9 +69,9 @@ export const MenuPrincipal = ({ onSelectMode, publicRooms = [] }) => {
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center bg-slate-900 text-white p-4">
+    <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center bg-[var(--bg-primary)] text-[var(--text-primary)] p-4 transition-colors duration-300">
       {/* Animated Gradient Background */}
-      <div className="absolute inset-0 z-0 h-full w-full bg-gradient-to-r from-slate-900 via-black to-slate-900 animate-gradient-x" />
+      <div className="absolute inset-0 z-0 h-full w-full bg-gradient-to-r from-[var(--bg-primary)] via-[var(--bg-secondary)] to-[var(--bg-primary)] animate-gradient-x" />
       <Grid />
 
       {/* Main Content */}
@@ -80,7 +84,7 @@ export const MenuPrincipal = ({ onSelectMode, publicRooms = [] }) => {
         {/* Left Side: Title and Game Board */}
         <div className="w-full lg:w-1/2 flex flex-col items-center lg:items-start text-center lg:text-left p-8">
           <motion.h1
-            className="text-6xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 mb-4"
+            className="text-6xl md:text-7xl font-bold text-[var(--text-primary)] mb-4"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
@@ -88,7 +92,7 @@ export const MenuPrincipal = ({ onSelectMode, publicRooms = [] }) => {
             Jeu Faritany
           </motion.h1>
           <motion.p
-            className="text-xl text-slate-300 mb-10"
+            className="text-xl text-[var(--text-secondary)] mb-10"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
@@ -98,7 +102,7 @@ export const MenuPrincipal = ({ onSelectMode, publicRooms = [] }) => {
 
           {/* Stylized Game Board Preview */}
           <motion.div
-            className="w-64 h-64 md:w-80 md:h-80 bg-slate-800/50 rounded-2xl shadow-2xl flex items-center justify-center p-4 border border-slate-700"
+            className="w-64 h-64 md:w-80 md:h-80 bg-[var(--bg-surface)] rounded-2xl shadow-2xl flex items-center justify-center p-4 border border-[var(--border-primary)]"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.7, delay: 0.4, ease: "easeOut" }}
@@ -107,16 +111,16 @@ export const MenuPrincipal = ({ onSelectMode, publicRooms = [] }) => {
               className="w-full h-full grid grid-cols-9 grid-rows-9"
               style={{
                 backgroundImage:
-                  "radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px)",
+                  "radial-gradient(var(--text-muted) 1px, transparent 1px)",
                 backgroundSize: "calc(100% / 9) calc(100% / 9)",
               }}
             >
               {/* Example stones */}
               <div className="col-start-3 row-start-3 w-full h-full flex items-center justify-center">
-                <div className="w-3/4 h-3/4 rounded-full bg-white/90 shadow-lg" />
+                <div className="w-3/4 h-3/4 rounded-full bg-white shadow-lg border border-slate-200" />
               </div>
               <div className="col-start-7 row-start-6 w-full h-full flex items-center justify-center">
-                <div className="w-3/4 h-3/4 rounded-full bg-black/90 shadow-lg" />
+                <div className="w-3/4 h-3/4 rounded-full bg-slate-900 shadow-lg border border-slate-700" />
               </div>
             </div>
           </motion.div>
@@ -136,7 +140,7 @@ export const MenuPrincipal = ({ onSelectMode, publicRooms = [] }) => {
                 <motion.button
                   key={mode.id}
                   onClick={() => onSelectMode(mode.id)}
-                  className="group relative text-left p-5 rounded-lg transition-all duration-300 ease-in-out overflow-hidden bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700 hover:border-slate-500"
+                  className="group relative text-left p-5 rounded-lg transition-all duration-300 ease-in-out overflow-hidden bg-[var(--bg-surface)] hover:bg-[var(--bg-secondary)] border border-[var(--border-primary)] hover:border-[var(--text-secondary)]"
                   variants={itemVariants}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.98 }}
@@ -146,14 +150,14 @@ export const MenuPrincipal = ({ onSelectMode, publicRooms = [] }) => {
                       className={`w-7 h-7 mr-5 transition-colors duration-300 ${mode.color}`}
                     />
                     <div>
-                      <h3 className="text-xl font-semibold text-white">
+                      <h3 className="text-xl font-semibold text-[var(--text-primary)]">
                         {mode.title}
                       </h3>
-                      <p className="text-slate-400 text-sm">
+                      <p className="text-[var(--text-muted)] text-sm">
                         {mode.description}
                       </p>
                     </div>
-                    <ArrowRight className="w-6 h-6 ml-auto text-slate-500 group-hover:text-white transition-all duration-300 transform group-hover:translate-x-1" />
+                    <ArrowRight className="w-6 h-6 ml-auto text-[var(--text-muted)] group-hover:text-[var(--text-primary)] transition-all duration-300 transform group-hover:translate-x-1" />
                   </div>
                 </motion.button>
               );
@@ -163,64 +167,100 @@ export const MenuPrincipal = ({ onSelectMode, publicRooms = [] }) => {
           {/* Public Rooms List */}
           <motion.div
             variants={itemVariants}
-            className="flex flex-col space-y-4 pt-6 border-t border-slate-800"
+            className="flex flex-col space-y-4 pt-6 border-t border-[var(--border-secondary)]"
           >
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-2">
-                <Globe className="w-5 h-5 text-emerald-400" />
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">
+                <Globe className="w-5 h-5 text-[var(--accent-emerald)]" />
+                <h3 className="text-sm font-black uppercase tracking-widest text-[var(--text-muted)]">
                   Parties Publiques
                 </h3>
               </div>
-              <span className="text-[10px] font-bold bg-slate-800 text-slate-400 px-2 py-1 rounded-full border border-slate-700">
+              <span className="text-[10px] font-bold bg-[var(--bg-secondary)] text-[var(--text-secondary)] px-2 py-1 rounded-full border border-[var(--border-primary)]">
                 {publicRooms.length} en ligne
               </span>
             </div>
 
             <div className="grid grid-cols-1 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
               {publicRooms.length > 0 ? (
-                publicRooms.map((room) => (
-                  <motion.button
-                    key={room.gameId}
-                    whileHover={{
-                      x: 5,
-                      backgroundColor: "rgba(30, 41, 59, 0.8)",
-                    }}
-                    onClick={() => onSelectMode("join", room.gameId)}
-                    className="flex items-center justify-between p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 hover:border-emerald-500/50 transition-all group"
-                  >
-                    <div className="flex flex-col items-start">
-                      <span className="text-sm font-mono font-bold text-white group-hover:text-emerald-400 transition-colors">
-                        #{room.gameId}
-                      </span>
-                      <span className="text-[10px] text-slate-500 uppercase tracking-tighter">
-                        Créée il y a{" "}
-                        {Math.floor((Date.now() - room.createdAt) / 60000)} min
-                      </span>
-                    </div>
+                publicRooms.map((room) => {
+                  const isThisRoomJoining = isJoining === room.gameId;
+                  const isFull = room.playerCount >= 2;
 
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1.5">
-                        <Users className="w-4 h-4 text-slate-400" />
-                        <span className="text-sm font-bold text-slate-300">
-                          {room.playerCount}/2
+                  return (
+                    <motion.button
+                      key={room.gameId}
+                      whileHover={
+                        !isThisRoomJoining && !isFull
+                          ? {
+                              x: 5,
+                              backgroundColor: "var(--bg-surface)",
+                            }
+                          : {}
+                      }
+                      onClick={() =>
+                        !isThisRoomJoining &&
+                        !isFull &&
+                        onSelectMode("join", room.gameId)
+                      }
+                      disabled={isThisRoomJoining || isFull}
+                      className={`flex items-center justify-between p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-primary)] transition-all group ${
+                        isThisRoomJoining || isFull
+                          ? "opacity-60 cursor-not-allowed"
+                          : "hover:border-[var(--accent-emerald)]"
+                      }`}
+                    >
+                      <div className="flex flex-col items-start">
+                        <span
+                          className={`text-sm font-mono font-bold transition-colors ${
+                            isThisRoomJoining
+                              ? "text-[var(--accent-emerald)]"
+                              : "text-[var(--text-primary)] group-hover:text-[var(--accent-emerald)]"
+                          }`}
+                        >
+                          #{room.gameId}
+                        </span>
+                        <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-tighter">
+                          Créée il y a{" "}
+                          {Math.floor((Date.now() - room.createdAt) / 60000)}{" "}
+                          min
                         </span>
                       </div>
-                      <div
-                        className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
-                          room.playerCount < 2
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                            : "bg-slate-700/50 text-slate-500 border border-slate-600/30"
-                        }`}
-                      >
-                        {room.playerCount < 2 ? "Rejoindre" : "Pleine"}
+
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1.5">
+                          <Users className="w-4 h-4 text-[var(--text-secondary)]" />
+                          <span className="text-sm font-bold text-[var(--text-primary)]">
+                            {room.playerCount}/2
+                          </span>
+                        </div>
+                        <div
+                          className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-2 ${
+                            isThisRoomJoining
+                              ? "bg-[var(--accent-emerald)]/20 text-[var(--accent-emerald)] border border-[var(--accent-emerald)]/30"
+                              : !isFull
+                                ? "bg-[var(--accent-emerald)]/10 text-[var(--accent-emerald)] border border-[var(--accent-emerald)]/20"
+                                : "bg-[var(--bg-secondary)] text-[var(--text-muted)] border border-[var(--border-primary)]"
+                          }`}
+                        >
+                          {isThisRoomJoining ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Jointure...
+                            </>
+                          ) : !isFull ? (
+                            "Rejoindre"
+                          ) : (
+                            "Pleine"
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </motion.button>
-                ))
+                    </motion.button>
+                  );
+                })
               ) : (
-                <div className="flex flex-col items-center justify-center py-10 rounded-xl bg-slate-800/20 border border-dashed border-slate-800">
-                  <p className="text-sm text-slate-500 font-medium italic">
+                <div className="flex flex-col items-center justify-center py-10 rounded-xl bg-[var(--bg-surface)]/20 border border-dashed border-[var(--border-primary)]">
+                  <p className="text-sm text-[var(--text-muted)] font-medium italic">
                     Aucune salle publique active...
                   </p>
                 </div>
@@ -237,7 +277,7 @@ export const MenuPrincipal = ({ onSelectMode, publicRooms = [] }) => {
         transition={{ delay: 1 }}
         className="mt-auto py-6 text-center"
       >
-        <p className="text-slate-500 text-xs font-medium tracking-widest uppercase opacity-50 hover:opacity-100 transition-opacity">
+        <p className="text-[var(--text-muted)] text-xs font-medium tracking-widest uppercase opacity-50 hover:opacity-100 transition-opacity">
           © 2026 MR-BUG • Tous droits réservés
         </p>
       </motion.footer>

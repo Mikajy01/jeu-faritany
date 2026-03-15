@@ -40,6 +40,7 @@ export const InfoPanel = ({
   };
 
   const isGameOver = !!gameState.gameOver;
+  const isMobile = window.innerWidth < 1024;
 
   return (
     <div className="flex flex-col gap-6 w-full h-full">
@@ -60,7 +61,7 @@ export const InfoPanel = ({
       )}
 
       {/* Main Stats Card */}
-      <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl p-6 border border-slate-700/50 shadow-2xl relative overflow-hidden">
+      <div className="bg-[var(--bg-surface)] backdrop-blur-xl rounded-3xl p-6 border border-[var(--border-primary)] shadow-2xl relative overflow-hidden">
         {/* Game Over Overlay */}
         <AnimatePresence>
           {isGameOver && (
@@ -68,15 +69,15 @@ export const InfoPanel = ({
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              className="absolute inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center"
+              className="absolute inset-0 z-50 bg-[var(--bg-primary)]/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center"
             >
               <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-orange-500/20">
                 <Trophy className="w-10 h-10 text-white" />
               </div>
-              <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-tighter">
+              <h2 className="text-2xl font-black text-[var(--text-primary)] mb-2 uppercase tracking-tighter">
                 Partie Terminée
               </h2>
-              <p className="text-slate-400 text-sm mb-6 max-w-[200px]">
+              <p className="text-[var(--text-secondary)] text-sm mb-6 max-w-[200px]">
                 {gameState.gameOver.message}
               </p>
               <div className="flex flex-col gap-3 w-full">
@@ -90,7 +91,7 @@ export const InfoPanel = ({
                 </motion.button>
                 <button
                   onClick={onBackToMenu}
-                  className="text-slate-500 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors"
+                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xs font-bold uppercase tracking-widest transition-colors"
                 >
                   Retour au menu
                 </button>
@@ -101,7 +102,7 @@ export const InfoPanel = ({
 
         <div className="flex items-center justify-between mb-8">
           <div className="flex flex-col">
-            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">
               Tableau de Bord
             </h1>
             <div className="flex items-center gap-2 mt-1">
@@ -113,26 +114,26 @@ export const InfoPanel = ({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={onBackToMenu}
-              className="p-2.5 bg-slate-700/50 hover:bg-slate-700 rounded-xl transition-colors border border-slate-600/50"
+              className="p-2.5 bg-[var(--bg-surface)] hover:bg-[var(--bg-secondary)] rounded-xl transition-colors border border-[var(--border-primary)]"
               title="Retour au menu"
             >
-              <ArrowLeft className="w-5 h-5 text-slate-300" />
+              <ArrowLeft className="w-5 h-5 text-[var(--text-secondary)]" />
             </motion.button>
           )}
         </div>
 
         <div className="space-y-6">
           {roomCode && (
-            <div className="bg-slate-900/60 rounded-2xl p-4 border border-slate-700/50 relative group overflow-hidden">
+            <div className="bg-[var(--bg-secondary)] rounded-2xl p-4 border border-[var(--border-primary)] relative group overflow-hidden">
               <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Hash className="w-12 h-12" />
+                <Hash className="w-12 h-12 text-[var(--text-primary)]" />
               </div>
               <div className="relative z-10 flex items-center justify-between">
                 <div>
-                  <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-500 mb-1">
+                  <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-[var(--text-muted)] mb-1">
                     Room ID
                   </div>
-                  <div className="text-xl font-mono font-bold text-fuchsia-400 tracking-wider">
+                  <div className="text-xl font-mono font-bold text-[var(--accent-fuchsia)] tracking-wider">
                     {roomCode}
                   </div>
                 </div>
@@ -140,14 +141,14 @@ export const InfoPanel = ({
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={handleCopyRoomCode}
-                  className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700"
+                  className="p-2 bg-[var(--bg-surface)] hover:bg-[var(--bg-secondary)] rounded-lg transition-colors border border-[var(--border-primary)]"
                 >
                   {copied ? (
-                    <span className="text-xs text-emerald-400 font-bold">
+                    <span className="text-xs text-[var(--accent-emerald)] font-bold">
                       COPIÉ
                     </span>
                   ) : (
-                    <Copy className="w-4 h-4 text-slate-400" />
+                    <Copy className="w-4 h-4 text-[var(--text-secondary)]" />
                   )}
                 </motion.button>
               </div>
@@ -155,7 +156,9 @@ export const InfoPanel = ({
           )}
 
           {/* Player Cards */}
-          <div className="grid grid-cols-2 gap-3">
+          <div
+            className={`grid ${isMobile ? "grid-cols-1" : "grid-cols-2"} gap-3`}
+          >
             <PlayerCard
               player={1}
               score={gameState.scores?.player1 || 0}
@@ -164,6 +167,7 @@ export const InfoPanel = ({
               isYou={gameState.playerId === 1}
               showTimer={false}
               compact={true}
+              minimalist={isMobile}
               isOnline={gameState.player1Online}
             />
             <PlayerCard
@@ -174,6 +178,7 @@ export const InfoPanel = ({
               isYou={gameState.playerId === 2}
               showTimer={false}
               compact={true}
+              minimalist={isMobile}
               isOnline={gameState.player2Online}
             />
           </div>
@@ -221,15 +226,15 @@ export const InfoPanel = ({
       />
 
       {/* Grid Coordinates Card */}
-      <div className="bg-slate-800/30 backdrop-blur-lg rounded-2xl border border-slate-700/30 overflow-hidden">
+      <div className="bg-[var(--bg-surface)] backdrop-blur-lg rounded-2xl border border-[var(--border-primary)] overflow-hidden">
         <CursorPosition coord={hoveredCoord} />
       </div>
 
       {/* Logs Card */}
-      <div className="bg-slate-800/30 backdrop-blur-lg rounded-2xl border border-slate-700/30 flex-1 flex flex-col min-h-[200px]">
-        <div className="px-4 py-3 border-b border-slate-700/50 flex items-center gap-2">
-          <Terminal className="w-4 h-4 text-slate-500" />
-          <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
+      <div className="bg-[var(--bg-surface)] backdrop-blur-lg rounded-2xl border border-[var(--border-primary)] flex-1 flex flex-col min-h-[200px]">
+        <div className="px-4 py-3 border-b border-[var(--border-primary)] flex items-center gap-2">
+          <Terminal className="w-4 h-4 text-[var(--text-muted)]" />
+          <span className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">
             Journal d'actions
           </span>
         </div>
@@ -240,7 +245,7 @@ export const InfoPanel = ({
 
       {/* Copyright Footer */}
       <div className="py-2 text-center opacity-20 hover:opacity-100 transition-opacity">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">
           © MR-BUG 2026
         </p>
       </div>

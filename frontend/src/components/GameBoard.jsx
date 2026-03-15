@@ -17,7 +17,7 @@ export const GameBoard = ({
   onStageMouseMove,
   onStageMouseLeave,
 }) => {
-  const { gameType, moveTimeLimit } = useGameContext();
+  const { gameType, moveTimeLimit, theme: currentTheme } = useGameContext();
   const stageRef = useRef(null);
   const containerRef = useRef(null);
   const [scale, setScale] = useState(1);
@@ -25,6 +25,10 @@ export const GameBoard = ({
     width: STAGE_WIDTH,
     height: STAGE_HEIGHT,
   });
+
+  const isDarkMode = currentTheme === "dark";
+  const boardBg = isDarkMode ? "#0f172a" : "#f8fafc";
+  const gridColor = isDarkMode ? "#334155" : "#cbd5e1";
 
   // Pour le zoom mobile
   const [stageScale, setStageScale] = useState(1);
@@ -240,6 +244,7 @@ export const GameBoard = ({
               timeLeft={moveTimeLimit}
               minimalist={true}
               showTimer={gameType !== "AI"}
+              isOnline={gameState.player1Online}
             />
           </div>
           <div className="flex-1 min-w-0">
@@ -252,6 +257,7 @@ export const GameBoard = ({
               timeLeft={moveTimeLimit}
               minimalist={true}
               showTimer={gameType !== "AI"}
+              isOnline={gameState.player2Online}
             />
           </div>
         </div>
@@ -268,12 +274,13 @@ export const GameBoard = ({
           timeLeft={moveTimeLimit}
           compact={true}
           showTimer={gameType !== "AI"}
+          isOnline={gameState.player1Online}
         />
         <div className="flex flex-col items-center">
-          <div className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-500 mb-1">
+          <div className="text-[10px] uppercase tracking-[0.3em] font-black text-[var(--text-muted)] mb-1">
             vs
           </div>
-          <div className="h-8 w-px bg-gradient-to-b from-transparent via-slate-700 to-transparent" />
+          <div className="h-8 w-px bg-gradient-to-b from-transparent via-[var(--border-primary)] to-transparent" />
         </div>
         <PlayerCard
           player={2}
@@ -284,12 +291,13 @@ export const GameBoard = ({
           timeLeft={moveTimeLimit}
           compact={true}
           showTimer={gameType !== "AI"}
+          isOnline={gameState.player2Online}
         />
       </div>
 
-      <div className="relative rounded-3xl p-2 bg-slate-900/80 backdrop-blur-sm border border-slate-800 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden group">
+      <div className="relative rounded-3xl p-2 bg-[var(--bg-card)] backdrop-blur-sm border border-[var(--border-primary)] shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden group">
         {/* Animated board border */}
-        <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/10 via-transparent to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent-fuchsia)]/10 via-transparent to-[var(--accent-cyan)]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
 
         <Stage
           width={dimensions.width}
@@ -318,27 +326,29 @@ export const GameBoard = ({
           }}
         >
           <Layer>
-            {/* Dark board base */}
+            {/* Board Base adaptive to theme */}
             <Rect
               width={STAGE_WIDTH}
               height={STAGE_HEIGHT}
-              fill="#0f172a" // slate-900
+              fill={boardBg}
               shadowBlur={20}
-              shadowColor="black"
+              shadowColor={isDarkMode ? "black" : "#cbd5e1"}
               shadowOpacity={0.5}
             />
-            <GridLines />
+            <GridLines color={gridColor} />
           </Layer>
 
           <Layer>
             <CapturedAreas
               capturedAreas={gameState.capturedAreas}
               grid={gameState.grid}
+              isDarkMode={isDarkMode}
             />
             <GameStones
               grid={gameState.grid}
               lastMove={gameState.move}
               animationFrame={animationFrame}
+              isDarkMode={isDarkMode}
             />
           </Layer>
 
@@ -350,6 +360,7 @@ export const GameBoard = ({
               playerId={gameState.playerId}
               animationFrame={animationFrame}
               grid={gameState.grid}
+              isDarkMode={isDarkMode}
             />
           </Layer>
         </Stage>
@@ -363,21 +374,21 @@ export const GameBoard = ({
           onResetZoom={resetZoom}
         />
         {gameType !== "AI" && (
-          <div className="flex items-center gap-4 bg-slate-900/40 backdrop-blur-md px-6 py-3 rounded-2xl border border-slate-800/50">
+          <div className="flex items-center gap-4 bg-[var(--bg-surface)] backdrop-blur-md px-6 py-3 rounded-2xl border border-[var(--border-primary)]">
             <div className="flex flex-col items-center">
-              <span className="text-[10px] uppercase tracking-widest font-bold text-slate-500">
+              <span className="text-[10px] uppercase tracking-widest font-bold text-[var(--text-muted)]">
                 Temps / Tour
               </span>
-              <span className="text-lg font-mono font-bold text-fuchsia-400">
+              <span className="text-lg font-mono font-bold text-[var(--accent-fuchsia)]">
                 {moveTimeLimit}s
               </span>
             </div>
-            <div className="w-px h-8 bg-slate-800" />
+            <div className="w-px h-8 bg-[var(--border-primary)]" />
             <div className="flex flex-col items-center">
-              <span className="text-[10px] uppercase tracking-widest font-bold text-slate-500">
+              <span className="text-[10px] uppercase tracking-widest font-bold text-[var(--text-muted)]">
                 Mode
               </span>
-              <span className="text-sm font-bold text-slate-300 uppercase">
+              <span className="text-sm font-bold text-[var(--text-secondary)] uppercase">
                 {gameType === "AI" ? "IA" : "Joueur"}
               </span>
             </div>

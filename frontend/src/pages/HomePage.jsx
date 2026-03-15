@@ -3,12 +3,23 @@ import { useNavigate } from "react-router-dom";
 import { useGameContext } from "../context/GameContext";
 import { MenuPrincipal } from "../components/MenuPrincipal";
 import { GameConfigModal } from "../components/ui/GameConfigModal";
+import { Moon, Sun } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { isConnected, checkGameStatus, publicRooms } = useGameContext();
+  const {
+    isConnected,
+    checkGameStatus,
+    publicRooms,
+    theme,
+    toggleTheme,
+    joinRoom,
+    addLogEntry,
+  } = useGameContext();
   const [configModal, setConfigModal] = useState({ isOpen: false, mode: null });
   const [isChecking, setIsChecking] = useState(false);
+  const [isJoining, setIsJoining] = useState(null); // ID de la salle en cours de jointure
 
   // ✨ Vérification réelle au backend au montage
   useEffect(() => {
@@ -74,9 +85,26 @@ export default function HomePage() {
   );
 
   const handleSelectMode = useCallback(
-    (mode, roomCode = null) => {
+    async (mode, roomCode = null) => {
       if (roomCode) {
-        navigate(`/join/${roomCode}`);
+        try {
+          setIsJoining(roomCode);
+          const result = await joinRoom(roomCode);
+          if (result.success) {
+            // Si la partie est déjà active, on va directement au jeu
+            if (result.gameActive) {
+              navigate("/game");
+            } else {
+              // Sinon on va en salle d'attente
+              navigate("/waiting-room", {
+                state: { roomCode: roomCode, gameType: "public" },
+              });
+            }
+          }
+        } catch (err) {
+          addLogEntry(`Erreur de jointure: ${err.message}`);
+          setIsJoining(null);
+        }
         return;
       }
 
@@ -106,10 +134,10 @@ export default function HomePage() {
 
   if (isChecking) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-slate-400 font-medium animate-pulse">
+          <div className="w-12 h-12 border-4 border-[var(--accent-fuchsia)] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[var(--text-secondary)] font-medium animate-pulse">
             Vérification de la partie...
           </p>
         </div>
@@ -119,9 +147,29 @@ export default function HomePage() {
 
   return (
     <>
+      {/* Theme Switcher Toggle */}
+      <div className="fixed top-6 right-6 z-50">
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={toggleTheme}
+          className="p-3 rounded-2xl bg-[var(--bg-surface)] backdrop-blur-xl border border-[var(--border-primary)] shadow-xl text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-all"
+          title={
+            theme === "dark" ? "Passer au mode clair" : "Passer au mode sombre"
+          }
+        >
+          {theme === "dark" ? (
+            <Sun className="w-6 h-6 text-[var(--accent-amber)]" />
+          ) : (
+            <Moon className="w-6 h-6 text-[var(--accent-cyan)]" />
+          )}
+        </motion.button>
+      </div>
+
       <MenuPrincipal
         onSelectMode={handleSelectMode}
         publicRooms={publicRooms}
+        isJoining={isJoining}
       />
       <GameConfigModal
         isOpen={configModal.isOpen}

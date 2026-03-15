@@ -21,10 +21,10 @@ export const GameLog = ({ logs }) => {
             key={`${index}-${entry}`}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            className="text-[11px] font-medium text-slate-400 p-3 bg-slate-900/40 rounded-xl border border-slate-800/50 flex items-start gap-3 group hover:bg-slate-800/60 transition-colors"
+            className="text-[11px] font-medium text-[var(--text-secondary)] p-3 bg-[var(--bg-secondary)]/60 rounded-xl border border-[var(--border-primary)] flex items-start gap-3 group hover:bg-[var(--bg-surface)] transition-colors"
           >
-            <span className="text-fuchsia-500/50 font-mono mt-0.5">[{index + 1}]</span>
-            <span className="group-hover:text-slate-300 transition-colors">{entry}</span>
+            <span className="text-[var(--accent-fuchsia)] opacity-50 font-mono mt-0.5">[{index + 1}]</span>
+            <span className="group-hover:text-[var(--text-primary)] transition-colors">{entry}</span>
           </motion.div>
         ))}
       </AnimatePresence>

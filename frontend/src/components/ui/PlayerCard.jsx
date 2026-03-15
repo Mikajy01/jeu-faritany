@@ -1,7 +1,7 @@
-import React from "react";
-import { ChessTimer } from "./ChessTimer";
+import { User, Trophy, Flag, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Trophy } from "lucide-react";
+import { ChessTimer } from "./ChessTimer";
+import { useGameContext } from "../../context/GameContext";
 
 export const PlayerCard = ({
   player,
@@ -16,29 +16,31 @@ export const PlayerCard = ({
   minimalist = false,
   isOnline = true, // ✨ Nouveau prop: statut de connexion
 }) => {
+  const { theme: currentTheme } = useGameContext();
   const isPlayer1 = player === 1;
   const isActiveTurn = isCurrentPlayer && isActive && isOnline; // Désactivé si offline
 
   const themes = {
     p1: {
-      accent: "text-fuchsia-400",
-      bg: "bg-fuchsia-500/10",
-      border: "border-fuchsia-500/30",
-      glow: "shadow-fuchsia-500/20",
+      accent: "text-[var(--accent-fuchsia)]",
+      bg: "bg-[var(--accent-fuchsia)]/10",
+      border: "border-[var(--accent-fuchsia)]/30",
+      glow: "shadow-[var(--accent-fuchsia)]/20",
       gradient: "from-fuchsia-500 to-purple-600",
       light: "bg-fuchsia-400",
     },
     p2: {
-      accent: "text-cyan-400",
-      bg: "bg-cyan-500/10",
-      border: "border-cyan-500/30",
-      glow: "shadow-cyan-500/20",
+      accent: "text-[var(--accent-cyan)]",
+      bg: "bg-[var(--accent-cyan)]/10",
+      border: "border-[var(--accent-cyan)]/30",
+      glow: "shadow-[var(--accent-cyan)]/20",
       gradient: "from-cyan-500 to-blue-600",
       light: "bg-cyan-400",
     },
   };
 
   const theme = isPlayer1 ? themes.p1 : themes.p2;
+  const isDarkMode = currentTheme === "dark";
 
   if (minimalist) {
     return (
@@ -47,20 +49,20 @@ export const PlayerCard = ({
         animate={{
           scale: isActiveTurn ? 1.02 : 1,
           borderColor: isActiveTurn
-            ? "rgba(255, 255, 255, 0.3)"
-            : "rgba(255, 255, 255, 0.1)",
+            ? "var(--accent-fuchsia)"
+            : "var(--border-primary)",
           opacity: isOnline ? 1 : 0.7,
         }}
         className={`
           relative overflow-hidden rounded-lg border backdrop-blur-md transition-all duration-500 px-2 py-1.5 flex items-center justify-between gap-1 w-full
-          ${isActiveTurn ? "bg-slate-800/90 shadow-lg z-20 border-white/20" : "bg-slate-900/60 z-10 border-white/5"}
+          ${isActiveTurn ? "bg-[var(--bg-secondary)] shadow-lg z-20 border-[var(--accent-fuchsia)]" : "bg-[var(--bg-surface)]/60 z-10 border-[var(--border-primary)]"}
         `}
       >
         <div className="flex items-center gap-1.5 min-w-0">
           <div
             className={`
             w-5 h-5 rounded-md flex items-center justify-center border shrink-0
-            ${isActiveTurn ? `bg-gradient-to-br ${theme.gradient} border-white/20` : `bg-slate-800 border-slate-700`}
+            ${isActiveTurn ? `bg-gradient-to-br ${theme.gradient} border-white/20` : `bg-[var(--bg-surface)] border-[var(--border-primary)]`}
           `}
           >
             <User
@@ -69,12 +71,12 @@ export const PlayerCard = ({
           </div>
           <div className="flex flex-col min-w-0">
             <span
-              className={`font-bold text-[10px] truncate ${isActiveTurn ? "text-white" : "text-slate-300"}`}
+              className={`font-bold text-[10px] truncate ${isActiveTurn ? (isDarkMode ? "text-white" : "text-[var(--accent-fuchsia)]") : "text-[var(--text-primary)]"}`}
             >
               P{player}
             </span>
             {isYou && (
-              <span className="text-[7px] text-slate-500 uppercase leading-none">
+              <span className="text-[7px] text-[var(--text-muted)] uppercase leading-none font-bold">
                 VOUS
               </span>
             )}
@@ -82,14 +84,16 @@ export const PlayerCard = ({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <div className="flex items-center gap-1 bg-slate-950/60 px-1.5 py-0.5 rounded-md border border-slate-700/30">
+          <div className="flex items-center gap-1 bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded-md border border-[var(--border-primary)]">
             <Trophy className={`w-2.5 h-2.5 ${theme.accent} opacity-70`} />
-            <span className="text-xs font-black text-white">{score}</span>
+            <span className="text-xs font-black text-[var(--text-primary)]">
+              {score}
+            </span>
           </div>
 
           {showTimer && (
             <div
-              className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border ${isActiveTurn ? "bg-slate-900 border-slate-600" : "bg-slate-950/60 border-slate-700/30"}`}
+              className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border ${isActiveTurn ? "bg-[var(--bg-surface)] border-[var(--accent-fuchsia)]/30" : "bg-[var(--bg-secondary)]/60 border-[var(--border-primary)]"}`}
             >
               <ChessTimer
                 timeLeft={timeLeft}
@@ -120,15 +124,17 @@ export const PlayerCard = ({
       animate={{
         scale: isActiveTurn ? 1.05 : 1,
         borderColor: isActiveTurn
-          ? "rgba(255, 255, 255, 0.4)"
+          ? isDarkMode
+            ? "rgba(255, 255, 255, 0.4)"
+            : "var(--accent-fuchsia)"
           : !isOnline
-            ? "rgba(244, 63, 94, 0.3)"
-            : "rgba(255, 255, 255, 0.1)",
+            ? "var(--accent-rose)"
+            : "var(--border-primary)",
         opacity: isOnline ? 1 : 0.7,
       }}
       className={`
         relative overflow-hidden rounded-2xl border backdrop-blur-md transition-all duration-500
-        ${isActiveTurn ? "bg-slate-800/60 shadow-2xl z-20" : !isOnline ? "bg-rose-950/10 z-10" : "bg-slate-900/40 z-10"}
+        ${isActiveTurn ? "bg-[var(--bg-secondary)] shadow-2xl z-20" : !isOnline ? "bg-[var(--accent-rose)]/10 z-10" : "bg-[var(--bg-card)] z-10"}
         ${compact ? "w-full" : "w-full max-w-[240px]"}
       `}
     >
@@ -139,9 +145,9 @@ export const PlayerCard = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-rose-950/20 backdrop-blur-[1px] flex items-center justify-center z-30"
+            className="absolute inset-0 bg-[var(--accent-rose)]/20 backdrop-blur-[1px] flex items-center justify-center z-30"
           >
-            <div className="bg-rose-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full shadow-lg uppercase tracking-tighter">
+            <div className="bg-[var(--accent-rose)] text-white text-[8px] font-black px-2 py-0.5 rounded-full shadow-lg uppercase tracking-tighter">
               Hors ligne
             </div>
           </motion.div>
@@ -167,31 +173,31 @@ export const PlayerCard = ({
             <div
               className={`
               w-10 h-10 rounded-xl flex items-center justify-center border
-              ${isActiveTurn ? `bg-gradient-to-br ${theme.gradient} border-white/20 shadow-lg` : isOnline ? `bg-slate-800 border-slate-700` : `bg-rose-900/20 border-rose-500/30`}
+              ${isActiveTurn ? `bg-gradient-to-br ${theme.gradient} border-white/20 shadow-lg` : isOnline ? `bg-[var(--bg-surface)] border-[var(--border-primary)]` : `bg-[var(--accent-rose)]/20 border-[var(--accent-rose)]/30`}
             `}
             >
               <User
-                className={`w-5 h-5 ${isActiveTurn ? "text-white" : isOnline ? theme.accent : "text-rose-400"}`}
+                className={`w-5 h-5 ${isActiveTurn ? "text-white" : isOnline ? theme.accent : "text-[var(--accent-rose)]"}`}
               />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
                 <span
-                  className={`font-bold text-sm tracking-tight ${isActiveTurn ? "text-white" : isOnline ? "text-slate-300" : "text-rose-300"}`}
+                  className={`font-bold text-sm tracking-tight ${isActiveTurn ? (isDarkMode ? "text-white" : "text-[var(--accent-fuchsia)]") : isOnline ? "text-[var(--text-primary)]" : "text-[var(--accent-rose)]"}`}
                 >
                   Joueur {player}
                 </span>
                 {isYou && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-500 border border-slate-700">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-primary)] font-bold">
                     VOUS
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-1 mt-0.5">
                 <div
-                  className={`w-1.5 h-1.5 rounded-full ${isActiveTurn ? theme.light + " animate-pulse" : isOnline ? "bg-slate-700" : "bg-rose-500"}`}
+                  className={`w-1.5 h-1.5 rounded-full ${isActiveTurn ? theme.light + " animate-pulse" : isOnline ? "bg-[var(--text-muted)]" : "bg-[var(--accent-rose)]"}`}
                 />
-                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-wider">
                   {!isOnline
                     ? "Déconnecté"
                     : isActiveTurn
@@ -206,12 +212,12 @@ export const PlayerCard = ({
         {/* Score & Timer Section */}
         <div className="flex items-stretch gap-3">
           {/* Score Display */}
-          <div className="flex-1 bg-slate-950/50 rounded-xl p-3 border border-slate-800/50 flex flex-col items-center justify-center">
-            <Trophy className={`w-3.5 h-3.5 mb-1 ${theme.accent} opacity-50`} />
-            <span className="text-2xl font-black text-white leading-none">
+          <div className="flex-1 bg-[var(--bg-secondary)] rounded-xl p-3 border border-[var(--border-primary)] flex flex-col items-center justify-center shadow-sm">
+            <Trophy className={`w-3.5 h-3.5 mb-1 ${theme.accent} opacity-70`} />
+            <span className="text-2xl font-black text-[var(--text-primary)] leading-none">
               {score}
             </span>
-            <span className="text-[9px] text-slate-500 font-bold uppercase mt-1 tracking-widest">
+            <span className="text-[9px] text-[var(--text-muted)] font-black uppercase mt-1 tracking-widest">
               Points
             </span>
           </div>
@@ -220,8 +226,8 @@ export const PlayerCard = ({
           {showTimer && (
             <div
               className={`
-              flex-1 rounded-xl p-3 border flex flex-col items-center justify-center transition-colors
-              ${isActiveTurn ? "bg-slate-900 border-slate-700" : "bg-slate-950/30 border-slate-800/50"}
+              flex-1 rounded-xl p-3 border flex flex-col items-center justify-center transition-colors shadow-sm
+              ${isActiveTurn ? "bg-[var(--bg-surface)] border-[var(--accent-fuchsia)]/30" : "bg-[var(--bg-secondary)]/30 border-[var(--border-primary)]"}
             `}
             >
               <ChessTimer
@@ -231,7 +237,7 @@ export const PlayerCard = ({
                 onTimeUp={onTimeUp}
                 compact={true}
               />
-              <span className="text-[9px] text-slate-500 font-bold uppercase mt-1 tracking-widest">
+              <span className="text-[9px] text-[var(--text-muted)] font-black uppercase mt-1 tracking-widest">
                 Temps
               </span>
             </div>
