@@ -44,7 +44,7 @@ export const InfoPanel = ({
   const isMobile = window.innerWidth < 1024;
 
   return (
-    <div className="flex flex-col gap-6 w-full h-full">
+    <div className="flex flex-col gap-4 lg:gap-6 w-full h-full">
       {/* Pendule de jeu (Chess Clock) - Masqué en mode IA */}
       {gameType !== "AI" && (
         <div className="w-full">
@@ -62,7 +62,7 @@ export const InfoPanel = ({
       )}
 
       {/* Main Stats Card */}
-      <div className="bg-[var(--bg-surface)] backdrop-blur-xl rounded-3xl p-6 border border-[var(--border-primary)] shadow-2xl relative overflow-hidden">
+      <div className="bg-[var(--bg-surface)] backdrop-blur-xl rounded-3xl p-4 lg:p-6 border border-[var(--border-primary)] shadow-2xl relative overflow-hidden">
         {/* Game Over Overlay */}
         <AnimatePresence>
           {isGameOver && (
@@ -101,37 +101,60 @@ export const InfoPanel = ({
           )}
         </AnimatePresence>
 
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex flex-col">
-            <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-              Tableau de Bord
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <ConnectionStatus status={connectionStatus} />
+        {!isMobile && (
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+                Tableau de Bord
+              </h1>
+              <div className="flex items-center gap-2 mt-1">
+                <ConnectionStatus status={connectionStatus} />
+              </div>
             </div>
+            {onBackToMenu && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  if (isGameOver) {
+                    onBackToMenu();
+                  } else {
+                    setShowBackConfirm(true);
+                  }
+                }}
+                className="p-2.5 bg-[var(--bg-surface)] hover:bg-[var(--bg-secondary)] rounded-xl transition-colors border border-[var(--border-primary)]"
+                title="Retour au menu"
+              >
+                <ArrowLeft className="w-5 h-5 text-[var(--text-secondary)]" />
+              </motion.button>
+            )}
           </div>
-          {onBackToMenu && (
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                if (isGameOver) {
-                  onBackToMenu();
-                } else {
-                  setShowBackConfirm(true);
-                }
-              }}
-              className="p-2.5 bg-[var(--bg-surface)] hover:bg-[var(--bg-secondary)] rounded-xl transition-colors border border-[var(--border-primary)]"
-              title="Retour au menu"
-            >
-              <ArrowLeft className="w-5 h-5 text-[var(--text-secondary)]" />
-            </motion.button>
-          )}
-        </div>
+        )}
 
-        <div className="space-y-6">
+        {isMobile && (
+          <div className="flex items-center justify-between mb-4">
+            <ConnectionStatus status={connectionStatus} />
+            {onBackToMenu && (
+              <button
+                onClick={() => {
+                  if (isGameOver) {
+                    onBackToMenu();
+                  } else {
+                    setShowBackConfirm(true);
+                  }
+                }}
+                className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Menu
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="space-y-4 lg:space-y-6">
           {roomCode && (
-            <div className="bg-[var(--bg-secondary)] rounded-2xl p-4 border border-[var(--border-primary)] relative group overflow-hidden">
+            <div className="bg-[var(--bg-secondary)] rounded-2xl p-3 lg:p-4 border border-[var(--border-primary)] relative group overflow-hidden">
               <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
                 <Hash className="w-12 h-12 text-[var(--text-primary)]" />
               </div>
@@ -140,7 +163,7 @@ export const InfoPanel = ({
                   <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-[var(--text-muted)] mb-1">
                     Room ID
                   </div>
-                  <div className="text-xl font-mono font-bold text-[var(--accent-fuchsia)] tracking-wider">
+                  <div className="text-lg lg:text-xl font-mono font-bold text-[var(--accent-fuchsia)] tracking-wider">
                     {roomCode}
                   </div>
                 </div>
@@ -164,7 +187,7 @@ export const InfoPanel = ({
 
           {/* Player Cards */}
           <div
-            className={`grid ${isMobile ? "grid-cols-1" : "grid-cols-2"} gap-3`}
+            className={`grid ${isMobile ? "grid-cols-2" : "grid-cols-2"} gap-2 lg:gap-3`}
           >
             <PlayerCard
               player={1}
@@ -172,6 +195,11 @@ export const InfoPanel = ({
               isCurrentPlayer={gameState.currentPlayer === 1}
               isActive={gameState.gameActive}
               isYou={gameState.playerId === 1}
+              timeLeft={
+                gameState.currentPlayer === 1
+                  ? gameState.clock?.remainingMoveTime || 0
+                  : gameState.timeControl?.moveTimeLimit || 0
+              }
               showTimer={false}
               compact={true}
               minimalist={isMobile}
@@ -183,6 +211,11 @@ export const InfoPanel = ({
               isCurrentPlayer={gameState.currentPlayer === 2}
               isActive={gameState.gameActive}
               isYou={gameState.playerId === 2}
+              timeLeft={
+                gameState.currentPlayer === 2
+                  ? gameState.clock?.remainingMoveTime || 0
+                  : gameState.timeControl?.moveTimeLimit || 0
+              }
               showTimer={false}
               compact={true}
               minimalist={isMobile}
@@ -196,7 +229,7 @@ export const InfoPanel = ({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={onResetGame}
-                className="flex-1 bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-500 hover:to-purple-600 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-lg shadow-purple-900/20 flex items-center justify-center gap-3"
+                className="flex-1 bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-500 hover:to-purple-600 text-white font-bold py-3 lg:py-4 px-6 rounded-2xl transition-all shadow-lg shadow-purple-900/20 flex items-center justify-center gap-3 text-sm lg:text-base"
               >
                 <RefreshCw className="w-5 h-5" />
                 Nouvelle Partie
@@ -207,7 +240,7 @@ export const InfoPanel = ({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setShowResignConfirm(true)}
-                  className="flex-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 font-bold py-4 px-6 rounded-2xl transition-all border border-rose-500/30 flex items-center justify-center gap-3"
+                  className="flex-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 font-bold py-3 lg:py-4 px-6 rounded-2xl transition-all border border-rose-500/30 flex items-center justify-center gap-3 text-sm lg:text-base"
                 >
                   <Flag className="w-5 h-5" />
                   Abandonner
@@ -246,16 +279,18 @@ export const InfoPanel = ({
         variant="warning"
       />
 
-      {/* Grid Coordinates Card */}
-      <div className="bg-[var(--bg-surface)] backdrop-blur-lg rounded-2xl border border-[var(--border-primary)] overflow-hidden">
-        <CursorPosition coord={hoveredCoord} />
-      </div>
+      {/* Grid Coordinates Card - Only on Desktop */}
+      {!isMobile && (
+        <div className="bg-[var(--bg-surface)] backdrop-blur-lg rounded-2xl border border-[var(--border-primary)] overflow-hidden">
+          <CursorPosition coord={hoveredCoord} />
+        </div>
+      )}
 
       {/* Logs Card */}
-      <div className="bg-[var(--bg-surface)] backdrop-blur-lg rounded-2xl border border-[var(--border-primary)] flex-1 flex flex-col min-h-[200px]">
-        <div className="px-4 py-3 border-b border-[var(--border-primary)] flex items-center gap-2">
+      <div className="bg-[var(--bg-surface)] backdrop-blur-lg rounded-2xl border border-[var(--border-primary)] flex-1 flex flex-col min-h-[150px] lg:min-h-[200px]">
+        <div className="px-4 py-2 lg:py-3 border-b border-[var(--border-primary)] flex items-center gap-2">
           <Terminal className="w-4 h-4 text-[var(--text-muted)]" />
-          <span className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">
+          <span className="text-[10px] lg:text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">
             Journal d'actions
           </span>
         </div>

@@ -34,6 +34,7 @@ class SocketService {
       "playerJoined",
       "moveMade",
       "moveError",
+      "moveTimeout",
       "gameError",
       "rematchRequest",
       "rematchStarted",

@@ -54,11 +54,11 @@ export const GameBoard = ({
       const container = containerRef.current;
       const containerWidth = container.clientWidth;
       // On retire plus d'espace pour tenir compte des PlayerCards et de la Légende
-      const containerHeight = window.innerHeight - 200;
+      const containerHeight = window.innerHeight - 280; // Augmenter encore la marge verticale
 
-      const scaleX = (containerWidth - 20) / STAGE_WIDTH; // Encore moins de padding horizontal
+      const scaleX = (containerWidth - 64) / STAGE_WIDTH; // Plus de padding horizontal (64px au lieu de 32px)
       const scaleY = containerHeight / STAGE_HEIGHT;
-      const newScale = Math.min(scaleX, scaleY, 0.95); // Max 95% pour garder une petite marge
+      const newScale = Math.min(scaleX, scaleY, 0.85); // Max 85% pour garder plus de marge (au lieu de 90%)
 
       setScale(newScale);
       setDimensions({
@@ -234,8 +234,8 @@ export const GameBoard = ({
       className="relative flex flex-col items-center select-none w-full"
     >
       {/* Mobile Player Cards (Minimalist at top) */}
-      <div className="lg:hidden w-full mb-3 px-1">
-        <div className="flex justify-center gap-1.5 w-full max-w-[400px] mx-auto">
+      <div className="lg:hidden w-full mb-4 px-2">
+        <div className="flex justify-center gap-1.5 w-full max-w-[360px] mx-auto">
           <div className="flex-1 min-w-0">
             <PlayerCard
               player={1}
@@ -243,7 +243,11 @@ export const GameBoard = ({
               isCurrentPlayer={gameState.currentPlayer === 1}
               isActive={gameState.gameActive}
               isYou={gameState.playerId === 1}
-              timeLeft={moveTimeLimit}
+              timeLeft={
+                gameState.currentPlayer === 1
+                  ? gameState.clock?.remainingMoveTime || 0
+                  : gameState.timeControl?.moveTimeLimit || 0
+              }
               minimalist={true}
               showTimer={gameType !== "AI"}
               isOnline={gameState.player1Online}
@@ -256,7 +260,11 @@ export const GameBoard = ({
               isCurrentPlayer={gameState.currentPlayer === 2}
               isActive={gameState.gameActive}
               isYou={gameState.playerId === 2}
-              timeLeft={moveTimeLimit}
+              timeLeft={
+                gameState.currentPlayer === 2
+                  ? gameState.clock?.remainingMoveTime || 0
+                  : gameState.timeControl?.moveTimeLimit || 0
+              }
               minimalist={true}
               showTimer={gameType !== "AI"}
               isOnline={gameState.player2Online}
@@ -273,7 +281,11 @@ export const GameBoard = ({
           isCurrentPlayer={gameState.currentPlayer === 1}
           isActive={gameState.gameActive}
           isYou={gameState.playerId === 1}
-          timeLeft={moveTimeLimit}
+          timeLeft={
+            gameState.currentPlayer === 1
+              ? gameState.clock?.remainingMoveTime || 0
+              : gameState.timeControl?.moveTimeLimit || 0
+          }
           compact={true}
           showTimer={gameType !== "AI"}
           isOnline={gameState.player1Online}
@@ -290,7 +302,11 @@ export const GameBoard = ({
           isCurrentPlayer={gameState.currentPlayer === 2}
           isActive={gameState.gameActive}
           isYou={gameState.playerId === 2}
-          timeLeft={moveTimeLimit}
+          timeLeft={
+            gameState.currentPlayer === 2
+              ? gameState.clock?.remainingMoveTime || 0
+              : gameState.timeControl?.moveTimeLimit || 0
+          }
           compact={true}
           showTimer={gameType !== "AI"}
           isOnline={gameState.player2Online}

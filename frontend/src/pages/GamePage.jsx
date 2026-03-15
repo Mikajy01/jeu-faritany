@@ -11,8 +11,21 @@ import {
 import { InfoPanel } from "../components/InfoPanel";
 import { GameBoard } from "../components/GameBoard";
 import { GameOverModal } from "../components/ui/GameOverModal";
-import { Menu, X, LayoutDashboard, Flag } from "lucide-react";
+import { Menu, X, LayoutDashboard, Flag, Clock, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
+// Helper to format time
+const formatTime = (seconds) => {
+  if (seconds >= 3600) {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hrs}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
 
 // Grid component for the background
 const Grid = () => (
@@ -51,6 +64,28 @@ export default function GamePage() {
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [roomCode, setRoomCode] = useState(null);
 
+  // --- LOCAL TIMER FOR HEADER ---
+  const [headerTime, setHeaderTime] = useState(0);
+
+  useEffect(() => {
+    if (!gameState?.clock?.remainingGameTime) return;
+    setHeaderTime(gameState.clock.remainingGameTime);
+  }, [gameState?.clock?.remainingGameTime]);
+
+  useEffect(() => {
+    if (!isConnected || !gameState?.gameActive || gameState?.gameOver) return;
+
+    // Reset local timer on new game start
+    setHeaderTime(gameState.clock?.remainingGameTime || 0);
+
+    const interval = setInterval(() => {
+      setHeaderTime((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isConnected, gameState?.gameActive, gameState?.gameOver]);
+  // -------------------------------
+
   // Récupérer le room code si disponible
   useEffect(() => {
     if (gameState?.gameId) {
@@ -58,20 +93,20 @@ export default function GamePage() {
     }
   }, [gameState.gameId]);
 
-  // 🔄 Gestion de la reconnexion automatique
+  // 🔄 Gestion de la reconnexion automatique (uniquement si pas de partie chargée)
   useEffect(() => {
-    if (isConnected && !gameState.gameActive) {
+    if (isConnected && !gameState.gameId) {
       const roomCode = localStorage.getItem("faritany_current_game");
       if (roomCode) {
-        console.log("🔄 Tentative de reconnexion:", roomCode);
+        console.log("🔄 Tentative de reconnexion automatique:", roomCode);
         joinRoom(roomCode).catch((err) => {
-          console.warn("❌ Échec de reconnexion:", err);
+          console.warn("❌ Échec de reconnexion automatique:", err);
           localStorage.removeItem("faritany_current_game");
           navigate("/");
         });
       }
     }
-  }, [isConnected, gameState.gameActive, joinRoom, navigate]);
+  }, [isConnected, gameState.gameId, joinRoom, navigate]);
 
   // Fermer le drawer quand on clique en dehors (mobile uniquement)
   useEffect(() => {
@@ -210,10 +245,35 @@ export default function GamePage() {
               Jeu Faritany
             </h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div
-              className={`w-2 h-2 rounded-full ${connectionStatus === "connected" ? "bg-[var(--accent-emerald)]" : "bg-[var(--accent-rose)]"} animate-pulse`}
+              className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-[var(--accent-emerald)]" : "bg-[var(--accent-rose)]"} animate-pulse`}
             />
+
+            {/* Mobile Timer/Score Indicator */}
+            {gameState.gameActive && !gameState.gameOver && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-primary)] shadow-sm">
+                {gameState.timeControl?.gameMode === "TIME" ? (
+                  <>
+                    <Clock className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                    <span className="text-sm font-mono font-black tabular-nums text-[var(--text-primary)]">
+                      {formatTime(headerTime)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-3.5 h-3.5 text-[var(--accent-emerald)]" />
+                    <span className="text-sm font-mono font-black tabular-nums text-[var(--accent-emerald)]">
+                      {gameState.timeControl?.targetScore}
+                      <span className="text-[10px] ml-0.5 opacity-50 font-bold uppercase">
+                        pts
+                      </span>
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+
             {gameState.gameActive && !gameState.gameOver && (
               <motion.button
                 whileHover={{ scale: 1.05 }}
@@ -225,9 +285,6 @@ export default function GamePage() {
                 <Flag className="w-5 h-5" />
               </motion.button>
             )}
-            <span className="text-xs text-[var(--text-muted)] uppercase tracking-widest font-bold">
-              Live
-            </span>
           </div>
         </header>
 

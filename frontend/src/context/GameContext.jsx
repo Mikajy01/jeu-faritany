@@ -123,9 +123,14 @@ export const GameProvider = ({ children }) => {
       socketService.on("gameStateUpdate", (data) => {
         setGameState((prev) => {
           const newState = GameState.fromServer(data);
-          // Préserver le playerId s'il n'est pas fourni dans l'update
           if (!newState.playerId && prev.playerId) {
             newState.playerId = prev.playerId;
+          }
+          if (data.gameState?.player1Online === undefined) {
+            newState.player1Online = prev.player1Online;
+          }
+          if (data.gameState?.player2Online === undefined) {
+            newState.player2Online = prev.player2Online;
           }
           return newState;
         });
@@ -141,6 +146,13 @@ export const GameProvider = ({ children }) => {
           if (!newState.playerId && prev.playerId) {
             newState.playerId = prev.playerId;
           }
+          // Lors d'une jointure, on fait confiance aux données du serveur ou on garde l'existant
+          if (data.gameState?.player1Online === undefined) {
+            newState.player1Online = prev.player1Online;
+          }
+          if (data.gameState?.player2Online === undefined) {
+            newState.player2Online = prev.player2Online;
+          }
           return newState;
         });
         if (data.isReconnection) addLogEntry(`👋 Vous êtes de retour !`);
@@ -152,6 +164,7 @@ export const GameProvider = ({ children }) => {
           if (!newState.playerId && prev.playerId) {
             newState.playerId = prev.playerId;
           }
+          // Au démarrage, tout le monde est censé être là
           return newState;
         });
         if (data.isReconnection) addLogEntry(`🎮 La partie reprend !`);
@@ -163,6 +176,30 @@ export const GameProvider = ({ children }) => {
           if (!newState.playerId && prev.playerId) {
             newState.playerId = prev.playerId;
           }
+          // IMPORTANT: Préserver le statut "Hors ligne" pendant les mouvements
+          if (data.gameState?.player1Online === undefined) {
+            newState.player1Online = prev.player1Online;
+          }
+          if (data.gameState?.player2Online === undefined) {
+            newState.player2Online = prev.player2Online;
+          }
+          return newState;
+        });
+      }),
+
+      socketService.on("moveTimeout", (data) => {
+        addLogEntry(`⏰ Temps écoulé pour le joueur ${data.playerNumber} !`);
+        setGameState((prev) => {
+          const newState = GameState.fromServer(data);
+          if (!newState.playerId && prev.playerId) {
+            newState.playerId = prev.playerId;
+          }
+          if (data.gameState?.player1Online === undefined) {
+            newState.player1Online = prev.player1Online;
+          }
+          if (data.gameState?.player2Online === undefined) {
+            newState.player2Online = prev.player2Online;
+          }
           return newState;
         });
       }),
@@ -173,6 +210,12 @@ export const GameProvider = ({ children }) => {
           const newState = GameState.fromServer(data);
           if (!newState.playerId && prev.playerId) {
             newState.playerId = prev.playerId;
+          }
+          if (data.gameState?.player1Online === undefined) {
+            newState.player1Online = prev.player1Online;
+          }
+          if (data.gameState?.player2Online === undefined) {
+            newState.player2Online = prev.player2Online;
           }
           return newState;
         });
@@ -198,12 +241,26 @@ export const GameProvider = ({ children }) => {
       }),
 
       socketService.on("playerDisconnected", (data) => {
-        addLogEntry(`⚠️ ${data.message}`);
+        console.log("👤 Joueur déconnecté:", data);
+        addLogEntry(`⚠️ ${data.message || "Un joueur s'est déconnecté."}`);
         setGameState((prev) => ({
           ...prev,
-          gameActive: false,
+          // On garde gameActive tel quel, c'est le serveur qui gère l'activité
           player1Online: data.playerNumber === 1 ? false : prev.player1Online,
           player2Online: data.playerNumber === 2 ? false : prev.player2Online,
+        }));
+      }),
+
+      socketService.on("playerJoined", (data) => {
+        console.log("👤 Joueur rejoint:", data);
+        addLogEntry(
+          `👋 Un joueur a rejoint (${data.onlineCount || data.playerCount}/2)`,
+        );
+        setGameState((prev) => ({
+          ...prev,
+          // Si on est 2 en ligne, on s'assure que tout est à true
+          player1Online: data.onlineCount === 2 ? true : prev.player1Online,
+          player2Online: data.onlineCount === 2 ? true : prev.player2Online,
         }));
       }),
 

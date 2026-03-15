@@ -130,7 +130,7 @@ export const ChessClock = ({
       </div>
 
       {/* ⏱️ TEMPS DU TOUR ACTUEL */}
-      {gameActive && (
+      {/* {gameActive && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -150,7 +150,7 @@ export const ChessClock = ({
             </div>
           </div>
         </motion.div>
-      )}
+      )} */}
     </div>
   );
 };
