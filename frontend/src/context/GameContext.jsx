@@ -205,6 +205,7 @@ export const GameProvider = ({ children }) => {
           capturedAreas: data.gameState?.capturedAreas || prev.capturedAreas,
           timeControl: data.gameState?.timeControl || prev.timeControl,
           clock: data.gameState?.clock || prev.clock,
+          joinCode: data.gameState?.joinCode || prev.joinCode, // ✨ Nouveau: persistance du code secret
           move: type === "moveMade" ? data.move : prev.move,
           player1Online: true,
           player2Online: true,
@@ -221,7 +222,11 @@ export const GameProvider = ({ children }) => {
 
     socket.on("gameJoined", (data) => {
       if (data.gameState?.gameId) {
+        setRoomCode(data.gameState.gameId); // ✨ S'assurer que le code est mis à jour
         localStorage.setItem("faritany_current_game", data.gameState.gameId);
+      }
+      if (data.gameState?.gameType) {
+        setGameType(data.gameState.gameType); // ✨ S'assurer que le type est mis à jour
       }
       handleGameStateUpdate(data, "gameJoined");
       // Si c'est une reconnexion, on peut logger

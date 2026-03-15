@@ -54,46 +54,46 @@ export const PlayerCard = ({
           opacity: isOnline ? 1 : 0.7,
         }}
         className={`
-          relative overflow-hidden rounded-lg border backdrop-blur-md transition-all duration-500 px-2 py-1.5 flex items-center justify-between gap-1 w-full
+          relative overflow-hidden rounded-lg border backdrop-blur-md transition-all duration-500 px-1.5 py-1 flex items-center justify-between gap-1 w-full
           ${isActiveTurn ? "bg-[var(--bg-secondary)] shadow-lg z-20 border-[var(--accent-fuchsia)]" : "bg-[var(--bg-surface)]/60 z-10 border-[var(--border-primary)]"}
         `}
       >
-        <div className="flex items-center gap-1.5 min-w-0">
+        <div className="flex items-center gap-1 min-w-0">
           <div
             className={`
-            w-5 h-5 rounded-md flex items-center justify-center border shrink-0
+            w-4 h-4 rounded-md flex items-center justify-center border shrink-0
             ${isActiveTurn ? `bg-gradient-to-br ${theme.gradient} border-white/20` : `bg-[var(--bg-surface)] border-[var(--border-primary)]`}
           `}
           >
             <User
-              className={`w-3 h-3 ${isActiveTurn ? "text-white" : theme.accent}`}
+              className={`w-2.5 h-2.5 ${isActiveTurn ? "text-white" : theme.accent}`}
             />
           </div>
           <div className="flex flex-col min-w-0">
             <span
-              className={`font-bold text-[10px] truncate ${isActiveTurn ? (isDarkMode ? "text-white" : "text-[var(--accent-fuchsia)]") : "text-[var(--text-primary)]"}`}
+              className={`font-black text-[9px] truncate ${isActiveTurn ? (isDarkMode ? "text-white" : "text-[var(--accent-fuchsia)]") : "text-[var(--text-primary)]"}`}
             >
               P{player}
             </span>
             {isYou && (
-              <span className="text-[7px] text-[var(--text-muted)] uppercase leading-none font-bold">
+              <span className="text-[6px] text-[var(--text-muted)] uppercase leading-none font-black">
                 VOUS
               </span>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div className="flex items-center gap-1 bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded-md border border-[var(--border-primary)]">
-            <Trophy className={`w-2.5 h-2.5 ${theme.accent} opacity-70`} />
-            <span className="text-xs font-black text-[var(--text-primary)]">
+        <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-0.5 bg-[var(--bg-secondary)] px-1 py-0.5 rounded-md border border-[var(--border-primary)]">
+            <Trophy className={`w-2 h-2 ${theme.accent} opacity-70`} />
+            <span className="text-[10px] font-black text-[var(--text-primary)]">
               {score}
             </span>
           </div>
 
           {showTimer && (
             <div
-              className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border ${isActiveTurn ? "bg-[var(--bg-surface)] border-[var(--accent-fuchsia)]/30" : "bg-[var(--bg-secondary)]/60 border-[var(--border-primary)]"}`}
+              className={`flex items-center gap-1 px-1 py-0.5 rounded-md border ${isActiveTurn ? "bg-[var(--bg-surface)] border-[var(--accent-fuchsia)]/30" : "bg-[var(--bg-secondary)]/60 border-[var(--border-primary)]"}`}
             >
               <ChessTimer
                 timeLeft={timeLeft}

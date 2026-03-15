@@ -1,18 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Timer, AlertCircle, Clock, Zap, User } from "lucide-react";
+import { AlertCircle, Clock, Zap, User } from "lucide-react";
 
 export const ChessClock = ({
   remainingMoveTime,
   remainingGameTime,
   gameStartTime,
-  currentPlayer,
   gameActive,
   lastMoveTimestamp,
   gameMode = "TIME",
   targetScore = 20,
 }) => {
-  const [moveDisplay, setMoveDisplay] = useState(remainingMoveTime);
   const [gameDisplay, setGameDisplay] = useState(remainingGameTime);
   const timerRef = useRef(null);
 
@@ -25,7 +23,6 @@ export const ChessClock = ({
 
   // Synchronisation avec les props
   useEffect(() => {
-    setMoveDisplay(remainingMoveTime);
     setGameDisplay(calculateGlobalRemaining());
   }, [remainingMoveTime, remainingGameTime, gameStartTime, lastMoveTimestamp]);
 
@@ -128,47 +125,6 @@ export const ChessClock = ({
             />
           </div>
         )}
-      </div>
-
-      {/* ⚡ CHRONO PAR COUP (Joueur Actuel) */}
-      <div className="flex items-center gap-3">
-        <div
-          className={`
-          flex-1 flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-500
-          ${gameActive ? "bg-[var(--bg-surface)] border-[var(--border-primary)] shadow-xl" : "bg-[var(--bg-secondary)]/40 border-[var(--border-primary)] opacity-50"}
-        `}
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-10 h-10 rounded-xl flex items-center justify-center border ${currentPlayer === 1 ? "bg-[var(--accent-fuchsia)]/20 border-[var(--accent-fuchsia)]/30 text-[var(--accent-fuchsia)]" : "bg-[var(--accent-cyan)]/20 border-[var(--accent-cyan)]/30 text-[var(--accent-cyan)]"}`}
-            >
-              <User className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
-                Tour du Joueur {currentPlayer}
-              </div>
-              <div className="text-sm font-bold text-[var(--text-primary)]">Action requise</div>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-end">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <Timer
-                className={`w-3.5 h-3.5 ${moveDisplay <= 10 ? "text-[var(--accent-rose)] animate-pulse" : "text-[var(--accent-emerald)]"}`}
-              />
-              <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
-                Chrono Coup
-              </span>
-            </div>
-            <div
-              className={`text-3xl font-mono font-black tabular-nums ${moveDisplay <= 10 ? "text-[var(--accent-rose)] animate-pulse" : "text-[var(--text-primary)]"}`}
-            >
-              {moveDisplay}
-              <span className="text-xs ml-1 opacity-50">s</span>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

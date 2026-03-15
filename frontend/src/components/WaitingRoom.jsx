@@ -35,6 +35,16 @@ export function WaitingRoom({
 }) {
   const [copied, setCopied] = React.useState(false);
   const [copiedJoinCode, setCopiedJoinCode] = React.useState(false);
+  const [shared, setShared] = React.useState(false);
+
+  const getShareLink = () => {
+    const baseUrl = window.location.origin;
+    let url = `${baseUrl}/join/${roomCode}`;
+    if (gameType === "private" && joinCode) {
+      url += `?pwd=${joinCode}`;
+    }
+    return url;
+  };
 
   const handleCopyCode = () => {
     if (navigator.clipboard && roomCode) {
@@ -54,10 +64,36 @@ export function WaitingRoom({
     }
   };
 
-  const handleShareLink = () => {
-    onShareLink?.();
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleShareLink = async () => {
+    const shareData = {
+      title: "Rejoins-moi sur Faritany !",
+      text: `Viens m'affronter sur Faritany ! Code de la salle : ${roomCode}${gameType === "private" ? ` (Code secret : ${joinCode})` : ""}`,
+      url: getShareLink(),
+    };
+
+    if (navigator.share && navigator.canShare?.(shareData)) {
+      try {
+        await navigator.share(shareData);
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          handleCopyLink();
+        }
+      }
+    } else {
+      handleCopyLink();
+    }
+  };
+
+  const handleCopyLink = () => {
+    const link = getShareLink();
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(link).then(() => {
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      });
+    }
   };
 
   const containerVariants = {
@@ -150,6 +186,22 @@ export function WaitingRoom({
                               <>
                                 <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
                                 Copier
+                              </>
+                            )}
+                          </button>
+                          <button
+                            onClick={handleShareLink}
+                            className="flex-1 flex items-center justify-center gap-2 py-1.5 sm:py-2 bg-[var(--accent-fuchsia)]/10 hover:bg-[var(--accent-fuchsia)]/20 rounded-lg sm:rounded-xl transition-all border border-[var(--accent-fuchsia)]/30 text-[10px] sm:text-xs font-black text-[var(--accent-fuchsia)]"
+                          >
+                            {shared ? (
+                              <>
+                                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                                Partagé
+                              </>
+                            ) : (
+                              <>
+                                <Share2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                                Partager
                               </>
                             )}
                           </button>

@@ -14,18 +14,18 @@ export default function WaitingRoomPage() {
     lastError,
     gameState,
     gameType: ctxGameType,
-    userId, // ✨ Récupérer l'ID persistant
+    userId,
+    playerCount: contextPlayerCount, // ✨ Utiliser le compte du contexte
     createRoom,
     joinPublicRoom,
-    joinRoom, // ✨ Utiliser la fonction unifiée
-    leaveRoom, // ✨ Nouvelle fonction
+    joinRoom,
+    leaveRoom,
   } = useGameContext();
 
   const [roomCode, setRoomCode] = useState(location.state?.roomCode || null);
   const [joinCode, setJoinCode] = useState(null);
-  const [playerCount, setPlayerCount] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  const initializationPromise = useRef(null); // ✨ Gérer l'initialisation asynchrone sans blocage
+  const initializationPromise = useRef(null);
 
   // 📡 Créer/Rejoindre la room au chargement via REST
   useEffect(() => {
@@ -65,7 +65,6 @@ export default function WaitingRoomPage() {
           console.log("✅ Salle initialisée:", data.gameId);
           setRoomCode(data.gameId);
           if (data.joinCode) setJoinCode(data.joinCode);
-          if (data.playerNumber) setPlayerCount(data.playerNumber);
 
           // Utiliser la fonction unifiée pour finaliser la connexion socket
           await joinRoom(data.gameId, data.joinCode);
@@ -101,6 +100,7 @@ export default function WaitingRoomPage() {
     addLogEntry,
     navigate,
     roomCode,
+    joinRoom,
   ]);
 
   // 📡 Écouter les mises à jour de la room (via WebSocket)
@@ -109,7 +109,6 @@ export default function WaitingRoomPage() {
     const socket = socketRef.current;
 
     const handlePlayerJoined = (data) => {
-      setPlayerCount(data.playerCount);
       addLogEntry(`Un joueur a rejoint la salle (${data.playerCount}/2)`);
     };
 
@@ -136,7 +135,6 @@ export default function WaitingRoomPage() {
     console.log("🚫 Annulation de la partie");
     leaveRoom(); // ✨ Nettoyage centralisé
     setRoomCode(null);
-    setPlayerCount(1);
     navigate("/");
   }, [leaveRoom, navigate]);
 
@@ -147,8 +145,8 @@ export default function WaitingRoomPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-fuchsia-500 animate-spin" />
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+        <Loader2 className="w-12 h-12 text-[var(--accent-fuchsia)] animate-spin" />
       </div>
     );
   }
@@ -158,7 +156,7 @@ export default function WaitingRoomPage() {
       roomCode={roomCode}
       joinCode={joinCode || gameState?.joinCode}
       gameType={gameState?.gameType || location.state?.gameType}
-      playerCount={playerCount}
+      playerCount={contextPlayerCount} // ✨ Utiliser le contexte
       onCancel={handleCancel}
       onStartGame={handleStartGame}
     />

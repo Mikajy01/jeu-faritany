@@ -1,6 +1,6 @@
 import { Users, Loader2, ArrowLeft, Hash } from "lucide-react";
-import React, { useEffect, useState, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useGameContext } from "../context/GameContext";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -19,13 +19,18 @@ const Grid = () => (
 );
 
 const JoinRoomPage = () => {
-  const { code: urlCode } = useParams();
+  const { roomCode: urlCode } = useParams(); // ✨ Correction: match roomCode from App.jsx
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const urlPwd = queryParams.get("pwd");
+
   const [roomCode, setRoomCode] = useState(urlCode?.toUpperCase() || "");
-  const [joinCode, setJoinCode] = useState("");
+  const [joinCode, setJoinCode] = useState(urlPwd || "");
   const [isPrivate, setIsPrivate] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isChecking, setIsChecking] = useState(false);
+  const [isChecking, setIsChecking] = useState(true); // ✨ Toujours commencer en mode vérification
+  const autoJoinAttempted = useRef(false);
   const navigate = useNavigate();
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5555";
@@ -42,83 +47,125 @@ const JoinRoomPage = () => {
 
   const isDarkMode = theme === "dark";
 
+  // ✨ Effet pour gérer l'état initial de isChecking si pas de code
+  useEffect(() => {
+    if (!urlCode) {
+      setIsChecking(false);
+    }
+  }, [urlCode]);
+
   useEffect(() => {
     let isMounted = true;
 
-    if (urlCode && isConnected && socketRef.current && !isLoading) {
-      const code = urlCode.toUpperCase();
-      if (code.length === 6) {
-        setIsChecking(true);
-        getRoomInfo(code)
-          .then((data) => {
-            if (!isMounted) return;
-            if (data.gameType === "public") {
-              // Rejoindre directement via la fonction unifiée
-              joinRoom(code).catch((err) => setError(err.message));
-              addLogEntry(`Tentative de rejoindre la partie ${code}...`);
-            } else {
-              // Afficher le champ code secret si privé
-              setIsPrivate(true);
-              setRoomCode(code);
-            }
-            setIsChecking(false);
-          })
-          .catch((err) => {
-            if (!isMounted) return;
-            if (err.message === "Salle introuvable.") {
-              localStorage.removeItem("faritany_current_game");
-            }
-            setError(err.message);
-            setIsChecking(false);
-          });
-      }
+    // 1. Empêcher les tentatives multiples ou si déjà en train de charger
+    if (!urlCode || isLoading || autoJoinAttempted.current) {
+      console.log("⏭️ Skip auto-join: condition non remplie", {
+        urlCode,
+        isLoading,
+        attempted: autoJoinAttempted.current,
+      });
+      return;
     }
+
+    // 2. Attendre que le socket soit connecté ET qu'il ait un ID (prêt à émettre)
+    if (!isConnected || !socketRef.current?.id) {
+      console.log("⏳ En attente du socket pour auto-join...");
+      setIsChecking(true);
+      return;
+    }
+
+    const code = urlCode.toUpperCase();
+    if (code.length !== 6) {
+      setIsChecking(false);
+      return;
+    }
+
+    // 3. Verrouiller la tentative
+    autoJoinAttempted.current = true;
+    setIsChecking(true);
+    console.log(`🚀 Lancement auto-join pour: ${code}`);
+
+    const performAutoJoin = async () => {
+      try {
+        const data = await getRoomInfo(code);
+        if (!isMounted) return;
+
+        console.log("ℹ️ Infos salle reçues:", data);
+
+        if (data.gameType === "public") {
+          addLogEntry(`Jointure automatique de la salle publique ${code}...`);
+          const result = await joinRoom(code);
+          console.log("✅ Résultat jointure publique:", result);
+
+          if (isMounted && result.success) {
+            navigate(result.gameActive ? "/game" : "/waiting-room", {
+              state: { roomCode: code, gameType: "public" },
+            });
+          }
+        } else {
+          // Salle privée
+          console.log("🔒 Salle privée détectée");
+          setIsPrivate(true);
+          setRoomCode(code);
+
+          if (urlPwd && urlPwd.length === 4) {
+            addLogEntry(`Jointure automatique de la salle privée ${code}...`);
+            setJoinCode(urlPwd);
+            const result = await joinRoom(code, urlPwd);
+            console.log("✅ Résultat jointure privée:", result);
+
+            if (isMounted && result.success) {
+              navigate(result.gameActive ? "/game" : "/waiting-room", {
+                state: { roomCode: code, gameType: "private" },
+              });
+            }
+          } else {
+            console.log("⌨️ En attente de saisie du code secret");
+            setIsChecking(false);
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error("❌ Échec auto-join:", err);
+          setError(err.message || "Impossible de rejoindre la salle.");
+          setIsChecking(false);
+          autoJoinAttempted.current = false;
+        }
+      }
+    };
+
+    performAutoJoin();
 
     return () => {
       isMounted = false;
     };
   }, [
     urlCode,
+    urlPwd,
     isConnected,
-    socketRef,
+    socketRef.current?.id, // ✨ Dépendre explicitement de l'ID du socket
     addLogEntry,
     isLoading,
-    userId,
     getRoomInfo,
     joinRoom,
+    navigate,
   ]);
 
+  // 📡 Écouter les erreurs de jointure via socket (pour le feedback)
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !socketRef.current) return;
 
     const socket = socketRef.current;
-
-    const handleGameJoined = ({ playerId, playerCount: count }) => {
-      addLogEntry("Partie rejointe !");
-      navigate("/game", {
-        state: {
-          roomCode: roomCode,
-        },
-      });
-    };
-
     const handleJoinError = ({ reason }) => {
-      addLogEntry(`Erreur: ${reason}`);
+      addLogEntry(`Erreur socket: ${reason}`);
       setError(reason);
       setIsLoading(false);
-      // Ne pas vider le roomCode si on vient d'une erreur de code secret
-      if (reason !== "Invalid join code" && reason !== "Invalid joinCode")
-        setRoomCode("");
+      autoJoinAttempted.current = false;
     };
 
-    socket.on("gameJoined", handleGameJoined);
     socket.on("joinError", handleJoinError);
-
-    return () => {
-      socket.off("gameJoined", handleGameJoined);
-      socket.off("joinError", handleJoinError);
-    };
-  }, [isConnected, socketRef, addLogEntry, navigate, roomCode]);
+    return () => socket.off("joinError", handleJoinError);
+  }, [isConnected, socketRef, addLogEntry]);
 
   const handleJoinWithCode = async () => {
     if (roomCode.length !== 6) {
@@ -131,7 +178,8 @@ const JoinRoomPage = () => {
 
     try {
       // 1. D'abord, récupérer les infos de la salle pour savoir si elle est privée
-      if (!isPrivate) {
+      let currentIsPrivate = isPrivate;
+      if (!currentIsPrivate) {
         const room = await getRoomInfo(roomCode.toUpperCase());
         if (room.gameType === "private") {
           setIsPrivate(true);
@@ -147,16 +195,28 @@ const JoinRoomPage = () => {
         return;
       }
 
-      // 3. Valider la jointure et se connecter (ID + Code si privé) via la fonction unifiée
-      await joinRoom(roomCode.toUpperCase(), isPrivate ? joinCode : undefined);
-      addLogEntry(`Tentative de rejoindre ${roomCode}...`);
+      // 3. Valider la jointure et se connecter
+      const result = await joinRoom(
+        roomCode.toUpperCase(),
+        isPrivate ? joinCode : undefined,
+      );
+
+      if (result.success) {
+        addLogEntry(`Partie rejointe avec succès !`);
+        navigate(result.gameActive ? "/game" : "/waiting-room", {
+          state: {
+            roomCode: roomCode.toUpperCase(),
+            gameType: isPrivate ? "private" : "public",
+          },
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur de connexion.");
       setIsLoading(false);
     }
   };
 
-  if (isLoading) {
+  if (isChecking || isLoading) {
     return (
       <div className="relative min-h-screen w-full overflow-hidden flex flex-col items-center justify-center bg-[var(--bg-primary)] text-[var(--text-primary)] p-4 transition-colors duration-300">
         <div className="absolute inset-0 z-0 h-full w-full bg-gradient-to-r from-[var(--bg-primary)] via-[var(--bg-secondary)] to-[var(--bg-primary)] animate-gradient-x opacity-50 dark:opacity-100" />
