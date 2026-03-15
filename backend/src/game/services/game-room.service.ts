@@ -199,7 +199,7 @@ export class GameRoomService {
   }
 
   /**
-   * Remove player from room
+   * Remove player from room (disconnect)
    */
   removePlayer(gameId: string, socketId: string): void {
     const room = this.gameRooms.get(gameId);
@@ -208,12 +208,32 @@ export class GameRoomService {
     room.removePlayer(socketId);
     this.socketToRoom.delete(socketId);
 
-    this.logger.log(`Player ${socketId} removed from room ${gameId}`);
+    this.logger.log(`Player ${socketId} disconnected from room ${gameId}`);
 
-    // Clean up empty rooms
-    if (room.isEmpty()) {
+    // Nettoyage automatique : si plus personne n'est connecté à la salle
+    if (room.getOnlinePlayerCount() === 0) {
+      // NOTE: Le clearTimeouts doit être appelé par le GameManagerService
+      // avant d'appeler removePlayer si on veut arrêter les timers proprement.
       this.gameRooms.delete(gameId);
-      this.logger.log(`Room ${gameId} deleted (empty)`);
+      this.logger.log(`Room ${gameId} deleted (no active connections)`);
+    }
+  }
+
+  /**
+   * Explicitly leave a room (remove mapping)
+   */
+  leaveRoom(gameId: string, socketId: string): void {
+    const room = this.gameRooms.get(gameId);
+    if (!room) return;
+
+    room.leavePlayer(socketId);
+    this.socketToRoom.delete(socketId);
+
+    this.logger.log(`Player ${socketId} explicitly left room ${gameId}`);
+
+    if (room.getPlayerCount() === 0) {
+      this.gameRooms.delete(gameId);
+      this.logger.log(`Room ${gameId} deleted (no players left)`);
     }
   }
 

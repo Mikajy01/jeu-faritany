@@ -18,6 +18,7 @@ export default function WaitingRoomPage() {
     createRoom,
     joinPublicRoom,
     joinRoom, // ✨ Utiliser la fonction unifiée
+    leaveRoom, // ✨ Nouvelle fonction
   } = useGameContext();
 
   const [roomCode, setRoomCode] = useState(location.state?.roomCode || null);
@@ -133,11 +134,11 @@ export default function WaitingRoomPage() {
 
   const handleCancel = useCallback(() => {
     console.log("🚫 Annulation de la partie");
+    leaveRoom(); // ✨ Nettoyage centralisé
     setRoomCode(null);
     setPlayerCount(1);
-    addLogEntry("Retour au menu principal");
     navigate("/");
-  }, [addLogEntry, navigate]);
+  }, [leaveRoom, navigate]);
 
   const handleStartGame = useCallback(() => {
     console.log("⏳ En attente du second joueur...");

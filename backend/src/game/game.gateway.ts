@@ -241,6 +241,31 @@ export class GameGateway
   }
 
   /**
+   * Handle leaving a room
+   */
+  @SubscribeMessage('leaveRoom')
+  handleLeaveRoom(@ConnectedSocket() client: Socket) {
+    const gameId = this.gameRoomService.getGameIdBySocket(client.id);
+    if (gameId) {
+      const room = this.gameRoomService.getRoom(gameId);
+      const isPublic = room?.getGameState().gameType === 'public';
+
+      // ✨ Nettoyer les timeouts avant de quitter/supprimer
+      this.gameManagerService.clearTimeouts(gameId);
+
+      this.gameRoomService.leaveRoom(gameId, client.id);
+      client.leave(gameId);
+
+      // ✨ Mettre à jour la liste des salles si c'était une salle publique
+      if (isPublic) {
+        this.broadcastPublicRooms();
+      }
+
+      this.logger.log(`Player ${client.id} left room ${gameId}`);
+    }
+  }
+
+  /**
    * Handle resignation
    */
   @SubscribeMessage('resignGame')

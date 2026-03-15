@@ -89,8 +89,24 @@ export class GameRoomEntity {
   removePlayer(socketId: string): void {
     if (this.players.has(socketId)) {
       this.players.delete(socketId);
-      // On ne désactive plus le jeu immédiatement pour permettre le re-join
-      // this.gameState.gameActive = false; 
+    }
+  }
+
+  /**
+   * Fully removes a player and their user mapping (explicit leave)
+   */
+  leavePlayer(socketId: string): void {
+    const playerNumber = this.players.get(socketId);
+    if (playerNumber) {
+      this.players.delete(socketId);
+      
+      // Trouver l'userId associé à ce playerNumber
+      for (const [userId, num] of this.userToPlayer) {
+        if (num === playerNumber) {
+          this.userToPlayer.delete(userId);
+          break;
+        }
+      }
     }
   }
 

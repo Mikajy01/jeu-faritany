@@ -434,6 +434,23 @@ export const GameProvider = ({ children }) => {
     }
   }, [socketRef, isConnected, gameState.gameActive, addLogEntry]);
 
+  const leaveRoom = useCallback(() => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit("leaveRoom");
+      localStorage.removeItem("faritany_current_game");
+      // On réinitialise l'état local du jeu
+      setGameState((prev) => ({
+        ...prev,
+        gameId: null,
+        gameActive: false,
+        gameOver: null,
+        grid: new Map(),
+        scores: { player1: 0, player2: 0 },
+      }));
+      addLogEntry("Vous avez quitté la salle.");
+    }
+  }, [socketRef, isConnected, addLogEntry]);
+
   const requestRematch = useCallback(() => {
     if (socketRef.current && isConnected) {
       socketRef.current.emit("resetGame");
@@ -625,6 +642,7 @@ export const GameProvider = ({ children }) => {
     getRoomInfo,
     checkGameStatus,
     resignGame,
+    leaveRoom, // ✨ Nouvelle fonction
     requestRematch,
     rematchRequestedBy,
     publicRooms, // ✨ Exposer la liste des salles

@@ -299,13 +299,17 @@ export class GameManagerService {
    * Handle player disconnection
    */
   handlePlayerDisconnected(gameId: string, socketId: string) {
-    // Ne pas arrêter les timers immédiatement pour permettre le re-join
-    // this.clearTimeouts(gameId);
-
     const room = this.gameRoomService.getRoom(gameId);
     if (room) {
       const playerNumber = room.getPlayerNumber(socketId);
-      room.removePlayer(socketId);
+
+      // ✨ Nettoyer les timeouts si c'est le dernier joueur à partir
+      if (room.getOnlinePlayerCount() <= 1) {
+        this.clearTimeouts(gameId);
+      }
+
+      // ✨ Utiliser le service pour gérer le retrait et le nettoyage éventuel de la room
+      this.gameRoomService.removePlayer(gameId, socketId);
 
       this.notificationService.notifyBothPlayers(gameId, 'playerDisconnected', {
         playerNumber,
