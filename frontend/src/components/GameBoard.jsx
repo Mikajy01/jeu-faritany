@@ -47,11 +47,12 @@ export const GameBoard = ({
       // Mobile/Tablet : scaling pour s'adapter
       const container = containerRef.current;
       const containerWidth = container.clientWidth;
-      const containerHeight = window.innerHeight - 100;
+      // On retire plus d'espace pour tenir compte des PlayerCards et de la Légende
+      const containerHeight = window.innerHeight - 200;
 
-      const scaleX = (containerWidth - 32) / STAGE_WIDTH;
-      const scaleY = (containerHeight - 120) / STAGE_HEIGHT;
-      const newScale = Math.min(scaleX, scaleY, 1);
+      const scaleX = (containerWidth - 20) / STAGE_WIDTH; // Encore moins de padding horizontal
+      const scaleY = containerHeight / STAGE_HEIGHT;
+      const newScale = Math.min(scaleX, scaleY, 0.95); // Max 95% pour garder une petite marge
 
       setScale(newScale);
       setDimensions({
@@ -139,7 +140,7 @@ export const GameBoard = ({
 
       lastTouchDistance.current = dist;
     },
-    [stageScale, stagePosition, scale, dimensions]
+    [stageScale, stagePosition, scale, dimensions],
   );
 
   // Gérer le double-tap pour placer un point
@@ -212,7 +213,7 @@ export const GameBoard = ({
         };
       }
     },
-    [onStageClick, scale, stageScale, stagePosition]
+    [onStageClick, scale, stageScale, stagePosition],
   );
 
   // Réinitialiser le zoom
@@ -226,6 +227,36 @@ export const GameBoard = ({
       ref={containerRef}
       className="relative flex flex-col items-center select-none w-full"
     >
+      {/* Mobile Player Cards (Minimalist at top) */}
+      <div className="lg:hidden w-full mb-3 px-1">
+        <div className="flex justify-center gap-1.5 w-full max-w-[400px] mx-auto">
+          <div className="flex-1 min-w-0">
+            <PlayerCard
+              player={1}
+              score={gameState.scores?.player1 || 0}
+              isCurrentPlayer={gameState.currentPlayer === 1}
+              isActive={gameState.gameActive}
+              isYou={gameState.playerId === 1}
+              timeLeft={moveTimeLimit}
+              minimalist={true}
+              showTimer={gameType !== "AI"}
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <PlayerCard
+              player={2}
+              score={gameState.scores?.player2 || 0}
+              isCurrentPlayer={gameState.currentPlayer === 2}
+              isActive={gameState.gameActive}
+              isYou={gameState.playerId === 2}
+              timeLeft={moveTimeLimit}
+              minimalist={true}
+              showTimer={gameType !== "AI"}
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Player Cards (Desktop only, positioned around the board) */}
       <div className="hidden lg:flex w-full justify-between items-center mb-8 gap-4 px-4">
         <PlayerCard
@@ -239,8 +270,10 @@ export const GameBoard = ({
           showTimer={gameType !== "AI"}
         />
         <div className="flex flex-col items-center">
-           <div className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-500 mb-1">vs</div>
-           <div className="h-8 w-px bg-gradient-to-b from-transparent via-slate-700 to-transparent" />
+          <div className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-500 mb-1">
+            vs
+          </div>
+          <div className="h-8 w-px bg-gradient-to-b from-transparent via-slate-700 to-transparent" />
         </div>
         <PlayerCard
           player={2}
@@ -254,10 +287,10 @@ export const GameBoard = ({
         />
       </div>
 
-      <div className="relative rounded-[2.5rem] p-4 bg-slate-900/80 backdrop-blur-sm border border-slate-800 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden group">
+      <div className="relative rounded-3xl p-2 bg-slate-900/80 backdrop-blur-sm border border-slate-800 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden group">
         {/* Animated board border */}
         <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/10 via-transparent to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
-        
+
         <Stage
           width={dimensions.width}
           height={dimensions.height}
@@ -329,41 +362,27 @@ export const GameBoard = ({
           onZoomChange={setStageScale}
           onResetZoom={resetZoom}
         />
-        <div className="flex items-center gap-4 bg-slate-900/40 backdrop-blur-md px-6 py-3 rounded-2xl border border-slate-800/50">
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Temps / Tour</span>
-            <span className="text-lg font-mono font-bold text-fuchsia-400">{moveTimeLimit}s</span>
+        {gameType !== "AI" && (
+          <div className="flex items-center gap-4 bg-slate-900/40 backdrop-blur-md px-6 py-3 rounded-2xl border border-slate-800/50">
+            <div className="flex flex-col items-center">
+              <span className="text-[10px] uppercase tracking-widest font-bold text-slate-500">
+                Temps / Tour
+              </span>
+              <span className="text-lg font-mono font-bold text-fuchsia-400">
+                {moveTimeLimit}s
+              </span>
+            </div>
+            <div className="w-px h-8 bg-slate-800" />
+            <div className="flex flex-col items-center">
+              <span className="text-[10px] uppercase tracking-widest font-bold text-slate-500">
+                Mode
+              </span>
+              <span className="text-sm font-bold text-slate-300 uppercase">
+                {gameType === "AI" ? "IA" : "Joueur"}
+              </span>
+            </div>
           </div>
-          <div className="w-px h-8 bg-slate-800" />
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Mode</span>
-            <span className="text-sm font-bold text-slate-300 uppercase">{gameType === 'AI' ? 'IA' : 'Joueur'}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Player Cards (Small at bottom) */}
-      <div className="lg:hidden grid grid-cols-2 w-full gap-4 mt-8 px-4">
-        <PlayerCard
-          player={1}
-          score={gameState.scores?.player1 || 0}
-          isCurrentPlayer={gameState.currentPlayer === 1}
-          isActive={gameState.gameActive}
-          isYou={gameState.playerId === 1}
-          timeLeft={moveTimeLimit}
-          compact={true}
-          showTimer={gameType !== "AI"}
-        />
-        <PlayerCard
-          player={2}
-          score={gameState.scores?.player2 || 0}
-          isCurrentPlayer={gameState.currentPlayer === 2}
-          isActive={gameState.gameActive}
-          isYou={gameState.playerId === 2}
-          timeLeft={moveTimeLimit}
-          compact={true}
-          showTimer={gameType !== "AI"}
-        />
+        )}
       </div>
     </div>
   );

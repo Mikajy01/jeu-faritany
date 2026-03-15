@@ -82,9 +82,15 @@ export default function HomePage() {
 
       switch (mode) {
         case "create":
-        case "ai":
         case "random":
           setConfigModal({ isOpen: true, mode });
+          break;
+
+        case "ai":
+          // Pour l'IA, on ne passe plus par le paramétrage (timers inutiles)
+          navigate("/ai", {
+            state: { settings: { type: "AI" } },
+          });
           break;
 
         case "join":

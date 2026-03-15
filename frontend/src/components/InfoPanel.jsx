@@ -4,6 +4,7 @@ import { PlayerCard } from "./ui/PlayerCard";
 import { ChessClock } from "./ui/ChessClock";
 import { CursorPosition } from "./ui/CursorPosition";
 import { GameLog } from "./ui/GameLog";
+import { ConfirmModal } from "./ui/ConfirmModal";
 import {
   ArrowLeft,
   Copy,
@@ -14,6 +15,7 @@ import {
   Flag,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useGameContext } from "../context/GameContext";
 
 export const InfoPanel = ({
   connectionStatus,
@@ -25,7 +27,9 @@ export const InfoPanel = ({
   onResign,
   roomCode,
 }) => {
+  const { gameType } = useGameContext();
   const [copied, setCopied] = React.useState(false);
+  const [showResignConfirm, setShowResignConfirm] = React.useState(false); // ✨ State pour le modal d'abandon
 
   const handleCopyRoomCode = () => {
     if (roomCode) {
@@ -39,19 +43,21 @@ export const InfoPanel = ({
 
   return (
     <div className="flex flex-col gap-6 w-full h-full">
-      {/* Pendule de jeu (Chess Clock) */}
-      <div className="w-full">
-        <ChessClock
-          remainingMoveTime={gameState.clock?.remainingMoveTime || 0}
-          remainingGameTime={gameState.clock?.remainingGameTime || 0}
-          gameStartTime={gameState.clock?.gameStartTime}
-          currentPlayer={gameState.currentPlayer}
-          gameActive={gameState.gameActive}
-          lastMoveTimestamp={gameState.clock?.lastMoveTimestamp}
-          gameMode={gameState.timeControl?.gameMode}
-          targetScore={gameState.timeControl?.targetScore}
-        />
-      </div>
+      {/* Pendule de jeu (Chess Clock) - Masqué en mode IA */}
+      {gameType !== "AI" && (
+        <div className="w-full">
+          <ChessClock
+            remainingMoveTime={gameState.clock?.remainingMoveTime || 0}
+            remainingGameTime={gameState.clock?.remainingGameTime || 0}
+            gameStartTime={gameState.clock?.gameStartTime}
+            currentPlayer={gameState.currentPlayer}
+            gameActive={gameState.gameActive}
+            lastMoveTimestamp={gameState.clock?.lastMoveTimestamp}
+            gameMode={gameState.timeControl?.gameMode}
+            targetScore={gameState.timeControl?.targetScore}
+          />
+        </div>
+      )}
 
       {/* Main Stats Card */}
       <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl p-6 border border-slate-700/50 shadow-2xl relative overflow-hidden">
@@ -188,11 +194,7 @@ export const InfoPanel = ({
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    if (window.confirm("Voulez-vous vraiment abandonner ?")) {
-                      onResign();
-                    }
-                  }}
+                  onClick={() => setShowResignConfirm(true)}
                   className="flex-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 font-bold py-4 px-6 rounded-2xl transition-all border border-rose-500/30 flex items-center justify-center gap-3"
                 >
                   <Flag className="w-5 h-5" />
@@ -203,6 +205,20 @@ export const InfoPanel = ({
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={showResignConfirm}
+        title="Abandonner ?"
+        message="Voulez-vous vraiment abandonner cette partie ? Votre adversaire sera déclaré vainqueur immédiatement."
+        confirmLabel="Oui, Abandonner"
+        cancelLabel="Non, Continuer"
+        onConfirm={() => {
+          onResign();
+          setShowResignConfirm(false);
+        }}
+        onCancel={() => setShowResignConfirm(false)}
+        variant="danger"
+      />
 
       {/* Grid Coordinates Card */}
       <div className="bg-slate-800/30 backdrop-blur-lg rounded-2xl border border-slate-700/30 overflow-hidden">

@@ -24,7 +24,9 @@ export const GameProvider = ({ children }) => {
   const [connectionStatus, setConnectionStatus] = useState(
     "Connexion au serveur...",
   );
-  const [gameType, setGameType] = useState("public");
+  const [gameType, setGameType] = useState(() => {
+    return localStorage.getItem("faritany_current_game_type") || "public";
+  });
   const [moveTimeLimit, setMoveTimeLimit] = useState(600);
   const [gameState, setGameState] = useState({
     grid: new Map(),
@@ -164,7 +166,9 @@ export const GameProvider = ({ children }) => {
         }
 
         if (type === "gameStart" || type === "gameJoined") {
-          setGameType(data.gameState?.gameType || "public");
+          const newType = data.gameState?.gameType || "public";
+          setGameType(newType);
+          localStorage.setItem("faritany_current_game_type", newType);
           setMoveTimeLimit(data.gameState?.timeControl?.moveTimeLimit || 60);
         }
 
@@ -245,6 +249,7 @@ export const GameProvider = ({ children }) => {
     socket.on("gameOver", (data) => {
       console.log("🏁 Partie terminée:", data);
       localStorage.removeItem("faritany_current_game");
+      localStorage.removeItem("faritany_current_game_type");
       setGameState((prev) => ({
         ...prev,
         gameActive: false,
@@ -273,7 +278,10 @@ export const GameProvider = ({ children }) => {
         setRoomCode(data.code);
         localStorage.setItem("faritany_current_game", data.code);
       }
-      if (data?.type) setGameType(data.type);
+      if (data?.type) {
+        setGameType(data.type);
+        localStorage.setItem("faritany_current_game_type", data.type);
+      }
       if (data?.playerId)
         setGameState((prev) => ({ ...prev, playerId: data.playerId }));
       addLogEntry(`Salle ${data.type || "?"} créée avec le code: ${data.code}`);
@@ -438,6 +446,7 @@ export const GameProvider = ({ children }) => {
     if (socketRef.current && isConnected) {
       socketRef.current.emit("leaveRoom");
       localStorage.removeItem("faritany_current_game");
+      localStorage.removeItem("faritany_current_game_type");
       // On réinitialise l'état local du jeu
       setGameState((prev) => ({
         ...prev,

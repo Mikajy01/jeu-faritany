@@ -30,6 +30,12 @@ export class GameManagerService {
     if (!room || !room.getGameState().gameActive) return;
 
     const gameState = room.getGameState();
+
+    // 0. Pas de limite de temps en mode IA
+    if (gameState.gameType === 'AI') {
+      return;
+    }
+
     const currentPlayer = gameState.currentPlayer;
 
     // 1. Timeout pour le coup en cours (moveTimeLimit)
