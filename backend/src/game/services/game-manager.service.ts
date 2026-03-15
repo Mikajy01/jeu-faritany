@@ -118,6 +118,7 @@ export class GameManagerService {
 
     const gameState = room.getGameState();
     gameState.gameActive = false;
+    gameState.gameOver = true; // ✨ Marquer comme terminé
 
     // Déterminer le gagnant par score si FINISH, sinon l'autre joueur
     let winner = 0;

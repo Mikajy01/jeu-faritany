@@ -16,7 +16,7 @@ const Grid = () => (
   </div>
 );
 
-export const MenuPrincipal = ({ onSelectMode }) => {
+export const MenuPrincipal = ({ onSelectMode, publicRooms = [] }) => {
   const modes = [
     {
       id: "create",
@@ -122,39 +122,111 @@ export const MenuPrincipal = ({ onSelectMode }) => {
           </motion.div>
         </div>
 
-        {/* Right Side: Menu Options */}
+        {/* Right Side: Menu Options & Public Rooms */}
         <motion.div
-          className="w-full lg:w-1/2 mt-12 lg:mt-0 flex flex-col space-y-4"
+          className="w-full lg:w-1/2 mt-12 lg:mt-0 flex flex-col space-y-6"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
-          {modes.map((mode) => {
-            const Icon = mode.icon;
-            return (
-              <motion.button
-                key={mode.id}
-                onClick={() => onSelectMode(mode.id)}
-                className="group relative text-left p-5 rounded-lg transition-all duration-300 ease-in-out overflow-hidden bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700 hover:border-slate-500"
-                variants={itemVariants}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <div className="flex items-center">
-                  <Icon
-                    className={`w-7 h-7 mr-5 transition-colors duration-300 ${mode.color}`}
-                  />
-                  <div>
-                    <h3 className="text-xl font-semibold text-white">
-                      {mode.title}
-                    </h3>
-                    <p className="text-slate-400 text-sm">{mode.description}</p>
+          <div className="flex flex-col space-y-4">
+            {modes.map((mode) => {
+              const Icon = mode.icon;
+              return (
+                <motion.button
+                  key={mode.id}
+                  onClick={() => onSelectMode(mode.id)}
+                  className="group relative text-left p-5 rounded-lg transition-all duration-300 ease-in-out overflow-hidden bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700 hover:border-slate-500"
+                  variants={itemVariants}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <div className="flex items-center">
+                    <Icon
+                      className={`w-7 h-7 mr-5 transition-colors duration-300 ${mode.color}`}
+                    />
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">
+                        {mode.title}
+                      </h3>
+                      <p className="text-slate-400 text-sm">
+                        {mode.description}
+                      </p>
+                    </div>
+                    <ArrowRight className="w-6 h-6 ml-auto text-slate-500 group-hover:text-white transition-all duration-300 transform group-hover:translate-x-1" />
                   </div>
-                  <ArrowRight className="w-6 h-6 ml-auto text-slate-500 group-hover:text-white transition-all duration-300 transform group-hover:translate-x-1" />
+                </motion.button>
+              );
+            })}
+          </div>
+
+          {/* Public Rooms List */}
+          <motion.div
+            variants={itemVariants}
+            className="flex flex-col space-y-4 pt-6 border-t border-slate-800"
+          >
+            <div className="flex items-center justify-between px-2">
+              <div className="flex items-center gap-2">
+                <Globe className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">
+                  Parties Publiques
+                </h3>
+              </div>
+              <span className="text-[10px] font-bold bg-slate-800 text-slate-400 px-2 py-1 rounded-full border border-slate-700">
+                {publicRooms.length} en ligne
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+              {publicRooms.length > 0 ? (
+                publicRooms.map((room) => (
+                  <motion.button
+                    key={room.gameId}
+                    whileHover={{
+                      x: 5,
+                      backgroundColor: "rgba(30, 41, 59, 0.8)",
+                    }}
+                    onClick={() => onSelectMode("join", room.gameId)}
+                    className="flex items-center justify-between p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 hover:border-emerald-500/50 transition-all group"
+                  >
+                    <div className="flex flex-col items-start">
+                      <span className="text-sm font-mono font-bold text-white group-hover:text-emerald-400 transition-colors">
+                        #{room.gameId}
+                      </span>
+                      <span className="text-[10px] text-slate-500 uppercase tracking-tighter">
+                        Créée il y a{" "}
+                        {Math.floor((Date.now() - room.createdAt) / 60000)} min
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1.5">
+                        <Users className="w-4 h-4 text-slate-400" />
+                        <span className="text-sm font-bold text-slate-300">
+                          {room.playerCount}/2
+                        </span>
+                      </div>
+                      <div
+                        className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                          room.playerCount < 2
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            : "bg-slate-700/50 text-slate-500 border border-slate-600/30"
+                        }`}
+                      >
+                        {room.playerCount < 2 ? "Rejoindre" : "Pleine"}
+                      </div>
+                    </div>
+                  </motion.button>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-10 rounded-xl bg-slate-800/20 border border-dashed border-slate-800">
+                  <p className="text-sm text-slate-500 font-medium italic">
+                    Aucune salle publique active...
+                  </p>
                 </div>
-              </motion.button>
-            );
-          })}
+              )}
+            </div>
+          </motion.div>
         </motion.div>
       </motion.div>
     </div>

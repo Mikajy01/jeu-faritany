@@ -21,6 +21,7 @@ export class GameStateEntity {
 
   deadStones: Set<string>;
   capturedAreas: Territory[];
+  gameOver: boolean; // ✨ Nouveau
 
   /**
    * Configuration du temps et objectifs
@@ -50,6 +51,7 @@ export class GameStateEntity {
 
     this.scores = { player1: 0, player2: 0 };
     this.gameActive = false;
+    this.gameOver = false; // ✨ Initialisé à false
 
     this.gameType = 'public';
     this.gameId = this.generateGameId();
@@ -108,6 +110,7 @@ export class GameStateEntity {
 
       deadStones: Array.from(this.deadStones),
       capturedAreas: [...this.capturedAreas],
+      gameOver: this.gameOver, // ✨ Inclus dans la sérialisation
     };
   }
 
@@ -121,6 +124,7 @@ export class GameStateEntity {
 
     this.scores = { player1: 0, player2: 0 };
     this.gameActive = true; // ✨ Redémarrer immédiatement après reset
+    this.gameOver = false; // ✨ Reset de l'état game over
 
     this.deadStones = new Set();
     this.capturedAreas = [];

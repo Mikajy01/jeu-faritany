@@ -122,9 +122,9 @@ export class GameRoomService {
     gameId: string,
     userId: string,
     joinCode?: string,
-  ): { 
-    room?: GameRoomEntity; 
-    playerNumber?: number; 
+  ): {
+    room?: GameRoomEntity;
+    playerNumber?: number;
     error?: string;
     isRejoin?: boolean;
   } {
@@ -330,6 +330,26 @@ export class GameRoomService {
     room.resetGame();
     this.logger.log(`Game ${gameId} reset`);
     return true;
+  }
+
+  /**
+   * Get all active public rooms
+   */
+  getPublicRooms() {
+    const rooms: any[] = []; // ✨ Ajout du type any[] pour éviter l'erreur 'never'
+    for (const [gameId, room] of this.gameRooms) {
+      const state = room.getGameState();
+      if (state.gameType === 'public' && !state.gameOver) {
+        rooms.push({
+          gameId,
+          playerCount: room.getPlayerCount(),
+          gameActive: state.gameActive,
+          createdAt: state.clock.gameStartTime,
+        });
+      }
+    }
+    // Trier par plus récent
+    return rooms.sort((a, b) => b.createdAt - a.createdAt);
   }
 
   /**

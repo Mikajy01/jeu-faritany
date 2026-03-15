@@ -77,6 +77,7 @@ export class GameLogicService {
         gameState.scores.player2 >= target
       ) {
         gameState.gameActive = false;
+        gameState.gameOver = true; // ✨ Marquer comme terminé
         // La partie est terminée, l'appelant s'occupera de notifier le gagnant
       }
     }

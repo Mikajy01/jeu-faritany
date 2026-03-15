@@ -57,7 +57,8 @@ export const GameProvider = ({ children }) => {
   const [roomCode, setRoomCode] = useState(null);
   const [playerCount, setPlayerCount] = useState(1);
   const [lastError, setLastError] = useState(null);
-  const [rematchRequestedBy, setRematchRequestedBy] = useState(null); // ✨ Nouveau: qui demande la revanche
+  const [rematchRequestedBy, setRematchRequestedBy] = useState(null);
+  const [publicRooms, setPublicRooms] = useState([]); // ✨ Nouvel état pour les salles publiques
   const [gameLog, setGameLog] = useState([
     "Bienvenue dans le jeu faritany !",
     "Placez vos points pour entourer les points et zones adverses.",
@@ -71,6 +72,25 @@ export const GameProvider = ({ children }) => {
     setGameLog((prev) => [...prev.slice(-50), `${timestamp}: ${message}`]);
   }, []);
 
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5555";
+
+  // ✨ Charger les salles publiques initiales
+  const fetchPublicRooms = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/game/public-rooms`);
+      if (response.ok) {
+        const data = await response.json();
+        setPublicRooms(data);
+      }
+    } catch (err) {
+      console.error("❌ Erreur fetchPublicRooms:", err);
+    }
+  }, [API_URL]);
+
+  useEffect(() => {
+    fetchPublicRooms();
+  }, [fetchPublicRooms, isConnected]);
+
   // Initialiser la connexion socket UNE SEULE FOIS
   useEffect(() => {
     if (socketRef.current) return;
@@ -83,6 +103,11 @@ export const GameProvider = ({ children }) => {
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       reconnectionAttempts: 5,
+    });
+
+    socket.on("publicRoomsUpdate", (rooms) => {
+      console.log("📢 Mise à jour des salles publiques:", rooms);
+      setPublicRooms(rooms);
     });
 
     socket.on("connect", () => {
@@ -417,8 +442,6 @@ export const GameProvider = ({ children }) => {
     }
   }, [socketRef, isConnected, gameState.playerId, addLogEntry]);
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5555";
-
   // ✨ Nouvelle fonction pour créer une salle via REST
   const createRoom = useCallback(
     async (settings) => {
@@ -602,8 +625,9 @@ export const GameProvider = ({ children }) => {
     getRoomInfo,
     checkGameStatus,
     resignGame,
-    requestRematch, // ✨ Nouvelle fonction
-    rematchRequestedBy, // ✨ Nouvel état
+    requestRematch,
+    rematchRequestedBy,
+    publicRooms, // ✨ Exposer la liste des salles
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

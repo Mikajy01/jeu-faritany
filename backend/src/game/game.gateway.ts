@@ -60,9 +60,19 @@ export class GameGateway
    * Handle disconnection
    */
   handleDisconnect(client: Socket): void {
+    this.logger.log(`Client disconnected: ${client.id}`);
+
     const gameId = this.gameRoomService.getGameIdBySocket(client.id);
     if (gameId) {
+      const room = this.gameRoomService.getRoom(gameId);
+      const isPublic = room?.getGameState().gameType === 'public';
+
       this.gameManagerService.handlePlayerDisconnected(gameId, client.id);
+
+      // ✨ Mettre à jour la liste des salles si c'était une salle publique
+      if (isPublic) {
+        this.broadcastPublicRooms();
+      }
     }
   }
 
@@ -94,6 +104,10 @@ export class GameGateway
       type,
       playerId: 1,
     });
+
+    if (type === 'public') {
+      this.broadcastPublicRooms();
+    }
 
     if (type === 'AI') {
       // For AI games, immediately join the AI bot
@@ -156,6 +170,11 @@ export class GameGateway
       onlineCount: room.getOnlinePlayerCount(),
     });
 
+    // ✨ Mettre à jour la liste des salles si c'est une salle publique
+    if (room.getGameState().gameType === 'public') {
+      this.broadcastPublicRooms();
+    }
+
     if (room.getOnlinePlayerCount() === 2) {
       this.notificationService.notifyBothPlayers(gameId, 'gameStart', {
         gameState: room.getGameState().toSerializable(),
@@ -198,11 +217,15 @@ export class GameGateway
     client.join(gameId);
     client.join(`${gameId}-p${playerNumber}`);
 
-    client.emit('gameJoined', {
+    this.notificationService.notifyPlayer(gameId, playerNumber, 'gameJoined', {
       playerId: playerNumber,
       gameState: room.getGameState().toSerializable(),
       playerCount: room.getPlayerCount(),
+      onlineCount: room.getOnlinePlayerCount(),
     });
+
+    // ✨ Mettre à jour la liste des salles pour tout le monde
+    this.broadcastPublicRooms();
 
     if (room.getOnlinePlayerCount() === 2) {
       this.notificationService.notifyBothPlayers(gameId, 'gameStart', {
@@ -221,7 +244,7 @@ export class GameGateway
    * Handle resignation
    */
   @SubscribeMessage('resignGame')
-  handleResign(@ConnectedSocket() client: Socket) {
+  handleResignGame(@ConnectedSocket() client: Socket) {
     const gameId = this.gameRoomService.getGameIdBySocket(client.id);
     if (!gameId) return;
 
@@ -232,7 +255,17 @@ export class GameGateway
     if (!playerNumber) return;
 
     this.gameManagerService.handleGameOver(gameId, playerNumber, 'RESIGN');
+
+    // ✨ Mettre à jour la liste si c'est public
+    if (room.getGameState().gameType === 'public') {
+      this.broadcastPublicRooms();
+    }
     this.logger.log(`Player ${playerNumber} resigned in game ${gameId}`);
+  }
+
+  private broadcastPublicRooms() {
+    const rooms = this.gameRoomService.getPublicRooms();
+    this.server.emit('publicRoomsUpdate', rooms);
   }
 
   /**

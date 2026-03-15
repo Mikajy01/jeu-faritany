@@ -60,6 +60,7 @@ export interface GameState {
 
   deadStones: string[];
   capturedAreas: Territory[];
+  gameOver?: boolean; // ✨ Nouveau
 }
 
 export interface MoveResult {

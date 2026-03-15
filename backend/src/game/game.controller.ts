@@ -60,6 +60,11 @@ export class GameController {
     };
   }
 
+  @Get('public-rooms')
+  getPublicRooms() {
+    return this.gameRoomService.getPublicRooms();
+  }
+
   @Get('room/:gameId')
   getRoomInfo(@Param('gameId') gameId: string) {
     const room = this.gameRoomService.getRoom(gameId);

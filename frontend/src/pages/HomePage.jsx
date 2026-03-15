@@ -6,7 +6,7 @@ import { GameConfigModal } from "../components/ui/GameConfigModal";
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { isConnected, checkGameStatus } = useGameContext();
+  const { isConnected, checkGameStatus, publicRooms } = useGameContext();
   const [configModal, setConfigModal] = useState({ isOpen: false, mode: null });
   const [isChecking, setIsChecking] = useState(false);
 
@@ -74,7 +74,12 @@ export default function HomePage() {
   );
 
   const handleSelectMode = useCallback(
-    (mode) => {
+    (mode, roomCode = null) => {
+      if (roomCode) {
+        navigate(`/join/${roomCode}`);
+        return;
+      }
+
       switch (mode) {
         case "create":
         case "ai":
@@ -108,7 +113,10 @@ export default function HomePage() {
 
   return (
     <>
-      <MenuPrincipal onSelectMode={handleSelectMode} />
+      <MenuPrincipal
+        onSelectMode={handleSelectMode}
+        publicRooms={publicRooms}
+      />
       <GameConfigModal
         isOpen={configModal.isOpen}
         mode={configModal.mode}
