@@ -1,7 +1,7 @@
 import React from "react";
 import { ConnectionStatus } from "./ui/ConnectionStatus";
 import { PlayerCard } from "./ui/PlayerCard";
-import { ChessClock } from "./ui/ChessClock"; // ✨ Nouveau pendule
+import { ChessClock } from "./ui/ChessClock";
 import { CursorPosition } from "./ui/CursorPosition";
 import { GameLog } from "./ui/GameLog";
 import {
@@ -11,7 +11,6 @@ import {
   Hash,
   Terminal,
   Trophy,
-  Timer,
   Flag,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,7 +22,7 @@ export const InfoPanel = ({
   gameLog,
   onResetGame,
   onBackToMenu,
-  onResign, // ✨ Nouvelle prop pour abandonner
+  onResign,
   roomCode,
 }) => {
   const [copied, setCopied] = React.useState(false);
@@ -39,8 +38,8 @@ export const InfoPanel = ({
   const isGameOver = !!gameState.gameOver;
 
   return (
-    <div className="flex flex-col gap-6 w-full">
-      {/* Pendule de jeu (Chess Clock) ✨ */}
+    <div className="flex flex-col gap-6 w-full h-full">
+      {/* Pendule de jeu (Chess Clock) */}
       <div className="w-full">
         <ChessClock
           remainingMoveTime={gameState.clock?.remainingMoveTime || 0}
@@ -149,11 +148,11 @@ export const InfoPanel = ({
             </div>
           )}
 
-          {/* Player Cards (Scores seulement) */}
+          {/* Player Cards */}
           <div className="grid grid-cols-2 gap-3">
             <PlayerCard
               player={1}
-              score={gameState.player1Score || 0}
+              score={gameState.scores?.player1 || 0}
               isCurrentPlayer={gameState.currentPlayer === 1}
               isActive={gameState.gameActive}
               isYou={gameState.playerId === 1}
@@ -163,7 +162,7 @@ export const InfoPanel = ({
             />
             <PlayerCard
               player={2}
-              score={gameState.player2Score || 0}
+              score={gameState.scores?.player2 || 0}
               isCurrentPlayer={gameState.currentPlayer === 2}
               isActive={gameState.gameActive}
               isYou={gameState.playerId === 2}
@@ -211,7 +210,7 @@ export const InfoPanel = ({
       </div>
 
       {/* Logs Card */}
-      <div className="bg-slate-800/30 backdrop-blur-lg rounded-2xl border border-slate-700/30 flex-1 flex flex-col min-h-[300px]">
+      <div className="bg-slate-800/30 backdrop-blur-lg rounded-2xl border border-slate-700/30 flex-1 flex flex-col min-h-[200px]">
         <div className="px-4 py-3 border-b border-slate-700/50 flex items-center gap-2">
           <Terminal className="w-4 h-4 text-slate-500" />
           <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
@@ -221,6 +220,13 @@ export const InfoPanel = ({
         <div className="flex-1 overflow-hidden">
           <GameLog logs={gameLog} />
         </div>
+      </div>
+
+      {/* Copyright Footer */}
+      <div className="py-2 text-center opacity-20 hover:opacity-100 transition-opacity">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+          © MR-BUG 2026
+        </p>
       </div>
     </div>
   );

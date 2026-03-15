@@ -229,6 +229,18 @@ export const MenuPrincipal = ({ onSelectMode, publicRooms = [] }) => {
           </motion.div>
         </motion.div>
       </motion.div>
+
+      {/* Footer Copyright */}
+      <motion.footer
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1 }}
+        className="mt-auto py-6 text-center"
+      >
+        <p className="text-slate-500 text-xs font-medium tracking-widest uppercase opacity-50 hover:opacity-100 transition-opacity">
+          © 2026 MR-BUG • Tous droits réservés
+        </p>
+      </motion.footer>
     </div>
   );
 };
