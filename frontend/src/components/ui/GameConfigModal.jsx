@@ -51,7 +51,7 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+      <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-4 sm:p-6 overflow-y-auto">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -66,7 +66,7 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="relative w-full max-w-lg bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+          className="relative w-full max-w-lg max-h-[90dvh] bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-3xl shadow-2xl overflow-hidden flex flex-col min-h-0"
         >
           {/* Header */}
           <div className="p-6 border-b border-[var(--border-primary)] flex items-center justify-between bg-[var(--bg-secondary)]/50">
@@ -84,42 +84,43 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
             </button>
           </div>
 
-          <div className="p-8 space-y-8">
-            {/* Visibility Selection (Public/Private) - Only for 'create' mode */}
-            {mode === "create" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-[var(--text-muted)]" />
-                    <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">
-                      Type de Salon
+          <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+            <div className="p-8 space-y-8">
+              {/* Visibility Selection (Public/Private) - Only for 'create' mode */}
+              {mode === "create" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-[var(--text-muted)]" />
+                      <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                        Type de Salon
+                      </span>
+                    </div>
+                    <span className="text-xs font-mono text-[var(--accent-cyan)] bg-[var(--accent-cyan)]/10 px-2 py-1 rounded">
+                      {visibility === "public" ? "Matchmaking" : "Code Requis"}
                     </span>
                   </div>
-                  <span className="text-xs font-mono text-[var(--accent-cyan)] bg-[var(--accent-cyan)]/10 px-2 py-1 rounded">
-                    {visibility === "public" ? "Matchmaking" : "Code Requis"}
-                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {visibilityOptions.map((opt) => {
+                      const Icon = opt.icon;
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => setVisibility(opt.id)}
+                          className={`flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all border ${
+                            visibility === opt.id
+                              ? "bg-[var(--accent-cyan)] border-[var(--accent-cyan)] text-white shadow-lg shadow-cyan-900/20"
+                              : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {visibilityOptions.map((opt) => {
-                    const Icon = opt.icon;
-                    return (
-                      <button
-                        key={opt.id}
-                        onClick={() => setVisibility(opt.id)}
-                        className={`flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all border ${
-                          visibility === opt.id
-                            ? "bg-[var(--accent-cyan)] border-[var(--accent-cyan)] text-white shadow-lg shadow-cyan-900/20"
-                            : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+              )}
 
             {/* Game Mode Selection */}
             <div className="space-y-4">
@@ -189,67 +190,68 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
             </div>
 
             {/* Conditional: Total Game Duration or Target Score */}
-            {gameMode === "TIME" ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Timer className="w-4 h-4 text-[var(--text-muted)]" />
-                    <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">
-                      Temps total
+              {gameMode === "TIME" ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Timer className="w-4 h-4 text-[var(--text-muted)]" />
+                      <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                        Temps total
+                      </span>
+                    </div>
+                    <span className="text-xs font-mono text-[var(--accent-cyan)] bg-[var(--accent-cyan)]/10 px-2 py-1 rounded">
+                      {totalTime >= 3600
+                        ? `${totalTime / 3600}h`
+                        : `${totalTime / 60}m`}
                     </span>
                   </div>
-                  <span className="text-xs font-mono text-[var(--accent-cyan)] bg-[var(--accent-cyan)]/10 px-2 py-1 rounded">
-                    {totalTime >= 3600
-                      ? `${totalTime / 3600}h`
-                      : `${totalTime / 60}m`}
-                  </span>
+                  <div className="grid grid-cols-5 gap-2">
+                    {totalTimeOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setTotalTime(opt.value)}
+                        className={`py-2 rounded-xl text-xs font-bold transition-all border ${
+                          totalTime === opt.value
+                            ? "bg-[var(--accent-cyan)] border-[var(--accent-cyan)] text-white shadow-lg shadow-cyan-900/20"
+                            : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="grid grid-cols-5 gap-2">
-                  {totalTimeOptions.map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setTotalTime(opt.value)}
-                      className={`py-2 rounded-xl text-xs font-bold transition-all border ${
-                        totalTime === opt.value
-                          ? "bg-[var(--accent-cyan)] border-[var(--accent-cyan)] text-white shadow-lg shadow-cyan-900/20"
-                          : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-[var(--text-muted)]" />
-                    <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">
-                      Objectif Score
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-[var(--text-muted)]" />
+                      <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                        Objectif Score
+                      </span>
+                    </div>
+                    <span className="text-xs font-mono text-[var(--accent-emerald)] bg-[var(--accent-emerald)]/10 px-2 py-1 rounded">
+                      {targetScore} points
                     </span>
                   </div>
-                  <span className="text-xs font-mono text-[var(--accent-emerald)] bg-[var(--accent-emerald)]/10 px-2 py-1 rounded">
-                    {targetScore} points
-                  </span>
+                  <div className="grid grid-cols-5 gap-2">
+                    {targetScoreOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setTargetScore(opt.value)}
+                        className={`py-2 rounded-xl text-xs font-bold transition-all border ${
+                          targetScore === opt.value
+                            ? "bg-[var(--accent-emerald)] border-[var(--accent-emerald)] text-white shadow-lg shadow-emerald-900/20"
+                            : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="grid grid-cols-5 gap-2">
-                  {targetScoreOptions.map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setTargetScore(opt.value)}
-                      className={`py-2 rounded-xl text-xs font-bold transition-all border ${
-                        targetScore === opt.value
-                          ? "bg-[var(--accent-emerald)] border-[var(--accent-emerald)] text-white shadow-lg shadow-emerald-900/20"
-                          : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Footer Action */}

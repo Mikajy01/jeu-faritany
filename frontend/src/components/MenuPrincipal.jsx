@@ -1,6 +1,7 @@
 import React from "react";
 import { Users, Bot, Globe, Plus, ArrowRight, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { GameBoardPreview } from "./ui/GameBoardPreview";
 
 // Grid component for the background
 const Grid = () => (
@@ -103,27 +104,12 @@ export const MenuPrincipal = ({
 
             {/* Stylized Game Board Preview */}
             <motion.div
-              className="w-56 h-56 md:w-80 md:h-80 bg-[var(--bg-surface)] rounded-2xl shadow-2xl flex items-center justify-center p-4 border border-[var(--border-primary)]"
+              className="w-56 h-56 md:w-80 md:h-80 bg-[var(--bg-surface)] rounded-2xl shadow-2xl flex items-center justify-center p-4 border border-[var(--border-primary)] overflow-hidden"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.7, delay: 0.4, ease: "easeOut" }}
             >
-              <div
-                className="w-full h-full grid grid-cols-9 grid-rows-9"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(var(--text-muted) 1px, transparent 1px)",
-                  backgroundSize: "calc(100% / 9) calc(100% / 9)",
-                }}
-              >
-                {/* Example stones */}
-                <div className="col-start-3 row-start-3 w-full h-full flex items-center justify-center">
-                  <div className="w-3/4 h-3/4 rounded-full bg-white shadow-lg border border-slate-200" />
-                </div>
-                <div className="col-start-7 row-start-6 w-full h-full flex items-center justify-center">
-                  <div className="w-3/4 h-3/4 rounded-full bg-slate-900 shadow-lg border border-slate-700" />
-                </div>
-              </div>
+              <GameBoardPreview />
             </motion.div>
           </div>
 
@@ -192,12 +178,7 @@ export const MenuPrincipal = ({
                       <motion.button
                         key={room.gameId}
                         whileHover={
-                          !isThisRoomJoining && !isFull
-                            ? {
-                                x: 5,
-                                backgroundColor: "var(--bg-surface)",
-                              }
-                            : {}
+                          !isThisRoomJoining && !isFull ? { y: -2 } : {}
                         }
                         onClick={() =>
                           !isThisRoomJoining &&
@@ -205,15 +186,15 @@ export const MenuPrincipal = ({
                           onSelectMode("join", room.gameId)
                         }
                         disabled={isThisRoomJoining || isFull}
-                        className={`flex flex-col lg:flex-row items-center justify-between p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-primary)] transition-all group gap-4 ${
+                        className={`flex flex-col lg:flex-row items-center justify-between p-4 rounded-xl transition-all group gap-4 border ${
                           isThisRoomJoining || isFull
-                            ? "opacity-60 cursor-not-allowed"
-                            : "hover:border-[var(--accent-emerald)]"
+                            ? "bg-[var(--bg-surface)] opacity-50 cursor-not-allowed border-[var(--border-primary)]"
+                            : "bg-[var(--bg-surface)] hover:bg-[var(--bg-secondary)] border-[var(--border-primary)] hover:border-[var(--accent-emerald)] shadow-sm hover:shadow-md"
                         }`}
                       >
                         <div className="flex flex-col items-center lg:items-start w-full lg:w-auto">
                           <span
-                            className={`text-sm font-mono font-bold transition-colors ${
+                            className={`text-sm font-mono font-black transition-colors ${
                               isThisRoomJoining
                                 ? "text-[var(--accent-emerald)]"
                                 : "text-[var(--text-primary)] group-hover:text-[var(--accent-emerald)]"
@@ -221,7 +202,7 @@ export const MenuPrincipal = ({
                           >
                             #{room.gameId}
                           </span>
-                          <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-tighter">
+                          <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-tighter">
                             Créée il y a{" "}
                             {Math.floor((Date.now() - room.createdAt) / 60000)}{" "}
                             min
@@ -229,18 +210,18 @@ export const MenuPrincipal = ({
                         </div>
 
                         <div className="flex items-center justify-center gap-4 w-full lg:w-auto">
-                          <div className="flex items-center gap-1.5">
-                            <Users className="w-4 h-4 text-[var(--text-secondary)]" />
-                            <span className="text-sm font-bold text-[var(--text-primary)]">
+                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-primary)]">
+                            <Users className="w-4 h-4 text-[var(--accent-cyan)]" />
+                            <span className="text-sm font-black text-[var(--text-primary)]">
                               {room.playerCount}/2
                             </span>
                           </div>
                           <div
-                            className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-2 ${
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-2 transition-colors ${
                               isThisRoomJoining
                                 ? "bg-[var(--accent-emerald)]/20 text-[var(--accent-emerald)] border border-[var(--accent-emerald)]/30"
                                 : !isFull
-                                  ? "bg-[var(--accent-emerald)]/10 text-[var(--accent-emerald)] border border-[var(--accent-emerald)]/20"
+                                  ? "bg-[var(--accent-emerald)]/10 text-[var(--accent-emerald)] border border-[var(--accent-emerald)]/20 hover:bg-[var(--accent-emerald)]/20"
                                   : "bg-[var(--bg-secondary)] text-[var(--text-muted)] border border-[var(--border-primary)]"
                             }`}
                           >

@@ -1,6 +1,7 @@
 export class GameState {
   constructor(data = {}) {
     this.grid = this._parseGrid(data.grid);
+    this.move = data.move ?? null;
     this.currentPlayer = data.currentPlayer || 1;
     this.playerId = data.playerId || null;
     this.gameId = data.gameId || null;
@@ -42,6 +43,7 @@ export class GameState {
       ...data.gameState,
       gameId: data.gameState?.gameId || data.code,
       playerId: data.playerId,
+      move: data.move,
     });
   }
 }

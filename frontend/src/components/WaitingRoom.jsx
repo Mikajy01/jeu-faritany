@@ -106,20 +106,20 @@ export function WaitingRoom({
   };
 
   return (
-    <div className="relative min-h-screen w-full bg-[var(--bg-primary)] text-[var(--text-primary)] flex items-center justify-center p-2 sm:p-4 overflow-hidden transition-colors duration-300">
+    <div className="relative min-h-screen w-full bg-[var(--bg-primary)] text-[var(--text-primary)] flex items-center justify-center p-2 sm:p-4 overflow-x-hidden overflow-y-auto transition-colors duration-300">
       {/* Animated Gradient Background */}
       <div className="fixed inset-0 z-0 h-full w-full bg-gradient-to-r from-[var(--bg-primary)] via-[var(--bg-secondary)] to-[var(--bg-primary)] animate-gradient-x" />
       <Grid />
 
       <motion.div
-        className="relative z-10 w-full max-w-2xl max-h-[95vh] flex flex-col"
+        className="relative z-10 w-full max-w-2xl max-h-[95vh] flex flex-col min-h-0"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        <div className="bg-[var(--bg-surface)] backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-[var(--border-primary)] shadow-2xl overflow-hidden flex flex-col">
+        <div className="bg-[var(--bg-surface)] backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-[var(--border-primary)] shadow-2xl overflow-hidden flex flex-col min-h-0">
           {/* Scrollable Content Area */}
-          <div className="overflow-y-auto custom-scrollbar flex flex-col">
+          <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col">
             {/* Header */}
             <div className="p-4 sm:p-6 pb-2 sm:pb-4 text-center">
               <motion.div

@@ -126,6 +126,9 @@ export const GameProvider = ({ children }) => {
           if (!newState.playerId && prev.playerId) {
             newState.playerId = prev.playerId;
           }
+          if (data.move === undefined) {
+            newState.move = prev.move;
+          }
           if (data.gameState?.player1Online === undefined) {
             newState.player1Online = prev.player1Online;
           }
@@ -146,6 +149,9 @@ export const GameProvider = ({ children }) => {
           if (!newState.playerId && prev.playerId) {
             newState.playerId = prev.playerId;
           }
+          if (data.move === undefined) {
+            newState.move = prev.move;
+          }
           // Lors d'une jointure, on fait confiance aux données du serveur ou on garde l'existant
           if (data.gameState?.player1Online === undefined) {
             newState.player1Online = prev.player1Online;
@@ -164,6 +170,9 @@ export const GameProvider = ({ children }) => {
           if (!newState.playerId && prev.playerId) {
             newState.playerId = prev.playerId;
           }
+          if (data.move === undefined) {
+            newState.move = prev.move;
+          }
           // Au démarrage, tout le monde est censé être là
           return newState;
         });
@@ -175,6 +184,9 @@ export const GameProvider = ({ children }) => {
           const newState = GameState.fromServer(data);
           if (!newState.playerId && prev.playerId) {
             newState.playerId = prev.playerId;
+          }
+          if (data.move === undefined) {
+            newState.move = prev.move;
           }
           // IMPORTANT: Préserver le statut "Hors ligne" pendant les mouvements
           if (data.gameState?.player1Online === undefined) {
@@ -196,6 +208,9 @@ export const GameProvider = ({ children }) => {
           if (!newState.playerId && prev.playerId) {
             newState.playerId = prev.playerId;
           }
+          if (data.move === undefined) {
+            newState.move = prev.move;
+          }
           if (data.gameState?.player1Online === undefined) {
             newState.player1Online = prev.player1Online;
           }
@@ -213,6 +228,7 @@ export const GameProvider = ({ children }) => {
           if (!newState.playerId && prev.playerId) {
             newState.playerId = prev.playerId;
           }
+          newState.move = null;
           if (data.gameState?.player1Online === undefined) {
             newState.player1Online = prev.player1Online;
           }

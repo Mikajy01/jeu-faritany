@@ -1,17 +1,13 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGameContext } from "../context/GameContext";
-import { useTheme } from "../context/ThemeContext";
 import { MenuPrincipal } from "../components/MenuPrincipal";
 import { GameConfigModal } from "../components/ui/GameConfigModal";
-import { Moon, Sun } from "lucide-react";
-import { motion } from "framer-motion";
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { isConnected, publicRooms, joinRoom, addLogEntry, checkGameStatus } =
     useGameContext();
-  const { theme, toggleTheme } = useTheme();
   const [configModal, setConfigModal] = useState({ isOpen: false, mode: null });
   const [isChecking, setIsChecking] = useState(false);
   const [isJoining, setIsJoining] = useState(null); // ID de la salle en cours de jointure
@@ -142,25 +138,6 @@ export default function HomePage() {
 
   return (
     <>
-      {/* Theme Switcher Toggle */}
-      <div className="fixed top-6 right-6 z-50">
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={toggleTheme}
-          className="p-3 rounded-2xl bg-[var(--bg-surface)] backdrop-blur-xl border border-[var(--border-primary)] shadow-xl text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-all"
-          title={
-            theme === "dark" ? "Passer au mode clair" : "Passer au mode sombre"
-          }
-        >
-          {theme === "dark" ? (
-            <Sun className="w-6 h-6 text-[var(--accent-amber)]" />
-          ) : (
-            <Moon className="w-6 h-6 text-[var(--accent-cyan)]" />
-          )}
-        </motion.button>
-      </div>
-
       <MenuPrincipal
         onSelectMode={handleSelectMode}
         publicRooms={publicRooms}
