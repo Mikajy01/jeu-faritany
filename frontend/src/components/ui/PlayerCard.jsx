@@ -98,8 +98,7 @@ export const PlayerCard = ({
             >
               <ChessTimer
                 timeLeft={timeLeft}
-                isCurrentPlayer={isCurrentPlayer}
-                isActive={isActive}
+                isActive={isActiveTurn}
                 onTimeUp={onTimeUp}
                 minimalist={true}
               />

@@ -200,7 +200,7 @@ export const InfoPanel = ({
                   ? gameState.clock?.remainingMoveTime || 0
                   : gameState.timeControl?.moveTimeLimit || 0
               }
-              showTimer={false}
+              showTimer={isMobile}
               compact={true}
               minimalist={isMobile}
               isOnline={gameState.player1Online}
@@ -216,7 +216,7 @@ export const InfoPanel = ({
                   ? gameState.clock?.remainingMoveTime || 0
                   : gameState.timeControl?.moveTimeLimit || 0
               }
-              showTimer={false}
+              showTimer={isMobile}
               compact={true}
               minimalist={isMobile}
               isOnline={gameState.player2Online}
