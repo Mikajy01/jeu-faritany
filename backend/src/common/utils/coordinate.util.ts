@@ -11,7 +11,11 @@ export class CoordinateUtil {
     return { x, y };
   }
 
-  static isValid(x: number, y: number, gridSize: number = GAME_CONSTANTS.GRID_SIZE): boolean {
+  static isValid(
+    x: number,
+    y: number,
+    gridSize: number = GAME_CONSTANTS.GRID_SIZE,
+  ): boolean {
     return x >= 0 && x < gridSize && y >= 0 && y < gridSize;
   }
 

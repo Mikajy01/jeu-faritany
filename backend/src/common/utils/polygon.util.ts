@@ -1,11 +1,17 @@
-import { Coordinate, PolygonBounds } from '../../game/interfaces/game.interface';
+import {
+  Coordinate,
+  PolygonBounds,
+} from '../../game/interfaces/game.interface';
 
 export class PolygonUtil {
   /**
    * Ray casting algorithm for point-in-polygon test
    * Returns true if point is inside polygon, false otherwise
    */
-  static isPointInPolygon(point: [number, number], polygon: [number, number][]): boolean {
+  static isPointInPolygon(
+    point: [number, number],
+    polygon: [number, number][],
+  ): boolean {
     let intersections = 0;
     const [x, y] = point;
 
@@ -13,7 +19,7 @@ export class PolygonUtil {
       const [x1, y1] = polygon[k];
       const [x2, y2] = polygon[k + 1];
 
-      if ((y < y1) !== (y < y2) && x < ((x2 - x1) * (y - y1)) / (y2 - y1) + x1) {
+      if (y < y1 !== y < y2 && x < ((x2 - x1) * (y - y1)) / (y2 - y1) + x1) {
         intersections++;
       }
     }
@@ -25,7 +31,9 @@ export class PolygonUtil {
    * Convert cycle to closed polygon format
    */
   static cycleToPoly(cycle: Coordinate[]): [number, number][] {
-    const polygonCoords = cycle.map((point) => [point.x, point.y] as [number, number]);
+    const polygonCoords = cycle.map(
+      (point) => [point.x, point.y] as [number, number],
+    );
 
     // Ensure polygon is closed
     const first = polygonCoords[0];

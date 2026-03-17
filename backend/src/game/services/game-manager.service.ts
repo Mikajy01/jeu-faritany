@@ -4,7 +4,6 @@ import { NotificationService } from './notification.service';
 import { AiService } from './ai.service';
 import { GameLogicService } from './game-logic.service';
 import { GAME_CONSTANTS } from 'src/common/constants/game.constant';
-import { CreateGameDto } from '../dto/create-game.dto';
 import { MakeMoveDto } from '../dto/make-move.dto';
 
 @Injectable()
@@ -128,7 +127,7 @@ export class GameManagerService {
 
     // Déterminer le gagnant par score si FINISH, sinon l'autre joueur
     let winner = 0;
-    if (reason === 'FINISH') {
+    if (reason === 'FINISH' || reason === 'TIMEOUT') {
       if (gameState.scores.player1 > gameState.scores.player2) {
         winner = 1;
       } else if (gameState.scores.player2 > gameState.scores.player1) {
@@ -146,7 +145,9 @@ export class GameManagerService {
       scores: gameState.scores,
       message:
         reason === 'TIMEOUT'
-          ? `Temps global écoulé pour le joueur ${loserPlayer} ! Le joueur ${winner} gagne.`
+          ? winner === 0
+            ? 'Temps global écoulé ! Match nul.'
+            : `Temps global écoulé ! Le joueur ${winner} gagne au score.`
           : reason === 'RESIGN'
             ? `Le joueur ${loserPlayer} a abandonné. Le joueur ${winner} gagne.`
             : reason === 'FINISH'

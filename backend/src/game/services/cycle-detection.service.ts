@@ -36,7 +36,13 @@ export class CycleDetectionService {
       );
     };
 
-    const dfs = (x: number, y: number, startX: number, startY: number, depth: number): void => {
+    const dfs = (
+      x: number,
+      y: number,
+      startX: number,
+      startY: number,
+      depth: number,
+    ): void => {
       const key = CoordinateUtil.toKey(x, y);
       visited.add(key);
       path.push({ x, y });
@@ -47,7 +53,11 @@ export class CycleDetectionService {
         const nKey = CoordinateUtil.toKey(nx, ny);
 
         // Found a cycle
-        if (nx === startX && ny === startY && depth >= GAME_CONSTANTS.MIN_CYCLE_LENGTH) {
+        if (
+          nx === startX &&
+          ny === startY &&
+          depth >= GAME_CONSTANTS.MIN_CYCLE_LENGTH
+        ) {
           cycles.push([...path]);
           continue;
         }
@@ -79,9 +89,10 @@ export class CycleDetectionService {
     getCellState: (x: number, y: number) => number,
     gridSize: number = GAME_CONSTANTS.GRID_SIZE,
   ): Set<string> {
-    const opponent = player === GAME_CONSTANTS.PLAYER_ONE 
-      ? GAME_CONSTANTS.PLAYER_TWO 
-      : GAME_CONSTANTS.PLAYER_ONE;
+    const opponent =
+      player === GAME_CONSTANTS.PLAYER_ONE
+        ? GAME_CONSTANTS.PLAYER_TWO
+        : GAME_CONSTANTS.PLAYER_ONE;
     const captured = new Set<string>();
 
     if (!cycle || cycle.length < 3) {
@@ -129,6 +140,9 @@ export class CycleDetectionService {
    */
   getLongestCycle(cycles: Coordinate[][]): Coordinate[] | null {
     if (cycles.length === 0) return null;
-    return cycles.reduce((max, c) => (c.length > max.length ? c : max), cycles[0]);
+    return cycles.reduce(
+      (max, c) => (c.length > max.length ? c : max),
+      cycles[0],
+    );
   }
 }

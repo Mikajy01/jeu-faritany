@@ -21,7 +21,7 @@ export class AiService {
 
   // Patterns tactiques pré-calculés pour reconnaissance rapide
   private readonly TACTICAL_PATTERNS = this.initializeTacticalPatterns();
-  
+
   constructor(private readonly gameLogicService: GameLogicService) {}
 
   /**
@@ -31,7 +31,7 @@ export class AiService {
   calculateNextMove(
     gameState: GameStateEntity,
     gridSize: number = GAME_CONSTANTS.GRID_SIZE,
-    difficulty: number = 1
+    difficulty: number = 1,
   ): Move {
     const startTime = Date.now();
 
@@ -50,13 +50,19 @@ export class AiService {
     // PHASE 2: Pattern matching tactique
     const tacticalMove = this.findTacticalPattern(gameState, gridSize);
     if (tacticalMove) {
-      this.logger.debug(`Tactical pattern found in ${Date.now() - startTime}ms`);
+      this.logger.debug(
+        `Tactical pattern found in ${Date.now() - startTime}ms`,
+      );
       return tacticalMove;
     }
 
     // PHASE 3: Évaluation positionnelle rapide
-    const strategicMove = this.findStrategicMove(gameState, gridSize, difficulty);
-    
+    const strategicMove = this.findStrategicMove(
+      gameState,
+      gridSize,
+      difficulty,
+    );
+
     this.logger.debug(`Move calculated in ${Date.now() - startTime}ms`);
     return strategicMove;
   }
@@ -66,23 +72,23 @@ export class AiService {
    */
   private findCriticalMove(
     gameState: GameStateEntity,
-    gridSize: number
+    gridSize: number,
   ): Move | null {
     const opponent = this.getOpponent(gameState.currentPlayer);
-    
+
     // 1. Chercher les captures IMMÉDIATES
     for (let x = 0; x < gridSize; x++) {
       for (let y = 0; y < gridSize; y++) {
         if (gameState.grid[CoordinateUtil.toKey(x, y)]) continue;
-        
+
         // Simuler le coup rapidement
         const capturedCount = this.countImmediateCaptures(
           { x, y },
           gameState,
           gridSize,
-          gameState.currentPlayer
+          gameState.currentPlayer,
         );
-        
+
         if (capturedCount >= 2) {
           return { x, y }; // Capture multiple = jouer immédiatement
         }
@@ -93,14 +99,14 @@ export class AiService {
     for (let x = 0; x < gridSize; x++) {
       for (let y = 0; y < gridSize; y++) {
         if (gameState.grid[CoordinateUtil.toKey(x, y)]) continue;
-        
+
         const opponentCaptures = this.countImmediateCaptures(
           { x, y },
           gameState,
           gridSize,
-          opponent
+          opponent,
         );
-        
+
         if (opponentCaptures >= 3) {
           return { x, y }; // Bloquer menace critique
         }
@@ -117,18 +123,23 @@ export class AiService {
     move: Move,
     gameState: GameStateEntity,
     gridSize: number,
-    player: number
+    player: number,
   ): number {
     const opponent = this.getOpponent(player);
-    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    const directions = [
+      [0, 1],
+      [1, 0],
+      [0, -1],
+      [-1, 0],
+    ];
     let captures = 0;
 
     for (const [dx, dy] of directions) {
       const nx = move.x + dx;
       const ny = move.y + dy;
-      
+
       if (!this.isValid(nx, ny, gridSize)) continue;
-      
+
       const key = CoordinateUtil.toKey(nx, ny);
       if (gameState.grid[key] === opponent && !gameState.deadStones.has(key)) {
         // Vérifier si cette pierre serait entourée
@@ -150,24 +161,32 @@ export class AiService {
     newMove: Move,
     gameState: GameStateEntity,
     gridSize: number,
-    attacker: number
+    attacker: number,
   ): boolean {
-    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    const directions = [
+      [0, 1],
+      [1, 0],
+      [0, -1],
+      [-1, 0],
+    ];
     let surroundedSides = 0;
 
     for (const [dx, dy] of directions) {
       const nx = stoneX + dx;
       const ny = stoneY + dy;
-      
+
       if (!this.isValid(nx, ny, gridSize)) {
         surroundedSides++;
         continue;
       }
 
       const key = CoordinateUtil.toKey(nx, ny);
-      
+
       // Si c'est le nouveau coup ou déjà occupé par l'attaquant
-      if ((nx === newMove.x && ny === newMove.y) || gameState.grid[key] === attacker) {
+      if (
+        (nx === newMove.x && ny === newMove.y) ||
+        gameState.grid[key] === attacker
+      ) {
         surroundedSides++;
       }
     }
@@ -180,7 +199,7 @@ export class AiService {
    */
   private findTacticalPattern(
     gameState: GameStateEntity,
-    gridSize: number
+    gridSize: number,
   ): Move | null {
     const moves = this.getAllEmptyPositions(gameState, gridSize);
     let bestMove: Move | null = null;
@@ -189,7 +208,7 @@ export class AiService {
     for (const move of moves) {
       // Évaluer les patterns autour de ce coup
       const patternScore = this.evaluatePatterns(move, gameState, gridSize);
-      
+
       if (patternScore > bestScore) {
         bestScore = patternScore;
         bestMove = move;
@@ -206,30 +225,48 @@ export class AiService {
   private evaluatePatterns(
     move: Move,
     gameState: GameStateEntity,
-    gridSize: number
+    gridSize: number,
   ): number {
     let score = 0;
     const player = gameState.currentPlayer;
     const opponent = this.getOpponent(player);
 
     // Pattern 1: Extension de chaîne (créer des connexions)
-    const friendlyNeighbors = this.countNeighbors(move, gameState, gridSize, player);
+    const friendlyNeighbors = this.countNeighbors(
+      move,
+      gameState,
+      gridSize,
+      player,
+    );
     if (friendlyNeighbors >= 2) {
       score += 10 + friendlyNeighbors * 3; // Connecter nos pierres
     }
 
     // Pattern 2: Coupe (séparer les chaînes adverses)
-    const opponentGroups = this.countAdjacentGroups(move, gameState, gridSize, opponent);
+    const opponentGroups = this.countAdjacentGroups(
+      move,
+      gameState,
+      gridSize,
+      opponent,
+    );
     if (opponentGroups >= 2) {
       score += 15; // Couper entre deux groupes ennemis
     }
 
     // Pattern 3: Atari (menace de capture)
-    const threatenedStones = this.countThreatenedStones(move, gameState, gridSize);
+    const threatenedStones = this.countThreatenedStones(
+      move,
+      gameState,
+      gridSize,
+    );
     score += threatenedStones * 8;
 
     // Pattern 4: Formation de territoire
-    const territoryPotential = this.evaluateTerritoryFormation(move, gameState, gridSize);
+    const territoryPotential = this.evaluateTerritoryFormation(
+      move,
+      gameState,
+      gridSize,
+    );
     score += territoryPotential * 5;
 
     // Pattern 5: Sécurité de la position
@@ -248,9 +285,14 @@ export class AiService {
     move: Move,
     gameState: GameStateEntity,
     gridSize: number,
-    player: number
+    player: number,
   ): number {
-    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    const directions = [
+      [0, 1],
+      [1, 0],
+      [0, -1],
+      [-1, 0],
+    ];
     const visited = new Set<string>();
     let groupCount = 0;
 
@@ -260,7 +302,7 @@ export class AiService {
       const key = CoordinateUtil.toKey(nx, ny);
 
       if (!this.isValid(nx, ny, gridSize) || visited.has(key)) continue;
-      
+
       if (gameState.grid[key] === player && !gameState.deadStones.has(key)) {
         // Marquer tout le groupe comme visité
         this.markGroup(nx, ny, gameState, gridSize, player, visited);
@@ -280,22 +322,29 @@ export class AiService {
     gameState: GameStateEntity,
     gridSize: number,
     player: number,
-    visited: Set<string>
+    visited: Set<string>,
   ): void {
     const key = CoordinateUtil.toKey(x, y);
     if (visited.has(key)) return;
-    
+
     visited.add(key);
-    
-    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+
+    const directions = [
+      [0, 1],
+      [1, 0],
+      [0, -1],
+      [-1, 0],
+    ];
     for (const [dx, dy] of directions) {
       const nx = x + dx;
       const ny = y + dy;
       const nkey = CoordinateUtil.toKey(nx, ny);
-      
-      if (this.isValid(nx, ny, gridSize) && 
-          gameState.grid[nkey] === player && 
-          !gameState.deadStones.has(nkey)) {
+
+      if (
+        this.isValid(nx, ny, gridSize) &&
+        gameState.grid[nkey] === player &&
+        !gameState.deadStones.has(nkey)
+      ) {
         this.markGroup(nx, ny, gameState, gridSize, player, visited);
       }
     }
@@ -307,18 +356,23 @@ export class AiService {
   private countThreatenedStones(
     move: Move,
     gameState: GameStateEntity,
-    gridSize: number
+    gridSize: number,
   ): number {
     const opponent = this.getOpponent(gameState.currentPlayer);
-    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    const directions = [
+      [0, 1],
+      [1, 0],
+      [0, -1],
+      [-1, 0],
+    ];
     let threatened = 0;
 
     for (const [dx, dy] of directions) {
       const nx = move.x + dx;
       const ny = move.y + dy;
-      
+
       if (!this.isValid(nx, ny, gridSize)) continue;
-      
+
       const key = CoordinateUtil.toKey(nx, ny);
       if (gameState.grid[key] === opponent && !gameState.deadStones.has(key)) {
         // Vérifier les libertés restantes
@@ -339,17 +393,22 @@ export class AiService {
     x: number,
     y: number,
     gameState: GameStateEntity,
-    gridSize: number
+    gridSize: number,
   ): number {
-    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    const directions = [
+      [0, 1],
+      [1, 0],
+      [0, -1],
+      [-1, 0],
+    ];
     let liberties = 0;
 
     for (const [dx, dy] of directions) {
       const nx = x + dx;
       const ny = y + dy;
-      
+
       if (!this.isValid(nx, ny, gridSize)) continue;
-      
+
       const key = CoordinateUtil.toKey(nx, ny);
       if (!gameState.grid[key]) {
         liberties++;
@@ -365,7 +424,7 @@ export class AiService {
   private evaluateTerritoryFormation(
     move: Move,
     gameState: GameStateEntity,
-    gridSize: number
+    gridSize: number,
   ): number {
     const player = gameState.currentPlayer;
     let territoryScore = 0;
@@ -374,16 +433,16 @@ export class AiService {
     for (let dx = -2; dx <= 2; dx++) {
       for (let dy = -2; dy <= 2; dy++) {
         if (dx === 0 && dy === 0) continue;
-        
+
         const nx = move.x + dx;
         const ny = move.y + dy;
-        
+
         if (!this.isValid(nx, ny, gridSize)) continue;
-        
+
         const key = CoordinateUtil.toKey(nx, ny);
         if (gameState.grid[key] === player && !gameState.deadStones.has(key)) {
           const distance = Math.abs(dx) + Math.abs(dy);
-          territoryScore += (3 - distance); // Plus proche = meilleur
+          territoryScore += 3 - distance; // Plus proche = meilleur
         }
       }
     }
@@ -397,17 +456,22 @@ export class AiService {
   private countLiberties(
     move: Move,
     gameState: GameStateEntity,
-    gridSize: number
+    gridSize: number,
   ): number {
-    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    const directions = [
+      [0, 1],
+      [1, 0],
+      [0, -1],
+      [-1, 0],
+    ];
     let liberties = 0;
 
     for (const [dx, dy] of directions) {
       const nx = move.x + dx;
       const ny = move.y + dy;
-      
+
       if (!this.isValid(nx, ny, gridSize)) continue;
-      
+
       const key = CoordinateUtil.toKey(nx, ny);
       if (!gameState.grid[key]) {
         liberties++;
@@ -423,10 +487,10 @@ export class AiService {
   private findStrategicMove(
     gameState: GameStateEntity,
     gridSize: number,
-    difficulty: number
+    difficulty: number,
   ): Move {
     const moves = this.getAllEmptyPositions(gameState, gridSize);
-    
+
     let bestMove = moves[0];
     let bestScore = -Infinity;
 
@@ -435,11 +499,17 @@ export class AiService {
 
       // Facteur 1: Position centrale (début de partie)
       const center = gridSize / 2 - 0.5;
-      const distToCenter = Math.abs(move.x - center) + Math.abs(move.y - center);
+      const distToCenter =
+        Math.abs(move.x - center) + Math.abs(move.y - center);
       score += (gridSize - distToCenter) * 2;
 
       // Facteur 2: Connexions
-      const friendlyNeighbors = this.countNeighbors(move, gameState, gridSize, gameState.currentPlayer);
+      const friendlyNeighbors = this.countNeighbors(
+        move,
+        gameState,
+        gridSize,
+        gameState.currentPlayer,
+      );
       score += friendlyNeighbors * 5;
 
       // Facteur 3: Influence territoriale
@@ -475,7 +545,7 @@ export class AiService {
   private calculateInfluence(
     move: Move,
     gameState: GameStateEntity,
-    gridSize: number
+    gridSize: number,
   ): number {
     const player = gameState.currentPlayer;
     const opponent = this.getOpponent(player);
@@ -486,15 +556,15 @@ export class AiService {
       for (let dy = -3; dy <= 3; dy++) {
         const nx = move.x + dx;
         const ny = move.y + dy;
-        
+
         if (!this.isValid(nx, ny, gridSize)) continue;
-        
+
         const distance = Math.abs(dx) + Math.abs(dy);
         if (distance === 0 || distance > 3) continue;
-        
+
         const key = CoordinateUtil.toKey(nx, ny);
         const weight = 4 - distance;
-        
+
         if (gameState.grid[key] === player) {
           influence += weight;
         } else if (gameState.grid[key] === opponent) {
@@ -511,18 +581,18 @@ export class AiService {
    */
   private isKeyPoint(move: Move, gridSize: number): boolean {
     const third = Math.floor(gridSize / 3);
-    const twoThirds = Math.floor(gridSize * 2 / 3);
-    
+    const twoThirds = Math.floor((gridSize * 2) / 3);
+
     // Points stratégiques: intersections des lignes de tiers
     const keyPoints = [
       [third, third],
       [third, twoThirds],
       [twoThirds, third],
-      [twoThirds, twoThirds]
+      [twoThirds, twoThirds],
     ];
 
-    return keyPoints.some(([x, y]) => 
-      Math.abs(move.x - x) <= 1 && Math.abs(move.y - y) <= 1
+    return keyPoints.some(
+      ([x, y]) => Math.abs(move.x - x) <= 1 && Math.abs(move.y - y) <= 1,
     );
   }
 
@@ -532,20 +602,27 @@ export class AiService {
   private getSimpleMove(
     gameState: GameStateEntity,
     gridSize: number,
-    difficulty: number
+    difficulty: number,
   ): Move {
     const moves = this.getAllEmptyPositions(gameState, gridSize);
-    
+
     if (difficulty === 1) {
       // Niveau 1: Aléatoire
       return moves[Math.floor(Math.random() * moves.length)];
     }
 
     // Niveau 2: Préférence pour positions connectées
-    const scoredMoves = moves.map(move => ({
+    const scoredMoves = moves.map((move) => ({
       move,
-      score: this.countNeighbors(move, gameState, gridSize, gameState.currentPlayer) * 3 +
-             Math.random() * 5
+      score:
+        this.countNeighbors(
+          move,
+          gameState,
+          gridSize,
+          gameState.currentPlayer,
+        ) *
+          3 +
+        Math.random() * 5,
     }));
 
     scoredMoves.sort((a, b) => b.score - a.score);
@@ -554,7 +631,10 @@ export class AiService {
 
   // ==================== UTILITAIRES ====================
 
-  private getAllEmptyPositions(gameState: GameStateEntity, gridSize: number): Move[] {
+  private getAllEmptyPositions(
+    gameState: GameStateEntity,
+    gridSize: number,
+  ): Move[] {
     const moves: Move[] = [];
     for (let x = 0; x < gridSize; x++) {
       for (let y = 0; y < gridSize; y++) {
@@ -571,17 +651,22 @@ export class AiService {
     move: Move,
     gameState: GameStateEntity,
     gridSize: number,
-    player: number
+    player: number,
   ): number {
-    const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    const directions = [
+      [0, 1],
+      [1, 0],
+      [0, -1],
+      [-1, 0],
+    ];
     let count = 0;
 
     for (const [dx, dy] of directions) {
       const nx = move.x + dx;
       const ny = move.y + dy;
-      
+
       if (!this.isValid(nx, ny, gridSize)) continue;
-      
+
       const key = CoordinateUtil.toKey(nx, ny);
       if (gameState.grid[key] === player && !gameState.deadStones.has(key)) {
         count++;
@@ -592,8 +677,8 @@ export class AiService {
   }
 
   private getOpponent(player: number): number {
-    return player === GAME_CONSTANTS.PLAYER_ONE 
-      ? GAME_CONSTANTS.PLAYER_TWO 
+    return player === GAME_CONSTANTS.PLAYER_ONE
+      ? GAME_CONSTANTS.PLAYER_TWO
       : GAME_CONSTANTS.PLAYER_ONE;
   }
 

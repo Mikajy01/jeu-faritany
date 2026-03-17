@@ -10,17 +10,14 @@ export class ScoringService {
    * Calculer les scores basés sur les deadStones de chaque joueur
    * Le score d'un joueur = nombre de pierres adverses capturées (deadStones)
    */
-  calculateScores(
-    grid: GridState,
-    deadStones: Set<string>,
-  ): Scores {
+  calculateScores(grid: GridState, deadStones: Set<string>): Scores {
     let player1Captures = 0; // Nombre de pierres du joueur 2 capturées
     let player2Captures = 0; // Nombre de pierres du joueur 1 capturées
 
     // Compter les deadStones par propriétaire
     for (const deadStoneKey of deadStones) {
       const stoneOwner = grid[deadStoneKey];
-      
+
       if (stoneOwner === GAME_CONSTANTS.PLAYER_ONE) {
         // Pierre du joueur 1 capturée → point pour joueur 2
         player2Captures++;

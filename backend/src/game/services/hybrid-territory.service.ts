@@ -14,7 +14,7 @@ export class HybridTerritoryService {
   private readonly logger = new Logger(HybridTerritoryService.name);
 
   /**
-   * Trouve tous les territoires en utilisant l'approche BFS 
+   * Trouve tous les territoires en utilisant l'approche BFS
    * Compatible avec les cycles ET les territoires non-cycliques
    */
   findAllTerritories(
@@ -28,11 +28,20 @@ export class HybridTerritoryService {
     for (let x = 0; x < gridSize; x++) {
       for (let y = 0; y < gridSize; y++) {
         const key = CoordinateUtil.toKey(x, y);
-        
+
         // Si c'est une case vide non visitée
-        if (getCellState(x, y) === GAME_CONSTANTS.EMPTY_CELL && !visited.has(key)) {
-          const territory = this.exploreTerritory(x, y, visited, getCellState, gridSize);
-          
+        if (
+          getCellState(x, y) === GAME_CONSTANTS.EMPTY_CELL &&
+          !visited.has(key)
+        ) {
+          const territory = this.exploreTerritory(
+            x,
+            y,
+            visited,
+            getCellState,
+            gridSize,
+          );
+
           // Ne garder que les territoires avec un propriétaire unique
           if (territory.owner !== null) {
             territories.push(territory);
@@ -58,7 +67,7 @@ export class HybridTerritoryService {
     const points: Coordinate[] = [];
     const boundaryPlayers = new Set<number>();
     const boundaryStones = new Set<string>();
-    
+
     let touchesEdge = false;
 
     while (queue.length > 0) {
@@ -75,8 +84,10 @@ export class HybridTerritoryService {
       points.push({ x: current.x, y: current.y });
 
       const directions = [
-        { dx: 0, dy: -1 }, { dx: 1, dy: 0 },
-        { dx: 0, dy: 1 }, { dx: -1, dy: 0 },
+        { dx: 0, dy: -1 },
+        { dx: 1, dy: 0 },
+        { dx: 0, dy: 1 },
+        { dx: -1, dy: 0 },
       ];
 
       for (const dir of directions) {
@@ -85,7 +96,7 @@ export class HybridTerritoryService {
 
         if (nx < 0 || nx >= gridSize || ny < 0 || ny >= gridSize) {
           touchesEdge = true;
-          continue; 
+          continue;
         }
 
         const adjKey = CoordinateUtil.toKey(nx, ny);
@@ -105,7 +116,7 @@ export class HybridTerritoryService {
 
     // Déterminer le propriétaire
     let owner: number | null = null;
-    
+
     if (!touchesEdge && boundaryPlayers.size === 1) {
       owner = Array.from(boundaryPlayers)[0];
     }
@@ -128,8 +139,8 @@ export class HybridTerritoryService {
     const adjacents: Coordinate[] = [];
     const directions = [
       { dx: 0, dy: -1 }, // Haut
-      { dx: 1, dy: 0 },  // Droite
-      { dx: 0, dy: 1 },  // Bas
+      { dx: 1, dy: 0 }, // Droite
+      { dx: 0, dy: 1 }, // Bas
       { dx: -1, dy: 0 }, // Gauche
     ];
 
@@ -155,7 +166,7 @@ export class HybridTerritoryService {
     gridSize: number,
   ): void {
     const territories = this.findAllTerritories(getCellState, gridSize);
-    
+
     // Remplacer capturedAreas par les territoires trouvés
     gameState.capturedAreas = territories;
   }

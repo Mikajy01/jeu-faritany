@@ -42,7 +42,12 @@ export class NotificationService {
   /**
    * Notify a specific player by number
    */
-  notifyPlayer(roomId: string, playerNumber: number, event: string, data?: any): void {
+  notifyPlayer(
+    roomId: string,
+    playerNumber: number,
+    event: string,
+    data?: any,
+  ): void {
     if (playerNumber === 1) {
       this.notifyPlayerOne(roomId, event, data);
     } else if (playerNumber === 2) {
@@ -55,7 +60,12 @@ export class NotificationService {
   /**
    * Notify all players except a specific player
    */
-  notifyOpponent(roomId: string, playerNumber: number, event: string, data?: any): void {
+  notifyOpponent(
+    roomId: string,
+    playerNumber: number,
+    event: string,
+    data?: any,
+  ): void {
     const opponentNumber = playerNumber === 1 ? 2 : 1;
     this.notifyPlayer(roomId, opponentNumber, event, data);
   }

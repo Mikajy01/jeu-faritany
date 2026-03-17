@@ -21,67 +21,68 @@ export class GameRoomEntity {
    * Adds a player to the room in an available slot (1 or 2)
    */
   addPlayer(socketId: string, userId?: string): number | undefined {
-  this.logger.log(`addPlayer called with socketId=${socketId}, userId=${userId}`);
-
-  // Si l'utilisateur est déjà présent via son socketId
-  if (this.players.has(socketId)) {
-    const player = this.players.get(socketId);
     this.logger.log(
-      `Socket ${socketId} already registered as player ${player}`,
+      `addPlayer called with socketId=${socketId}, userId=${userId}`,
     );
-    return player;
-  }
 
-  if (this.players.size >= 2) {
+    // Si l'utilisateur est déjà présent via son socketId
+    if (this.players.has(socketId)) {
+      const player = this.players.get(socketId);
+      this.logger.log(
+        `Socket ${socketId} already registered as player ${player}`,
+      );
+      return player;
+    }
+
+    if (this.players.size >= 2) {
+      this.logger.log(
+        `Room already full (${this.players.size} players). Rejecting socket ${socketId}`,
+      );
+      return undefined;
+    }
+
+    // Utiliser le socketId comme userId de secours si absent
+    const effectiveUserId = userId || socketId;
+    this.logger.log(`Effective userId resolved to ${effectiveUserId}`);
+
+    // Si l'utilisateur a déjà un numéro attribué (reconnexion)
+    if (this.userToPlayer.has(effectiveUserId)) {
+      const playerNumber = this.userToPlayer.get(effectiveUserId)!;
+      this.logger.log(
+        `User ${effectiveUserId} reconnecting. Reassigning playerNumber=${playerNumber} to socket ${socketId}`,
+      );
+
+      this.players.set(socketId, playerNumber);
+      return playerNumber;
+    }
+
+    // Trouver le slot libre (1 ou 2) en regardant les numéros déjà attribués
+    const usedSlots = Array.from(this.userToPlayer.values());
+    this.logger.log(`Currently used slots: ${usedSlots.join(', ') || 'none'}`);
+
+    const playerNumber = usedSlots.includes(1) ? 2 : 1;
     this.logger.log(
-      `Room already full (${this.players.size} players). Rejecting socket ${socketId}`,
-    );
-    return undefined;
-  }
-
-  // Utiliser le socketId comme userId de secours si absent
-  const effectiveUserId = userId || socketId;
-  this.logger.log(`Effective userId resolved to ${effectiveUserId}`);
-
-  // Si l'utilisateur a déjà un numéro attribué (reconnexion)
-  if (this.userToPlayer.has(effectiveUserId)) {
-    const playerNumber = this.userToPlayer.get(effectiveUserId)!;
-    this.logger.log(
-      `User ${effectiveUserId} reconnecting. Reassigning playerNumber=${playerNumber} to socket ${socketId}`,
+      `Assigning playerNumber=${playerNumber} to user ${effectiveUserId}`,
     );
 
     this.players.set(socketId, playerNumber);
+    this.userToPlayer.set(effectiveUserId, playerNumber);
+
+    this.logger.log(
+      `Player registered: socket=${socketId}, user=${effectiveUserId}, playerNumber=${playerNumber}`,
+    );
+
+    if (this.userToPlayer.size === 2) {
+      this.gameState.gameActive = true;
+      this.logger.log(`Two players connected. Game is now ACTIVE`);
+    } else {
+      this.logger.log(
+        `Waiting for second player. Current player count=${this.userToPlayer.size}`,
+      );
+    }
+
     return playerNumber;
   }
-
-  // Trouver le slot libre (1 ou 2) en regardant les numéros déjà attribués
-  const usedSlots = Array.from(this.userToPlayer.values());
-  this.logger.log(`Currently used slots: ${usedSlots.join(', ') || 'none'}`);
-
-  const playerNumber = usedSlots.includes(1) ? 2 : 1;
-  this.logger.log(
-    `Assigning playerNumber=${playerNumber} to user ${effectiveUserId}`,
-  );
-
-  this.players.set(socketId, playerNumber);
-  this.userToPlayer.set(effectiveUserId, playerNumber);
-
-  this.logger.log(
-    `Player registered: socket=${socketId}, user=${effectiveUserId}, playerNumber=${playerNumber}`,
-  );
-
-  if (this.userToPlayer.size === 2) {
-    this.gameState.gameActive = true;
-    this.logger.log(`Two players connected. Game is now ACTIVE`);
-  } else {
-    this.logger.log(
-      `Waiting for second player. Current player count=${this.userToPlayer.size}`,
-    );
-  }
-
-  return playerNumber;
-}
-
 
   /**
    * Removes a player (disconnect but keep user mapping for rejoin)
@@ -99,7 +100,7 @@ export class GameRoomEntity {
     const playerNumber = this.players.get(socketId);
     if (playerNumber) {
       this.players.delete(socketId);
-      
+
       // Trouver l'userId associé à ce playerNumber
       for (const [userId, num] of this.userToPlayer) {
         if (num === playerNumber) {
