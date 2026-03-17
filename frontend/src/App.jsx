@@ -8,6 +8,7 @@ import AiRoomPage from "./pages/AiRoomPage";
 import JoinRoomPage from "./pages/JoinRoomPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import { useTheme } from "./context/ThemeContext.jsx";
+import { ToastHost } from "./components/ui/ToastHost.jsx";
 
 function ThemeToggleFloating() {
   const { theme, toggleTheme } = useTheme();
@@ -38,6 +39,7 @@ function ThemeToggleFloating() {
 function App() {
   return (
     <>
+      <ToastHost />
       <ThemeToggleFloating />
       <Routes>
         <Route path="/" element={<HomePage />} />

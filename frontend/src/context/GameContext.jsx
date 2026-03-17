@@ -18,6 +18,7 @@ import { resignGameUseCase } from "../application/use-cases/ResignGameUseCase";
 import { leaveRoomUseCase } from "../application/use-cases/LeaveRoomUseCase";
 import { requestRematchUseCase } from "../application/use-cases/RequestRematchUseCase";
 import { checkGameStatusUseCase } from "../application/use-cases/CheckGameStatusUseCase";
+import { emitToast } from "../utils/toast";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5555";
 
@@ -62,6 +63,21 @@ export const GameProvider = ({ children }) => {
     const timestamp = new Date().toLocaleTimeString();
     setGameLog((prev) => [...prev.slice(-50), `${timestamp}: ${message}`]);
   }, []);
+
+  const maybeNotifyYourTurn = useCallback(
+    (prev, next) => {
+      if (!prev?.gameActive || !next?.gameActive) return;
+      if (!prev?.playerId || !next?.playerId) return;
+      if (prev.currentPlayer === next.currentPlayer) return;
+      if (next.currentPlayer !== next.playerId) return;
+      emitToast({
+        title: "À vous de jouer",
+        message: "C’est votre tour.",
+        durationMs: 2500,
+      });
+    },
+    [emitToast],
+  );
 
   // --- INFRASTRUCTURE: API CALLS ---
   const fetchPublicRooms = useCallback(async () => {
@@ -135,6 +151,7 @@ export const GameProvider = ({ children }) => {
           if (data.gameState?.player2Online === undefined) {
             newState.player2Online = prev.player2Online;
           }
+          maybeNotifyYourTurn(prev, newState);
           return newState;
         });
       }),
@@ -174,6 +191,7 @@ export const GameProvider = ({ children }) => {
             newState.move = prev.move;
           }
           // Au démarrage, tout le monde est censé être là
+          maybeNotifyYourTurn(prev, newState);
           return newState;
         });
         if (data.isReconnection) addLogEntry(`🎮 La partie reprend !`);
@@ -195,6 +213,7 @@ export const GameProvider = ({ children }) => {
           if (data.gameState?.player2Online === undefined) {
             newState.player2Online = prev.player2Online;
           }
+          maybeNotifyYourTurn(prev, newState);
           return newState;
         });
       }),
@@ -203,6 +222,15 @@ export const GameProvider = ({ children }) => {
         const playerNumber =
           data.timedOutPlayer || (data.gameState?.currentPlayer === 1 ? 2 : 1);
         addLogEntry(`⏰ Temps écoulé pour le joueur ${playerNumber} !`);
+        emitToast({
+          title: "Temps écoulé",
+          message:
+            gameStateRef.current?.playerId === playerNumber
+              ? "Vous avez dépassé le temps."
+              : `Le joueur ${playerNumber} a dépassé le temps.`,
+          variant: "danger",
+          durationMs: 3500,
+        });
         setGameState((prev) => {
           const newState = GameState.fromServer(data);
           if (!newState.playerId && prev.playerId) {
@@ -217,6 +245,7 @@ export const GameProvider = ({ children }) => {
           if (data.gameState?.player2Online === undefined) {
             newState.player2Online = prev.player2Online;
           }
+          maybeNotifyYourTurn(prev, newState);
           return newState;
         });
       }),
