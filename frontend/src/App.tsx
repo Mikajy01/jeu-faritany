@@ -7,8 +7,8 @@ import WaitingRoomPage from "./pages/WaitingRoomPage";
 import AiRoomPage from "./pages/AiRoomPage";
 import JoinRoomPage from "./pages/JoinRoomPage";
 import NotFoundPage from "./pages/NotFoundPage";
-import { useTheme } from "./context/ThemeContext.jsx";
-import { ToastHost } from "./components/ui/ToastHost.jsx";
+import { useTheme } from "./context/ThemeContext";
+import { ToastHost } from "./components/ui/ToastHost";
 
 function ThemeToggleFloating() {
   const { theme, toggleTheme } = useTheme();

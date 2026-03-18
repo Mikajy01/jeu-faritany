@@ -8,7 +8,7 @@ import {
   STAGE_HEIGHT,
 } from "../../constants/game";
 
-export const GridLines = React.memo(({ color = "#334155" }) => {
+export const GridLines = React.memo(({ color = "#334155" }: any) => {
   const lines = [];
 
   for (let i = 0; i < GRID_SIZE; i++) {

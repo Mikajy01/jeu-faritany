@@ -8,8 +8,6 @@ export const makeMoveUseCase = (
   y,
   { gameState, setGameState, socketService, lastGameStateRef },
 ) => {
-  let success = false;
-
   // Validation logic (Domain-like)
   if (gameState.playerId !== gameState.currentPlayer) {
     console.warn("❌ Ce n'est pas votre tour");

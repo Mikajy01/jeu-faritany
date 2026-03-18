@@ -10,7 +10,7 @@ export const ChessClock = ({
   lastMoveTimestamp,
   gameMode = "TIME",
   targetScore = 20,
-}) => {
+}: any) => {
   const [gameDisplay, setGameDisplay] = useState(remainingGameTime);
   const [moveDisplay, setMoveDisplay] = useState(remainingMoveTime);
   const timerRef = useRef(null);

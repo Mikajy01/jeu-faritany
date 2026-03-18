@@ -31,7 +31,7 @@ export function WaitingRoom({
   playerCount,
   onCancel,
   onStartGame,
-  onShareLink,
+  onShareLink = () => {},
 }) {
   const [copied, setCopied] = React.useState(false);
   const [copiedJoinCode, setCopiedJoinCode] = React.useState(false);
@@ -96,7 +96,7 @@ export function WaitingRoom({
     }
   };
 
-  const containerVariants = {
+  const containerVariants: any = {
     hidden: { opacity: 0, scale: 0.95 },
     visible: {
       opacity: 1,

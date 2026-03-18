@@ -22,9 +22,9 @@ import { emitToast } from "../utils/toast";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5555";
 
-const GameContext = createContext();
+const GameContext = createContext<any>(null);
 
-export const GameProvider = ({ children }) => {
+export const GameProvider = ({ children }: { children: React.ReactNode }) => {
   const [userId] = useState(() => {
     const savedId = localStorage.getItem("faritany_user_id");
     if (savedId) return savedId;
@@ -37,22 +37,24 @@ export const GameProvider = ({ children }) => {
   const [connectionStatus, setConnectionStatus] = useState(
     "Connexion au serveur...",
   );
-  const [gameState, setGameState] = useState(new GameState());
-  const [gameType, setGameType] = useState(
+  const [gameState, setGameState] = useState<any>(new GameState());
+  const [gameType, setGameType] = useState<string>(
     () => localStorage.getItem("faritany_current_game_type") || "public",
   );
-  const [roomCode, setRoomCode] = useState(null);
+  const [roomCode, setRoomCode] = useState<string | null>(null);
   const [playerCount, setPlayerCount] = useState(1);
-  const [lastError, setLastError] = useState(null);
-  const [rematchRequestedBy, setRematchRequestedBy] = useState(null);
-  const [publicRooms, setPublicRooms] = useState([]);
-  const [gameLog, setGameLog] = useState([
+  const [lastError, setLastError] = useState<any>(null);
+  const [rematchRequestedBy, setRematchRequestedBy] = useState<number | null>(
+    null,
+  );
+  const [publicRooms, setPublicRooms] = useState<any[]>([]);
+  const [gameLog, setGameLog] = useState<string[]>([
     "Bienvenue dans le jeu faritany !",
     "Placez vos points pour entourer les points et zones adverses.",
   ]);
 
-  const lastGameStateRef = useRef(null);
-  const gameStateRef = useRef(gameState);
+  const lastGameStateRef = useRef<any>(null);
+  const gameStateRef = useRef<any>(gameState);
 
   // Synchroniser le Ref avec l'état pour les Use Cases
   useEffect(() => {

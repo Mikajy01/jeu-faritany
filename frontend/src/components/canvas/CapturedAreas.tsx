@@ -8,7 +8,7 @@ import {
 } from "../../utils/coordinates";
 
 export const CapturedAreas = React.memo(
-  ({ capturedAreas, grid, isDarkMode = true }) => {
+  ({ capturedAreas, grid, isDarkMode = true }: any) => {
     return (
       <Group>
         {capturedAreas.map((area, areaIndex) => {

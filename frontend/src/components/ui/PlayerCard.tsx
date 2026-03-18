@@ -12,7 +12,7 @@ export const PlayerCard = ({
   isYou,
   showTimer = true,
   timeLeft = 600,
-  onTimeUp,
+  onTimeUp = () => {},
   compact = false,
   minimalist = false,
   isOnline = true, // ✨ Nouveau prop: statut de connexion
