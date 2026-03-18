@@ -1,12 +1,15 @@
 import { io } from "socket.io-client";
 
 class SocketService {
+  socket: any;
+  callbacks: Map<string, Array<(data: any) => void>>;
+
   constructor() {
     this.socket = null;
     this.callbacks = new Map();
   }
 
-  connect(url) {
+  connect(url: string) {
     if (this.socket) return;
 
     this.socket = io(url, {
@@ -55,27 +58,29 @@ class SocketService {
     });
   }
 
-  on(event, callback) {
+  on(event: string, callback: (data: any) => void) {
     if (!this.callbacks.has(event)) {
       this.callbacks.set(event, []);
     }
-    this.callbacks.get(event).push(callback);
+    this.callbacks.get(event)!.push(callback);
     return () => this.off(event, callback);
   }
 
-  off(event, callback) {
+  off(event: string, callback: (data: any) => void) {
     if (!this.callbacks.has(event)) return;
-    const filtered = this.callbacks.get(event).filter((cb) => cb !== callback);
+    const filtered = this.callbacks
+      .get(event)!
+      .filter((cb) => cb !== callback);
     this.callbacks.set(event, filtered);
   }
 
-  _notify(event, data) {
+  _notify(event: string, data: any) {
     if (this.callbacks.has(event)) {
-      this.callbacks.get(event).forEach((cb) => cb(data));
+      this.callbacks.get(event)!.forEach((cb) => cb(data));
     }
   }
 
-  emit(event, data) {
+  emit(event: string, data?: any) {
     if (this.socket) {
       if (data !== undefined) {
         this.socket.emit(event, data);

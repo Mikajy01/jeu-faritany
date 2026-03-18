@@ -1,5 +1,22 @@
 export class GameState {
-  constructor(data = {}) {
+  grid: Map<string, any>;
+  move: any;
+  currentPlayer: number;
+  playerId: number | null;
+  gameId: string | null;
+  code: string | null;
+  scores: any;
+  gameActive: boolean;
+  gameOver: any;
+  capturedAreas: any[];
+  player1Score: number;
+  player2Score: number;
+  player1Online: boolean;
+  player2Online: boolean;
+  timeControl: any;
+  clock: any;
+
+  constructor(data: any = {}) {
     this.grid = this._parseGrid(data.grid);
     this.move = data.move ?? null;
     this.currentPlayer = data.currentPlayer || 1;
@@ -28,7 +45,7 @@ export class GameState {
     };
   }
 
-  _parseGrid(gridData) {
+  _parseGrid(gridData: any) {
     const gridMap = new Map();
     if (gridData) {
       Object.entries(gridData).forEach(([key, value]) => {
@@ -38,7 +55,7 @@ export class GameState {
     return gridMap;
   }
 
-  static fromServer(data) {
+  static fromServer(data: any) {
     return new GameState({
       ...data.gameState,
       gameId: data.gameState?.gameId || data.code,
