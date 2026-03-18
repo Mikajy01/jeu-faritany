@@ -45,22 +45,6 @@ export const InfoPanel = ({
 
   return (
     <div className="flex flex-col gap-4 lg:gap-6 w-full h-full">
-      {/* Pendule de jeu (Chess Clock) - Masqué en mode IA */}
-      {gameType !== "AI" && (
-        <div className="w-full">
-          <ChessClock
-            remainingMoveTime={gameState.clock?.remainingMoveTime || 0}
-            remainingGameTime={gameState.clock?.remainingGameTime || 0}
-            gameStartTime={gameState.clock?.gameStartTime}
-            currentPlayer={gameState.currentPlayer}
-            gameActive={gameState.gameActive}
-            lastMoveTimestamp={gameState.clock?.lastMoveTimestamp}
-            gameMode={gameState.timeControl?.gameMode}
-            targetScore={gameState.timeControl?.targetScore}
-          />
-        </div>
-      )}
-
       {/* Main Stats Card */}
       <div className="bg-[var(--bg-surface)] backdrop-blur-xl rounded-3xl p-4 lg:p-6 border border-[var(--border-primary)] shadow-2xl relative overflow-hidden">
         {/* Game Over Overlay */}

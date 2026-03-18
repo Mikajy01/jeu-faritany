@@ -241,12 +241,12 @@ export default function GamePage() {
   }, [leaveRoom, navigate]);
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans selection:bg-[var(--accent-fuchsia)]/30 transition-colors duration-300">
+    <div className="relative h-screen w-full overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans selection:bg-[var(--accent-fuchsia)]/30 transition-colors duration-300">
       {/* Animated Gradient Background */}
       <div className="absolute inset-0 z-0 h-full w-full bg-gradient-to-br from-[var(--bg-primary)] via-[var(--bg-secondary)] to-black animate-gradient-x pointer-events-none" />
       <Grid />
 
-      <div className="relative z-10 min-h-screen flex flex-col">
+      <div className="relative z-10 h-full flex flex-col">
         {/* Header / Top Bar (Mobile Only) */}
         <header className="lg:hidden flex items-center justify-between p-4 bg-[var(--bg-secondary)]/40 backdrop-blur-md border-b border-[var(--border-primary)]">
           <div className="flex items-center gap-3">
@@ -305,8 +305,55 @@ export default function GamePage() {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 px-4 lg:px-8 py-4 lg:py-6 flex flex-col lg:flex-row gap-6 items-center justify-center overflow-hidden relative">
-          {/* Left Side: Game Board (always takes available space) */}
+        <main className="flex-1 flex flex-col lg:flex-row items-center lg:items-start justify-center overflow-hidden relative">
+          {/* Left Side: Info Panel (Drawer) - Now absolute on the left */}
+          <AnimatePresence mode="popLayout">
+            {isInfoPanelOpen && (
+              <motion.aside
+                initial={{ x: "-100%", opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: "-100%", opacity: 0 }}
+                transition={{ type: "spring", damping: 30, stiffness: 200 }}
+                className={`
+                  info-panel-drawer
+                  fixed inset-y-0 left-0 z-50
+                  w-[85vw] sm:w-96 lg:w-[400px]
+                  bg-[var(--bg-secondary)]/95 lg:bg-[var(--bg-card)]/90 backdrop-blur-2xl
+                  border-r border-[var(--border-primary)]
+                  p-6 flex flex-col shadow-2xl
+                `}
+              >
+                {/* Header/Close toggle */}
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold text-[var(--text-primary)]">
+                    {isDesktop ? "Tableau de Bord" : "Menu"}
+                  </h2>
+                  <button
+                    onClick={() => setIsInfoPanelOpen(false)}
+                    className="p-2 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                    title="Fermer le panneau"
+                  >
+                    <X className="w-5 h-5 text-[var(--text-muted)]" />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                  <InfoPanel
+                    connectionStatus={connectionStatus}
+                    gameState={gameState}
+                    hoveredCoord={hoveredCoord}
+                    gameLog={gameLog}
+                    onResetGame={resetGame}
+                    onBackToMenu={handleBackToMenu}
+                    onResign={resignGame}
+                    roomCode={roomCode}
+                  />
+                </div>
+              </motion.aside>
+            )}
+          </AnimatePresence>
+
+          {/* Right Side: Game Board (always takes available space) */}
           <motion.div
             layout
             initial={{ opacity: 0, scale: 0.98 }}
@@ -324,53 +371,6 @@ export default function GamePage() {
               isInfoPanelOpen={isInfoPanelOpen}
             />
           </motion.div>
-
-          {/* Right Side: Info Panel (Desktop) / Drawer (Mobile) */}
-          <AnimatePresence mode="popLayout">
-            {isInfoPanelOpen && (
-              <motion.aside
-                initial={!isDesktop ? { x: "100%" } : { opacity: 0, x: 50, width: 0 }}
-                animate={!isDesktop ? { x: 0 } : { opacity: 1, x: 0, width: 400 }}
-                exit={!isDesktop ? { x: "100%" } : { opacity: 0, x: 50, width: 0 }}
-                transition={{ type: "spring", damping: 30, stiffness: 200 }}
-                className={`
-                  info-panel-drawer
-                  fixed lg:relative inset-y-0 right-0 z-50
-                  w-[85vw] sm:w-96 lg:w-[400px]
-                  bg-[var(--bg-secondary)]/90 lg:bg-[var(--bg-card)]/40 backdrop-blur-2xl lg:backdrop-blur-xl
-                  border-l lg:border border-[var(--border-primary)] lg:rounded-3xl
-                  p-6 lg:p-6 flex flex-col lg:my-2
-                `}
-              >
-                {/* Header/Close toggle for Desktop & Mobile */}
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold text-[var(--text-primary)]">
-                    {isDesktop ? "Infos" : "Tableau de Bord"}
-                  </h2>
-                  <button
-                    onClick={() => setIsInfoPanelOpen(false)}
-                    className="p-2 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] transition-colors"
-                    title="Réduire le panneau"
-                  >
-                    <X className="w-5 h-5 text-[var(--text-muted)]" />
-                  </button>
-                </div>
-
-                <div className="flex-1 lg:max-h-[80vh] overflow-y-auto custom-scrollbar">
-                  <InfoPanel
-                    connectionStatus={connectionStatus}
-                    gameState={gameState}
-                    hoveredCoord={hoveredCoord}
-                    gameLog={gameLog}
-                    onResetGame={resetGame}
-                    onBackToMenu={handleBackToMenu}
-                    onResign={resignGame}
-                    roomCode={roomCode}
-                  />
-                </div>
-              </motion.aside>
-            )}
-          </AnimatePresence>
 
           {/* Overlay (Mobile Only) */}
           <AnimatePresence>
@@ -391,7 +391,7 @@ export default function GamePage() {
         <button
           type="button"
           onClick={() => setIsInfoPanelOpen(true)}
-          className="fixed right-4 top-24 z-40 p-2.5 bg-[var(--bg-surface)]/80 backdrop-blur-xl rounded-2xl border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] transition-colors shadow-lg"
+          className="fixed left-4 top-24 z-40 p-2.5 bg-[var(--bg-surface)]/80 backdrop-blur-xl rounded-2xl border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] transition-colors shadow-lg"
           aria-label="Ouvrir le tableau de bord"
           title="Ouvrir le tableau de bord"
         >

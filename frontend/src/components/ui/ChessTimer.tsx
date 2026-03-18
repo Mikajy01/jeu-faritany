@@ -12,6 +12,11 @@ export const ChessTimer = ({
   const intervalRef = useRef(null);
   const startTimeRef = useRef(null);
   const remainingTimeRef = useRef(timeLeft);
+  const onTimeUpRef = useRef(onTimeUp);
+
+  useEffect(() => {
+    onTimeUpRef.current = onTimeUp;
+  }, [onTimeUp]);
 
   useEffect(() => {
     remainingTimeRef.current = timeLeft;
@@ -30,7 +35,8 @@ export const ChessTimer = ({
 
         if (newTime === 0) {
           clearInterval(intervalRef.current);
-          if (onTimeUp) onTimeUp();
+          intervalRef.current = null;
+          if (onTimeUpRef.current) onTimeUpRef.current();
         }
       }, 100);
     } else {
@@ -43,9 +49,10 @@ export const ChessTimer = ({
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
-  }, [isActive, onTimeUp]);
+  }, [isActive, timeLeft]);
 
   const formatTime = (seconds) => {
     if (seconds <= 0) return "0:00";

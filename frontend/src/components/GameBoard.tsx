@@ -7,6 +7,7 @@ import { GameStones } from "./canvas/GameStones";
 import { HoverEffect } from "./canvas/HoverEffect";
 import { Legend } from "./ui/Legend";
 import { PlayerCard } from "./ui/PlayerCard";
+import { ChessClock } from "./ui/ChessClock";
 import { useGameContext } from "../context/GameContext";
 import { useTheme } from "../context/ThemeContext";
 
@@ -50,12 +51,12 @@ export const GameBoard = ({
       const containerWidth = container.clientWidth;
       const isDesktop = window.innerWidth >= 1024;
 
-      // On desktop, we have PlayerCards on the left (approx 260px + gaps)
-      // And InfoPanel on the right if open (400px + gaps)
-      const horizontalMargin = isDesktop ? (isInfoPanelOpen ? 720 : 320) : 40;
+      // On desktop, we have Sidebar on the left (300px)
+      // InfoPanel is now absolute/fixed, so it doesn't take space in the layout
+      const horizontalMargin = isDesktop ? 340 : 40;
 
       const containerHeight = isDesktop
-        ? window.innerHeight - 100 // Less margin for height on desktop
+        ? window.innerHeight - 40 // Minimal margin for independent scroll
         : window.innerHeight - 280;
 
       const availableWidth = containerWidth - horizontalMargin;
@@ -277,7 +278,7 @@ export const GameBoard = ({
   return (
     <div
       ref={containerRef}
-      className="relative flex flex-col lg:flex-row items-center lg:items-center justify-center select-none w-full h-full gap-4 lg:gap-12"
+      className="relative flex flex-col lg:flex-row items-stretch select-none w-full h-full lg:h-screen overflow-hidden"
     >
       {/* Mobile Player Cards (At top, horizontal) */}
       <div className="lg:hidden w-full mb-4 px-2">
@@ -319,8 +320,24 @@ export const GameBoard = ({
         </div>
       </div>
 
-      {/* Desktop Player Cards (Vertical at left) */}
-      <div className="hidden lg:flex flex-col gap-6 w-[240px] flex-shrink-0">
+      {/* Desktop Sidebar (Left, INDEPENDENT SCROLL) */}
+      <div className="hidden lg:flex flex-col gap-6 w-[300px] flex-shrink-0 h-screen overflow-y-auto custom-scrollbar p-6 bg-[var(--bg-secondary)]/30 border-r border-[var(--border-primary)] shadow-xl relative z-10">
+        {/* Objective / Game Clock */}
+        {gameType !== "AI" && (
+          <div className="w-full">
+            <ChessClock
+              remainingMoveTime={gameState.clock?.remainingMoveTime || 0}
+              remainingGameTime={gameState.clock?.remainingGameTime || 0}
+              gameStartTime={gameState.clock?.gameStartTime}
+              currentPlayer={gameState.currentPlayer}
+              gameActive={gameState.gameActive}
+              lastMoveTimestamp={gameState.clock?.lastMoveTimestamp}
+              gameMode={gameState.timeControl?.gameMode}
+              targetScore={gameState.timeControl?.targetScore}
+            />
+          </div>
+        )}
+
         <PlayerCard
           player={1}
           score={gameState.scores?.player1 || 0}
@@ -359,7 +376,7 @@ export const GameBoard = ({
           isOnline={gameState.player2Online}
         />
 
-        {/* Legend & Game Info moved here for better desktop space usage */}
+        {/* Legend & Game Info sidebar */}
         <div className="mt-4 flex flex-col gap-4">
           <Legend
             stageScale={stageScale}
@@ -390,9 +407,10 @@ export const GameBoard = ({
         </div>
       </div>
 
-      {/* Board Container (Flex-1 to take all remaining space) */}
-      <div className="flex-1 flex flex-col items-center justify-center min-w-0 h-full">
-        <div className="relative rounded-3xl p-2 bg-[var(--bg-card)] backdrop-blur-sm border border-[var(--border-primary)] shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden group flex items-center justify-center">
+      {/* Right Part (Board Area, INDEPENDENT SCROLL) */}
+      <div className="flex-1 h-screen overflow-y-auto overflow-x-hidden custom-scrollbar bg-black/5 relative">
+        <div className="flex flex-col items-center justify-center min-h-full p-8 lg:p-16">
+          <div className="relative rounded-3xl p-2 bg-[var(--bg-card)] backdrop-blur-sm border border-[var(--border-primary)] shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden group flex items-center justify-center">
           {/* Animated board border */}
           <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent-fuchsia)]/10 via-transparent to-[var(--accent-cyan)]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
 
@@ -444,7 +462,7 @@ export const GameBoard = ({
               <GameStones
                 grid={gameState.grid}
                 lastMove={gameState.move}
-                animationFrame={animationFrame}
+                // animationFrame={animationFrame}
                 isDarkMode={isDarkMode}
               />
             </Layer>
@@ -471,6 +489,7 @@ export const GameBoard = ({
             onResetZoom={resetZoom}
           />
         </div>
+      </div>
       </div>
     </div>
   );
