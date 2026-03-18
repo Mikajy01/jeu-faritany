@@ -1,9 +1,19 @@
-export const GRID_SIZE = 19;
 export const CELL_SIZE = 30;
 export const STONE_RADIUS = 4;
 export const PADDING = 30;
-export const STAGE_WIDTH = GRID_SIZE * CELL_SIZE + PADDING * 2;
-export const STAGE_HEIGHT = GRID_SIZE * CELL_SIZE + PADDING * 2;
+export const DEFAULT_GRID_SIZE = 19;
+
+export const getStageSize = (gridSize: number = DEFAULT_GRID_SIZE) => {
+  const safeGridSize = Math.max(2, Math.floor(gridSize));
+  const boardSize = (safeGridSize - 1) * CELL_SIZE;
+  return {
+    width: boardSize + PADDING * 2,
+    height: boardSize + PADDING * 2,
+  };
+};
+
+export const STAGE_WIDTH = getStageSize().width;
+export const STAGE_HEIGHT = getStageSize().height;
 
 export const COLORS = {
   1: { 

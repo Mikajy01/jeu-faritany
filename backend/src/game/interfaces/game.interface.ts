@@ -49,6 +49,7 @@ export interface GameState {
   scores: Scores;
 
   gameActive: boolean;
+  gridSize: number;
 
   timeControl: TimeControl;
   clock: ClockState;

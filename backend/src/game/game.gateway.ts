@@ -297,18 +297,14 @@ export class GameGateway
    * Handle move
    */
   @SubscribeMessage('makeMove')
-  async handleMakeMove(
+  handleMakeMove(
     @ConnectedSocket() client: Socket,
     @MessageBody() moveDto: MakeMoveDto,
   ) {
     const gameId = this.gameRoomService.getGameIdBySocket(client.id);
     if (!gameId) return;
 
-    const result = await this.gameManagerService.makeMove(
-      gameId,
-      client.id,
-      moveDto,
-    );
+    const result = this.gameManagerService.makeMove(gameId, client.id, moveDto);
 
     if (!result.success) {
       client.emit('moveError', { reason: result.reason });

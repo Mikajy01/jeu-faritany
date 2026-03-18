@@ -30,4 +30,10 @@ export class CreateGameDto {
   @IsOptional()
   @IsString()
   userId?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(19)
+  @Max(201)
+  gridSize?: number;
 }

@@ -17,6 +17,7 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
   const [moveTime, setMoveTime] = useState(30);
   const [totalTime, setTotalTime] = useState(600);
   const [targetScore, setTargetScore] = useState(20);
+  const [gridSize, setGridSize] = useState(19);
 
   const moveTimeOptions = [
     { label: "15s", value: 15 },
@@ -47,6 +48,19 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
     { id: "private", label: "Partie Privée", icon: Users },
   ];
 
+  const clampGridSize = (value) => {
+    const n = Math.floor(Number(value));
+    if (!Number.isFinite(n)) return 19;
+    return Math.max(19, Math.min(201, n));
+  };
+
+  const gridSizeOptions = [
+    { label: "Minimum", value: 19, hint: "19×19" },
+    { label: "Grand", value: 31, hint: "31×31" },
+    { label: "Énorme", value: 51, hint: "51×51" },
+    { label: "Gigantesque", value: 101, hint: "101×101" },
+  ];
+
   if (!isOpen) return null;
 
   return (
@@ -74,7 +88,9 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
               <div className="p-2 bg-[var(--accent-fuchsia)]/10 rounded-xl border border-[var(--accent-fuchsia)]/20">
                 <Timer className="w-5 h-5 text-[var(--accent-fuchsia)]" />
               </div>
-              <h2 className="text-xl font-bold text-[var(--text-primary)]">Configuration</h2>
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">
+                Configuration
+              </h2>
             </div>
             <button
               onClick={onClose}
@@ -122,74 +138,133 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
                 </div>
               )}
 
-            {/* Game Mode Selection */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-[var(--text-muted)]" />
-                  <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">
-                    Mode de jeu
+              {/* Game Mode Selection */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-[var(--text-muted)]" />
+                    <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                      Mode de jeu
+                    </span>
+                  </div>
+                  <span className="text-xs font-mono text-[var(--accent-amber)] bg-[var(--accent-amber)]/10 px-2 py-1 rounded">
+                    {gameMode === "TIME" ? "Au temps" : "Au score"}
                   </span>
                 </div>
-                <span className="text-xs font-mono text-[var(--accent-amber)] bg-[var(--accent-amber)]/10 px-2 py-1 rounded">
-                  {gameMode === "TIME" ? "Au temps" : "Au score"}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setGameMode("TIME")}
-                  className={`py-2 rounded-xl text-xs font-bold transition-all border ${
-                    gameMode === "TIME"
-                      ? "bg-[var(--accent-amber)] border-[var(--accent-amber)] text-white shadow-lg shadow-amber-900/20"
-                      : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
-                  }`}
-                >
-                  Limite de Temps
-                </button>
-                <button
-                  onClick={() => setGameMode("SCORE")}
-                  className={`py-2 rounded-xl text-xs font-bold transition-all border ${
-                    gameMode === "SCORE"
-                      ? "bg-[var(--accent-emerald)] border-[var(--accent-emerald)] text-white shadow-lg shadow-emerald-900/20"
-                      : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
-                  }`}
-                >
-                  Objectif Score
-                </button>
-              </div>
-            </div>
-
-            {/* Move Time Limit */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ClockIcon className="w-4 h-4 text-[var(--text-muted)]" />
-                  <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">
-                    Temps par coup
-                  </span>
-                </div>
-                <span className="text-xs font-mono text-[var(--accent-fuchsia)] bg-[var(--accent-fuchsia)]/10 px-2 py-1 rounded">
-                  {moveTime >= 60 ? `${moveTime / 60}m` : `${moveTime}s`}
-                </span>
-              </div>
-              <div className="grid grid-cols-5 gap-2">
-                {moveTimeOptions.map((opt) => (
+                <div className="grid grid-cols-2 gap-2">
                   <button
-                    key={opt.value}
-                    onClick={() => setMoveTime(opt.value)}
+                    onClick={() => setGameMode("TIME")}
                     className={`py-2 rounded-xl text-xs font-bold transition-all border ${
-                      moveTime === opt.value
-                        ? "bg-[var(--accent-fuchsia)] border-[var(--accent-fuchsia)] text-white shadow-lg shadow-fuchsia-900/20"
+                      gameMode === "TIME"
+                        ? "bg-[var(--accent-amber)] border-[var(--accent-amber)] text-white shadow-lg shadow-amber-900/20"
                         : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
                     }`}
                   >
-                    {opt.label}
+                    Limite de Temps
                   </button>
-                ))}
+                  <button
+                    onClick={() => setGameMode("SCORE")}
+                    className={`py-2 rounded-xl text-xs font-bold transition-all border ${
+                      gameMode === "SCORE"
+                        ? "bg-[var(--accent-emerald)] border-[var(--accent-emerald)] text-white shadow-lg shadow-emerald-900/20"
+                        : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
+                    }`}
+                  >
+                    Objectif Score
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* Conditional: Total Game Duration or Target Score */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                      Taille de grille
+                    </span>
+                  </div>
+                  <span className="text-xs font-mono text-[var(--accent-cyan)] bg-[var(--accent-cyan)]/10 px-2 py-1 rounded">
+                    {gridSize}×{gridSize}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {gridSizeOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setGridSize(clampGridSize(opt.value))}
+                      className={`py-2 rounded-xl text-xs font-bold transition-all border ${
+                        gridSize === opt.value
+                          ? "bg-[var(--accent-cyan)] border-[var(--accent-cyan)] text-white shadow-lg shadow-cyan-900/20"
+                          : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
+                      }`}
+                    >
+                      <div className="flex flex-col leading-tight">
+                        <span>{opt.label}</span>
+                        <span className="text-[10px] opacity-70">
+                          {opt.hint}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="bg-[var(--bg-surface)]/40 border border-[var(--border-primary)] rounded-2xl p-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min={19}
+                      max={201}
+                      step={2}
+                      value={gridSize}
+                      onChange={(e) =>
+                        setGridSize(clampGridSize(e.target.value))
+                      }
+                      className="flex-1"
+                    />
+                    <input
+                      type="number"
+                      min={19}
+                      max={201}
+                      value={gridSize}
+                      onChange={(e) =>
+                        setGridSize(clampGridSize(e.target.value))
+                      }
+                      className="w-24 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl px-3 py-2 text-sm font-mono font-bold text-[var(--text-primary)]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Move Time Limit */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ClockIcon className="w-4 h-4 text-[var(--text-muted)]" />
+                    <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                      Temps par coup
+                    </span>
+                  </div>
+                  <span className="text-xs font-mono text-[var(--accent-fuchsia)] bg-[var(--accent-fuchsia)]/10 px-2 py-1 rounded">
+                    {moveTime >= 60 ? `${moveTime / 60}m` : `${moveTime}s`}
+                  </span>
+                </div>
+                <div className="grid grid-cols-5 gap-2">
+                  {moveTimeOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setMoveTime(opt.value)}
+                      className={`py-2 rounded-xl text-xs font-bold transition-all border ${
+                        moveTime === opt.value
+                          ? "bg-[var(--accent-fuchsia)] border-[var(--accent-fuchsia)] text-white shadow-lg shadow-fuchsia-900/20"
+                          : "bg-[var(--bg-surface)]/50 border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--text-secondary)]"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Conditional: Total Game Duration or Target Score */}
               {gameMode === "TIME" ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -265,6 +340,7 @@ export const GameConfigModal = ({ isOpen, onClose, onConfirm, mode }) => {
                   gameDurationLimit: totalTime,
                   gameMode: gameMode,
                   targetScore: targetScore,
+                  gridSize,
                   type: mode === "ai" ? "AI" : visibility,
                 })
               }

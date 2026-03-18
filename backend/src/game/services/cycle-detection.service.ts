@@ -102,7 +102,6 @@ export class CycleDetectionService {
     try {
       const polygon = PolygonUtil.cycleToPoly(cycle);
       const bounds = PolygonUtil.getBounds(cycle);
-      let pointsAnalyzed = 0;
 
       // Scan only within bounding box
       for (
@@ -115,8 +114,6 @@ export class CycleDetectionService {
           y <= Math.min(gridSize - 1, bounds.maxY);
           y++
         ) {
-          pointsAnalyzed++;
-
           if (getCellState(x, y) === opponent) {
             const isInside = PolygonUtil.isPointInPolygon([x, y], polygon);
 

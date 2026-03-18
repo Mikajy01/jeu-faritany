@@ -17,7 +17,7 @@ export class GameController {
   createRoom(@Body() createGameDto: CreateGameDto) {
     const type = createGameDto.type || 'public';
     // userId est optionnel ici car il sera lié lors du join WebSocket
-    return this.gameRoomService.createRoom(type as any, createGameDto);
+    return this.gameRoomService.createRoom(type, createGameDto);
   }
 
   @Post('join-public')
@@ -76,9 +76,10 @@ export class GameController {
     return {
       gameId: gameState.gameId,
       gameType: gameState.gameType,
+      gridSize: gameState.gridSize,
       playerCount: room.getPlayerCount(),
       gameActive: gameState.gameActive,
-      gameOver: !gameState.gameActive && gameState.grid.size > 0, // ✨ Simple déduction si fini
+      gameOver: !!gameState.gameOver,
     };
   }
 }

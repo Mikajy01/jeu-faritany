@@ -84,7 +84,7 @@ export class GameManagerService {
   /**
    * Handle move timeout (Pass turn)
    */
-  private async handleMoveTimeout(gameId: string) {
+  private handleMoveTimeout(gameId: string) {
     const result = this.gameRoomService.forcePassTurn(gameId);
 
     if (result.success) {
@@ -103,7 +103,7 @@ export class GameManagerService {
         room.getGameState().gameType === 'AI' &&
         room.getGameState().currentPlayer === 2
       ) {
-        await this.triggerAiMove(gameId);
+        this.triggerAiMove(gameId);
       }
     }
   }
@@ -165,7 +165,7 @@ export class GameManagerService {
   /**
    * Handle making a move (called from gateway)
    */
-  async makeMove(gameId: string, socketId: string, moveDto: MakeMoveDto) {
+  makeMove(gameId: string, socketId: string, moveDto: MakeMoveDto) {
     const room = this.gameRoomService.getRoom(gameId);
     if (!room) return { success: false, reason: 'Room not found' };
 
@@ -207,7 +207,7 @@ export class GameManagerService {
           result.gameState.gameType === 'AI' &&
           result.gameState.currentPlayer === 2
         ) {
-          await this.triggerAiMove(gameId);
+          this.triggerAiMove(gameId);
         }
       }
       return result;
@@ -219,7 +219,7 @@ export class GameManagerService {
   /**
    * Orchestrate AI move
    */
-  async triggerAiMove(gameId: string) {
+  triggerAiMove(gameId: string) {
     const room = this.gameRoomService.getRoom(gameId);
     if (!room) return;
 
@@ -228,8 +228,8 @@ export class GameManagerService {
       const difficulty = 5; // Default to expert
 
       const aiMove = this.aiService.calculateNextMove(
-        gameState as any,
-        GAME_CONSTANTS.GRID_SIZE,
+        gameState,
+        room.gridSize,
         difficulty,
       );
 
@@ -253,15 +253,15 @@ export class GameManagerService {
         });
       } else {
         this.logger.error(`AI failed to move: ${result.reason}`);
-        await this.handleAiMoveFailure(gameId);
+        this.handleAiMoveFailure(gameId);
       }
     } catch (error) {
       this.logger.error('Error during AI execution', error);
-      await this.handleAiMoveFailure(gameId);
+      this.handleAiMoveFailure(gameId);
     }
   }
 
-  private async handleAiMoveFailure(gameId: string) {
+  private handleAiMoveFailure(gameId: string) {
     const room = this.gameRoomService.getRoom(gameId);
     if (!room) return;
 
@@ -270,8 +270,8 @@ export class GameManagerService {
       this.logger.warn('AI retrying with random move');
 
       const aiMove = this.aiService.calculateNextMove(
-        gameState as any,
-        GAME_CONSTANTS.GRID_SIZE,
+        gameState,
+        room.gridSize,
         2,
       );
 

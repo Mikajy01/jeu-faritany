@@ -1,3 +1,5 @@
+import { DEFAULT_GRID_SIZE } from "../../constants/game";
+
 export class GameState {
   grid: Map<string, any>;
   move: any;
@@ -5,6 +7,7 @@ export class GameState {
   playerId: number | null;
   gameId: string | null;
   code: string | null;
+  gridSize: number;
   scores: any;
   gameActive: boolean;
   gameOver: any;
@@ -23,6 +26,8 @@ export class GameState {
     this.playerId = data.playerId || null;
     this.gameId = data.gameId || null;
     this.code = data.code || null;
+    this.gridSize =
+      typeof data.gridSize === "number" ? data.gridSize : DEFAULT_GRID_SIZE;
     this.scores = data.scores || { player1: 0, player2: 0 };
     this.gameActive = data.gameActive ?? false;
     this.gameOver = data.gameOver || null;

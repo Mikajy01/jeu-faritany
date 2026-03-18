@@ -19,6 +19,8 @@ export class GameStateEntity {
   gameId: string;
   joinCode?: string;
 
+  gridSize: number;
+
   deadStones: Set<string>;
   capturedAreas: Territory[];
   gameOver: boolean; // ✨ Nouveau
@@ -43,7 +45,7 @@ export class GameStateEntity {
     lastMoveTimestamp: number; // timestamp
   };
 
-  constructor() {
+  constructor(gridSize: number = GAME_CONSTANTS.GRID_SIZE) {
     this.grid = {};
 
     this.currentPlayer = 1;
@@ -55,6 +57,7 @@ export class GameStateEntity {
 
     this.gameType = 'public';
     this.gameId = this.generateGameId();
+    this.gridSize = gridSize;
 
     this.deadStones = new Set();
     this.capturedAreas = [];
@@ -104,6 +107,7 @@ export class GameStateEntity {
       gameType: this.gameType,
       gameId: this.gameId,
       joinCode: this.joinCode,
+      gridSize: this.gridSize,
 
       timeControl: { ...this.timeControl },
       clock: { ...this.clock },

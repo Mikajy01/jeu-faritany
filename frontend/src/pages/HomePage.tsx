@@ -106,10 +106,7 @@ export default function HomePage() {
           break;
 
         case "ai":
-          // Pour l'IA, on ne passe plus par le paramétrage (timers inutiles)
-          navigate("/ai", {
-            state: { settings: { type: "AI" } },
-          });
+          setConfigModal({ isOpen: true, mode: "ai" });
           break;
 
         case "join":

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { CoordinateUtil } from '../../common/utils/coordinate.util';
 import { GAME_CONSTANTS } from 'src/common/constants/game.constant';
 import { Coordinate } from '../interfaces/game.interface';
+import { GameStateEntity } from '../entities/game-state.entity';
 
 export interface Territory {
   points: Coordinate[];
@@ -161,7 +162,7 @@ export class HybridTerritoryService {
    * Mise à jour simplifiée : remplace updateActiveCycles
    */
   updateCapturedAreas(
-    gameState: any,
+    gameState: GameStateEntity,
     getCellState: (x: number, y: number) => number,
     gridSize: number,
   ): void {

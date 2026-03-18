@@ -1,6 +1,6 @@
 import React from "react";
 import { Line, Group } from "react-konva";
-import { COLORS, GRID_SIZE } from "../../constants/game";
+import { COLORS, DEFAULT_GRID_SIZE } from "../../constants/game";
 import {
   gridToPixel,
   coordToKey,
@@ -8,7 +8,7 @@ import {
 } from "../../utils/coordinates";
 
 export const CapturedAreas = React.memo(
-  ({ capturedAreas, grid, isDarkMode = true }: any) => {
+  ({ capturedAreas, grid, isDarkMode = true, gridSize = DEFAULT_GRID_SIZE }: any) => {
     return (
       <Group>
         {capturedAreas.map((area, areaIndex) => {
@@ -75,9 +75,9 @@ export const CapturedAreas = React.memo(
                   const adjY = stone.y + dy;
                   if (
                     adjX >= 0 &&
-                    adjX < GRID_SIZE &&
+                    adjX < gridSize &&
                     adjY >= 0 &&
-                    adjY < GRID_SIZE
+                    adjY < gridSize
                   ) {
                     const adjKey = coordToKey(adjX, adjY);
                     if (grid.get(adjKey) === area.owner) {

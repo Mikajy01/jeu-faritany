@@ -3,9 +3,22 @@ import { GameRoomEntity } from '../entities/game-room.entity';
 import { GameLogicService } from './game-logic.service';
 import { ScoringService } from './scoring.service';
 import { MoveResult, FinalScore } from '../interfaces/game.interface';
-import { CoordinateUtil } from '../../common/utils/coordinate.util';
 import { GAME_CONSTANTS } from 'src/common/constants/game.constant';
 import { CreateGameDto } from '../dto/create-game.dto';
+
+export type PublicRoomInfo = {
+  gameId: string;
+  playerCount: number;
+  gameActive: boolean;
+  createdAt: number;
+  gridSize: number;
+  timeControl: {
+    moveTimeLimit: number;
+    gameDurationLimit: number;
+    gameMode: 'TIME' | 'SCORE';
+    targetScore: number;
+  };
+};
 
 @Injectable()
 export class GameRoomService {
@@ -28,7 +41,9 @@ export class GameRoomService {
     ownerSocketId?: string,
     ownerUserId?: string,
   ) {
-    const newRoom = new GameRoomEntity();
+    const newRoom = new GameRoomEntity(
+      createGameDto.gridSize ?? GAME_CONSTANTS.GRID_SIZE,
+    );
     const gameState = newRoom.getGameState();
 
     gameState.gameType = type;
@@ -168,10 +183,32 @@ export class GameRoomService {
     gameId: string;
     isNew: boolean;
   } {
+    const desiredGridSize = createGameDto.gridSize ?? GAME_CONSTANTS.GRID_SIZE;
+    const desiredTimeControl = {
+      moveTimeLimit:
+        createGameDto.moveTimeLimit ?? GAME_CONSTANTS.DEFAULT_MOVE_TIME_LIMIT,
+      gameDurationLimit:
+        createGameDto.gameDurationLimit ??
+        GAME_CONSTANTS.DEFAULT_TOTAL_TIME_LIMIT,
+      gameMode: createGameDto.gameMode ?? GAME_CONSTANTS.DEFAULT_GAME_MODE,
+      targetScore:
+        createGameDto.targetScore ?? GAME_CONSTANTS.DEFAULT_TARGET_SCORE,
+    } as const;
+
     for (const [roomId, room] of this.gameRooms) {
       if (
         room.getPlayerCount() === 1 &&
-        room.getGameState().gameType === 'public'
+        room.getGameState().gameType === 'public' &&
+        !room.getGameState().gameOver &&
+        room.gridSize === desiredGridSize &&
+        room.getGameState().timeControl.moveTimeLimit ===
+          desiredTimeControl.moveTimeLimit &&
+        room.getGameState().timeControl.gameDurationLimit ===
+          desiredTimeControl.gameDurationLimit &&
+        room.getGameState().timeControl.gameMode ===
+          desiredTimeControl.gameMode &&
+        room.getGameState().timeControl.targetScore ===
+          desiredTimeControl.targetScore
       ) {
         let playerNumber = 2;
         if (socketId) {
@@ -355,8 +392,8 @@ export class GameRoomService {
   /**
    * Get all active public rooms
    */
-  getPublicRooms() {
-    const rooms: any[] = []; // ✨ Ajout du type any[] pour éviter l'erreur 'never'
+  getPublicRooms(): PublicRoomInfo[] {
+    const rooms: PublicRoomInfo[] = [];
     for (const [gameId, room] of this.gameRooms) {
       const state = room.getGameState();
       if (state.gameType === 'public' && !state.gameOver) {
@@ -365,6 +402,8 @@ export class GameRoomService {
           playerCount: room.getPlayerCount(),
           gameActive: state.gameActive,
           createdAt: state.clock.gameStartTime,
+          gridSize: room.gridSize,
+          timeControl: { ...state.timeControl },
         });
       }
     }

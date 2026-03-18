@@ -185,43 +185,7 @@ export const InfoPanel = ({
             </div>
           )}
 
-          {/* Player Cards */}
-          <div
-            className={`grid ${isMobile ? "grid-cols-2" : "grid-cols-2"} gap-2 lg:gap-3`}
-          >
-            <PlayerCard
-              player={1}
-              score={gameState.scores?.player1 || 0}
-              isCurrentPlayer={gameState.currentPlayer === 1}
-              isActive={gameState.gameActive}
-              isYou={gameState.playerId === 1}
-              timeLeft={
-                gameState.currentPlayer === 1
-                  ? gameState.clock?.remainingMoveTime || 0
-                  : gameState.timeControl?.moveTimeLimit || 0
-              }
-              showTimer={isMobile}
-              compact={true}
-              minimalist={isMobile}
-              isOnline={gameState.player1Online}
-            />
-            <PlayerCard
-              player={2}
-              score={gameState.scores?.player2 || 0}
-              isCurrentPlayer={gameState.currentPlayer === 2}
-              isActive={gameState.gameActive}
-              isYou={gameState.playerId === 2}
-              timeLeft={
-                gameState.currentPlayer === 2
-                  ? gameState.clock?.remainingMoveTime || 0
-                  : gameState.timeControl?.moveTimeLimit || 0
-              }
-              showTimer={isMobile}
-              compact={true}
-              minimalist={isMobile}
-              isOnline={gameState.player2Online}
-            />
-          </div>
+          {/* Player Cards removed from InfoPanel to avoid redundancy with GameBoard */}
 
           <div className="flex gap-3">
             {isGameOver ? (

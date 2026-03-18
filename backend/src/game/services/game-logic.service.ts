@@ -28,7 +28,7 @@ export class GameLogicService {
     const now = Date.now();
 
     // Validate move
-    const validation = this.validateMove(x, y, player, gameState);
+    const validation = this.validateMove(x, y, player, gameState, gridSize);
     if (!validation.valid) {
       return { success: false, reason: validation.reason };
     }
@@ -187,9 +187,14 @@ export class GameLogicService {
     y: number,
     player: number,
     gameState: GameStateEntity,
+    gridSize: number,
   ): { valid: boolean; reason?: string } {
     if (!gameState.gameActive) {
       return { valid: false, reason: 'Game not active' };
+    }
+
+    if (!CoordinateUtil.isValid(x, y, gridSize)) {
+      return { valid: false, reason: 'Invalid position' };
     }
 
     if (gameState.currentPlayer !== player) {
@@ -241,12 +246,7 @@ export class GameLogicService {
           gridSize,
         );
 
-        const revivedStones = this.reviveAlliedStones(
-          longestCycle,
-          player,
-          gameState,
-          gridSize,
-        );
+        this.reviveAlliedStones(longestCycle, player, gameState, gridSize);
 
         captured.forEach((stone) => {
           gameState.deadStones.add(stone);
@@ -301,7 +301,6 @@ export class GameLogicService {
 
     deadStonesToRevive.forEach((key) => {
       gameState.deadStones.delete(key);
-      const coord = CoordinateUtil.fromKey(key);
     });
 
     return revivedStones;

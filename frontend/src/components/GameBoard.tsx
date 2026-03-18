@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Stage, Layer, Rect } from "react-konva";
-import { STAGE_WIDTH, STAGE_HEIGHT } from "../constants/game";
+import { DEFAULT_GRID_SIZE, getStageSize } from "../constants/game";
 import { GridLines } from "./canvas/GridLines";
 import { CapturedAreas } from "./canvas/CapturedAreas";
 import { GameStones } from "./canvas/GameStones";
@@ -17,15 +17,18 @@ export const GameBoard = ({
   onStageClick,
   onStageMouseMove,
   onStageMouseLeave,
+  isInfoPanelOpen,
 }) => {
   const { gameType, moveTimeLimit } = useGameContext();
   const { theme: currentTheme } = useTheme();
   const stageRef = useRef(null);
   const containerRef = useRef(null);
-  const [scale, setScale] = useState(1);
+  const gridSize = gameState?.gridSize || DEFAULT_GRID_SIZE;
+  const { width: stageWidth, height: stageHeight } = getStageSize(gridSize);
+  const [scales, setScales] = useState({ x: 1, y: 1 });
   const [dimensions, setDimensions] = useState({
-    width: STAGE_WIDTH,
-    height: STAGE_HEIGHT,
+    width: stageWidth,
+    height: stageHeight,
   });
 
   const isDarkMode = currentTheme === "dark";
@@ -43,27 +46,40 @@ export const GameBoard = ({
     const updateSize = () => {
       if (!containerRef.current) return;
 
-      // Desktop : pas de scaling, taille originale
-      if (window.innerWidth >= 1024) {
-        setScale(1);
-        setDimensions({ width: STAGE_WIDTH, height: STAGE_HEIGHT });
-        return;
-      }
-
-      // Mobile/Tablet : scaling pour s'adapter
       const container = containerRef.current;
       const containerWidth = container.clientWidth;
-      // On retire plus d'espace pour tenir compte des PlayerCards et de la Légende
-      const containerHeight = window.innerHeight - 280; // Augmenter encore la marge verticale
+      const isDesktop = window.innerWidth >= 1024;
 
-      const scaleX = (containerWidth - 64) / STAGE_WIDTH; // Plus de padding horizontal (64px au lieu de 32px)
-      const scaleY = containerHeight / STAGE_HEIGHT;
-      const newScale = Math.min(scaleX, scaleY, 0.85); // Max 85% pour garder plus de marge (au lieu de 90%)
+      // On desktop, we have PlayerCards on the left (approx 260px + gaps)
+      // And InfoPanel on the right if open (400px + gaps)
+      const horizontalMargin = isDesktop ? (isInfoPanelOpen ? 720 : 320) : 40;
 
-      setScale(newScale);
+      const containerHeight = isDesktop
+        ? window.innerHeight - 100 // Less margin for height on desktop
+        : window.innerHeight - 280;
+
+      const availableWidth = containerWidth - horizontalMargin;
+      const availableHeight = containerHeight;
+
+      // FORCE FULL WIDTH: The scale X is determined solely by available width
+      const scaleX = availableWidth / stageWidth;
+
+      // Scale Y can be different to allow the grid to grow vertically
+      // We still want it to fit the height if possible, or at least not be squashed
+      const scaleY = availableHeight / stageHeight;
+
+      // Update scales independently to allow non-square cells if requested
+      // But usually, we want to maintain aspect ratio unless explicitly told to fill height too
+      // User said: "hauteur peut être autant de fois plus grand que la largeur"
+      // and "pour la largeur je veux que ça occupe toute la place"
+
+      const finalScaleX = scaleX;
+      const finalScaleY = isDesktop ? scaleX : scaleY; // On desktop, keep cells square but fill width. On mobile, fit both.
+
+      setScales({ x: finalScaleX, y: finalScaleY });
       setDimensions({
-        width: STAGE_WIDTH * newScale,
-        height: STAGE_HEIGHT * newScale,
+        width: stageWidth * finalScaleX,
+        height: stageHeight * finalScaleY,
       });
     };
 
@@ -75,7 +91,37 @@ export const GameBoard = ({
       window.removeEventListener("resize", updateSize);
       clearTimeout(timeout);
     };
-  }, []);
+  }, [stageWidth, stageHeight, isInfoPanelOpen]); // Added isInfoPanelOpen here
+
+  const handleStageClickWithScales = useCallback(
+    (e) => {
+      const stage = e.target.getStage();
+      const pos = stage.getRelativePointerPosition();
+      if (!pos) return;
+
+      // Simulate getPointerPosition for onStageClick
+      const originalGetPointerPosition = stage.getPointerPosition;
+      stage.getPointerPosition = () => pos;
+      onStageClick(e);
+      stage.getPointerPosition = originalGetPointerPosition;
+    },
+    [onStageClick],
+  );
+
+  const handleStageMouseMoveWithScales = useCallback(
+    (e) => {
+      const stage = e.target.getStage();
+      const pos = stage.getRelativePointerPosition();
+      if (!pos) return;
+
+      // Simulate getPointerPosition for onStageMouseMove
+      const originalGetPointerPosition = stage.getPointerPosition;
+      stage.getPointerPosition = () => pos;
+      onStageMouseMove(e);
+      stage.getPointerPosition = originalGetPointerPosition;
+    },
+    [onStageMouseMove],
+  );
 
   // Calculer la distance entre deux touches
   const getDistance = (touch1, touch2) => {
@@ -133,8 +179,8 @@ export const GameBoard = ({
           // Limiter le pan
           const maxX = 0;
           const maxY = 0;
-          const minX = -(STAGE_WIDTH * scale * newScale - dimensions.width);
-          const minY = -(STAGE_HEIGHT * scale * newScale - dimensions.height);
+          const minX = -(stageWidth * scales.x * newScale - dimensions.width);
+          const minY = -(stageHeight * scales.y * newScale - dimensions.height);
 
           newPos.x = Math.max(minX, Math.min(maxX, newPos.x));
           newPos.y = Math.max(minY, Math.min(maxY, newPos.y));
@@ -146,7 +192,7 @@ export const GameBoard = ({
 
       lastTouchDistance.current = dist;
     },
-    [stageScale, stagePosition, scale, dimensions],
+    [stageScale, stagePosition, scales, dimensions, stageWidth, stageHeight],
   );
 
   // Gérer le double-tap pour placer un point
@@ -182,10 +228,10 @@ export const GameBoard = ({
           // Calculer les coordonnées réelles en tenant compte du zoom et du pan
           const x =
             (touch.clientX - stageBox.left - stagePosition.x) /
-            (scale * stageScale);
+            (scales.x * stageScale);
           const y =
             (touch.clientY - stageBox.top - stagePosition.y) /
-            (scale * stageScale);
+            (scales.y * stageScale);
 
           // Créer un objet event modifié pour Konva
           const modifiedEvent = {
@@ -219,7 +265,7 @@ export const GameBoard = ({
         };
       }
     },
-    [onStageClick, scale, stageScale, stagePosition],
+    [onStageClick, scales, stageScale, stagePosition],
   );
 
   // Réinitialiser le zoom
@@ -231,9 +277,9 @@ export const GameBoard = ({
   return (
     <div
       ref={containerRef}
-      className="relative flex flex-col items-center select-none w-full"
+      className="relative flex flex-col lg:flex-row items-center lg:items-center justify-center select-none w-full h-full gap-4 lg:gap-12"
     >
-      {/* Mobile Player Cards (Minimalist at top) */}
+      {/* Mobile Player Cards (At top, horizontal) */}
       <div className="lg:hidden w-full mb-4 px-2">
         <div className="flex justify-center gap-1.5 w-full max-w-[360px] mx-auto">
           <div className="flex-1 min-w-0">
@@ -273,8 +319,8 @@ export const GameBoard = ({
         </div>
       </div>
 
-      {/* Player Cards (Desktop only, positioned around the board) */}
-      <div className="hidden lg:flex w-full justify-between items-center mb-8 gap-4 px-4">
+      {/* Desktop Player Cards (Vertical at left) */}
+      <div className="hidden lg:flex flex-col gap-6 w-[240px] flex-shrink-0">
         <PlayerCard
           player={1}
           score={gameState.scores?.player1 || 0}
@@ -286,15 +332,16 @@ export const GameBoard = ({
               ? gameState.clock?.remainingMoveTime || 0
               : gameState.timeControl?.moveTimeLimit || 0
           }
-          compact={true}
+          compact={false}
           showTimer={gameType !== "AI"}
           isOnline={gameState.player1Online}
         />
-        <div className="flex flex-col items-center">
-          <div className="text-[10px] uppercase tracking-[0.3em] font-black text-[var(--text-muted)] mb-1">
+        <div className="flex items-center justify-center gap-4 py-2">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[var(--border-primary)] to-transparent" />
+          <div className="text-[10px] uppercase tracking-[0.3em] font-black text-[var(--text-muted)]">
             vs
           </div>
-          <div className="h-8 w-px bg-gradient-to-b from-transparent via-[var(--border-primary)] to-transparent" />
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[var(--border-primary)] to-transparent" />
         </div>
         <PlayerCard
           player={2}
@@ -307,111 +354,123 @@ export const GameBoard = ({
               ? gameState.clock?.remainingMoveTime || 0
               : gameState.timeControl?.moveTimeLimit || 0
           }
-          compact={true}
+          compact={false}
           showTimer={gameType !== "AI"}
           isOnline={gameState.player2Online}
         />
+
+        {/* Legend & Game Info moved here for better desktop space usage */}
+        <div className="mt-4 flex flex-col gap-4">
+          <Legend
+            stageScale={stageScale}
+            onZoomChange={setStageScale}
+            onResetZoom={resetZoom}
+          />
+          {gameType !== "AI" && (
+            <div className="flex flex-col gap-2 bg-[var(--bg-surface)] backdrop-blur-md px-4 py-3 rounded-2xl border border-[var(--border-primary)]">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-widest font-bold text-[var(--text-muted)]">
+                  Temps / Tour
+                </span>
+                <span className="text-sm font-mono font-bold text-[var(--accent-fuchsia)]">
+                  {moveTimeLimit}s
+                </span>
+              </div>
+              <div className="h-px w-full bg-[var(--border-primary)] opacity-50" />
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-widest font-bold text-[var(--text-muted)]">
+                  Mode
+                </span>
+                <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">
+                  {gameType === "AI" ? "IA" : "Joueur"}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="relative rounded-3xl p-2 bg-[var(--bg-card)] backdrop-blur-sm border border-[var(--border-primary)] shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden group">
-        {/* Animated board border */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent-fuchsia)]/10 via-transparent to-[var(--accent-cyan)]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
+      {/* Board Container (Flex-1 to take all remaining space) */}
+      <div className="flex-1 flex flex-col items-center justify-center min-w-0 h-full">
+        <div className="relative rounded-3xl p-2 bg-[var(--bg-card)] backdrop-blur-sm border border-[var(--border-primary)] shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden group flex items-center justify-center">
+          {/* Animated board border */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent-fuchsia)]/10 via-transparent to-[var(--accent-cyan)]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
 
-        <Stage
-          width={dimensions.width}
-          height={dimensions.height}
-          scaleX={scale * stageScale}
-          scaleY={scale * stageScale}
-          x={stagePosition.x}
-          y={stagePosition.y}
-          onClick={window.innerWidth >= 1024 ? onStageClick : undefined}
-          onTouchEnd={handleDoubleTap}
-          onTouchMove={handleTouchMove}
-          onMouseMove={onStageMouseMove}
-          onMouseLeave={onStageMouseLeave}
-          ref={stageRef}
-          style={{
-            cursor: window.innerWidth >= 1024 ? "crosshair" : "grab",
-            touchAction: "none",
-            maxWidth: "100%",
-            display: "block",
-          }}
-          draggable={window.innerWidth < 1024 && stageScale > 1}
-          onDragEnd={(e) => {
-            if (window.innerWidth < 1024) {
-              setStagePosition({ x: e.target.x(), y: e.target.y() });
-            }
-          }}
-        >
-          <Layer>
-            {/* Board Base adaptive to theme */}
-            <Rect
-              width={STAGE_WIDTH}
-              height={STAGE_HEIGHT}
-              fill={boardBg}
-              shadowBlur={20}
-              shadowColor={isDarkMode ? "black" : "#cbd5e1"}
-              shadowOpacity={0.5}
-            />
-            <GridLines color={gridColor} />
-          </Layer>
+          <Stage
+            width={dimensions.width}
+            height={dimensions.height}
+            scaleX={scales.x * stageScale}
+            scaleY={scales.y * stageScale}
+            x={stagePosition.x}
+            y={stagePosition.y}
+            onClick={handleStageClickWithScales}
+            onTouchEnd={handleDoubleTap}
+            onTouchMove={handleTouchMove}
+            onMouseMove={handleStageMouseMoveWithScales}
+            onMouseLeave={onStageMouseLeave}
+            ref={stageRef}
+            style={{
+              cursor: window.innerWidth >= 1024 ? "crosshair" : "grab",
+              touchAction: "none",
+              maxWidth: "100%",
+              display: "block",
+            }}
+            draggable={window.innerWidth < 1024 && stageScale > 1}
+            onDragEnd={(e) => {
+              if (window.innerWidth < 1024) {
+                setStagePosition({ x: e.target.x(), y: e.target.y() });
+              }
+            }}
+          >
+            <Layer>
+              <Rect
+                width={stageWidth}
+                height={stageHeight}
+                fill={boardBg}
+                shadowBlur={20}
+                shadowColor={isDarkMode ? "black" : "#cbd5e1"}
+                shadowOpacity={0.5}
+              />
+              <GridLines color={gridColor} gridSize={gridSize} />
+            </Layer>
 
-          <Layer>
-            <CapturedAreas
-              capturedAreas={gameState.capturedAreas}
-              grid={gameState.grid}
-              isDarkMode={isDarkMode}
-            />
-            <GameStones
-              grid={gameState.grid}
-              lastMove={gameState.move}
-              animationFrame={animationFrame}
-              isDarkMode={isDarkMode}
-            />
-          </Layer>
+            <Layer>
+              <CapturedAreas
+                capturedAreas={gameState.capturedAreas}
+                grid={gameState.grid}
+                isDarkMode={isDarkMode}
+                gridSize={gridSize}
+              />
+              <GameStones
+                grid={gameState.grid}
+                lastMove={gameState.move}
+                animationFrame={animationFrame}
+                isDarkMode={isDarkMode}
+              />
+            </Layer>
 
-          <Layer>
-            <HoverEffect
-              hoveredCoord={hoveredCoord}
-              currentPlayer={gameState.currentPlayer}
-              gameActive={gameState.gameActive}
-              playerId={gameState.playerId}
-              animationFrame={animationFrame}
-              grid={gameState.grid}
-              isDarkMode={isDarkMode}
-            />
-          </Layer>
-        </Stage>
-      </div>
+            <Layer>
+              <HoverEffect
+                hoveredCoord={hoveredCoord}
+                currentPlayer={gameState.currentPlayer}
+                gameActive={gameState.gameActive}
+                playerId={gameState.playerId}
+                animationFrame={animationFrame}
+                grid={gameState.grid}
+                isDarkMode={isDarkMode}
+              />
+            </Layer>
+          </Stage>
+        </div>
 
-      {/* Legend & Game Info */}
-      <div className="mt-8 w-full flex flex-col sm:flex-row items-center justify-between gap-6 px-4">
-        <Legend
-          stageScale={stageScale}
-          onZoomChange={setStageScale}
-          onResetZoom={resetZoom}
-        />
-        {gameType !== "AI" && (
-          <div className="flex items-center gap-4 bg-[var(--bg-surface)] backdrop-blur-md px-6 py-3 rounded-2xl border border-[var(--border-primary)]">
-            <div className="flex flex-col items-center">
-              <span className="text-[10px] uppercase tracking-widest font-bold text-[var(--text-muted)]">
-                Temps / Tour
-              </span>
-              <span className="text-lg font-mono font-bold text-[var(--accent-fuchsia)]">
-                {moveTimeLimit}s
-              </span>
-            </div>
-            <div className="w-px h-8 bg-[var(--border-primary)]" />
-            <div className="flex flex-col items-center">
-              <span className="text-[10px] uppercase tracking-widest font-bold text-[var(--text-muted)]">
-                Mode
-              </span>
-              <span className="text-sm font-bold text-[var(--text-secondary)] uppercase">
-                {gameType === "AI" ? "IA" : "Joueur"}
-              </span>
-            </div>
-          </div>
-        )}
+        {/* Legend for Mobile only (since it's now in the sidebar for desktop) */}
+        <div className="lg:hidden mt-6 w-full px-4">
+          <Legend
+            stageScale={stageScale}
+            onZoomChange={setStageScale}
+            onResetZoom={resetZoom}
+          />
+        </div>
       </div>
     </div>
   );

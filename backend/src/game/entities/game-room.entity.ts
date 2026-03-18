@@ -10,11 +10,11 @@ export class GameRoomEntity {
 
   private readonly logger = new Logger(GameRoomEntity.name);
 
-  constructor() {
+  constructor(gridSize: number = GAME_CONSTANTS.GRID_SIZE) {
     this.players = new Map();
     this.userToPlayer = new Map();
-    this.gameState = new GameStateEntity();
-    this.gridSize = GAME_CONSTANTS.GRID_SIZE;
+    this.gameState = new GameStateEntity(gridSize);
+    this.gridSize = gridSize;
   }
 
   /**

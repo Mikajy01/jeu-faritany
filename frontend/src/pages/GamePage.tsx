@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAnimation } from "../hooks/useAnimation";
 import { useGameContext } from "../context/GameContext";
 import { useTheme } from "../context/ThemeContext";
+import { DEFAULT_GRID_SIZE } from "../constants/game";
 import {
   pixelToGrid,
   coordToKey,
@@ -61,8 +62,12 @@ export default function GamePage() {
   const isConnectedStatus = connectionStatus === "connected";
   const animationFrame = useAnimation();
   const [hoveredCoord, setHoveredCoord] = useState(null);
-  const [showInfoPanel, setShowInfoPanel] = useState(false);
+  const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(
+    () => window.innerWidth >= 1024,
+  );
+  const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 1024);
   const [roomCode, setRoomCode] = useState(null);
+  const gridSize = gameState?.gridSize || DEFAULT_GRID_SIZE;
 
   // --- LOCAL TIMER FOR HEADER ---
   const [headerTime, setHeaderTime] = useState(0);
@@ -111,26 +116,26 @@ export default function GamePage() {
   // Fermer le drawer quand on clique en dehors (mobile uniquement)
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (window.innerWidth >= 1024) return;
+      if (isDesktop) return;
       if (
-        showInfoPanel &&
+        isInfoPanelOpen &&
         !e.target.closest(".info-panel-drawer") &&
         !e.target.closest(".menu-toggle-btn")
       ) {
-        setShowInfoPanel(false);
+        setIsInfoPanelOpen(false);
       }
     };
 
-    if (showInfoPanel) {
+    if (isInfoPanelOpen && !isDesktop) {
       document.addEventListener("mousedown", handleClickOutside);
       return () =>
         document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [showInfoPanel]);
+  }, [isInfoPanelOpen, isDesktop]);
 
   // Bloquer le scroll du body quand le drawer est ouvert (mobile uniquement)
   useEffect(() => {
-    if (showInfoPanel && window.innerWidth < 1024) {
+    if (isInfoPanelOpen && !isDesktop) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "auto";
@@ -138,7 +143,15 @@ export default function GamePage() {
     return () => {
       document.body.style.overflow = "auto";
     };
-  }, [showInfoPanel]);
+  }, [isInfoPanelOpen, isDesktop]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const handleStageClick = useCallback(
     (e) => {
@@ -149,13 +162,14 @@ export default function GamePage() {
         return;
 
       const stage = e.target.getStage();
+      // Konva's getPointerPosition() returns coordinates already adjusted for scale/offset of the Stage
       const pos = stage.getPointerPosition();
 
       if (!pos) return;
 
       const gridCoord = pixelToGrid(pos.x, pos.y);
 
-      if (!isValidGridPosition(gridCoord.x, gridCoord.y)) return;
+      if (!isValidGridPosition(gridCoord.x, gridCoord.y, gridSize)) return;
 
       const coordKey = coordToKey(gridCoord.x, gridCoord.y);
       if (gameState.grid.has(coordKey)) return;
@@ -169,6 +183,7 @@ export default function GamePage() {
       gameState.currentPlayer,
       gameState.grid,
       makeOptimisticMove,
+      gridSize,
     ],
   );
 
@@ -189,7 +204,7 @@ export default function GamePage() {
 
       const gridCoord = pixelToGrid(pos.x, pos.y);
 
-      if (!isValidGridPosition(gridCoord.x, gridCoord.y)) {
+      if (!isValidGridPosition(gridCoord.x, gridCoord.y, gridSize)) {
         if (hoveredCoord) setHoveredCoord(null);
         return;
       }
@@ -207,6 +222,7 @@ export default function GamePage() {
       gameState.playerId,
       gameState.currentPlayer,
       hoveredCoord,
+      gridSize,
     ],
   );
 
@@ -220,7 +236,7 @@ export default function GamePage() {
 
   const handleBackToMenu = useCallback(() => {
     leaveRoom();
-    setShowInfoPanel(false);
+    setIsInfoPanelOpen(false);
     navigate("/");
   }, [leaveRoom, navigate]);
 
@@ -235,7 +251,7 @@ export default function GamePage() {
         <header className="lg:hidden flex items-center justify-between p-4 bg-[var(--bg-secondary)]/40 backdrop-blur-md border-b border-[var(--border-primary)]">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setShowInfoPanel(true)}
+              onClick={() => setIsInfoPanelOpen(true)}
               className="menu-toggle-btn p-2.5 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] transition-colors"
               aria-label="Ouvrir le menu"
             >
@@ -289,101 +305,99 @@ export default function GamePage() {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 p-4 lg:p-8 flex items-center justify-center">
-          <div className="w-full max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 items-start justify-center">
-            {/* Left Side: Game Board */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
-              className="flex-1 w-full flex flex-col items-center justify-center lg:min-h-[80vh]"
-            >
-              <div className="relative group">
-                {/* Decorative glow behind the board */}
-                <div className="absolute -inset-4 bg-gradient-to-r from-[var(--accent-fuchsia)]/10 via-purple-500/10 to-[var(--accent-cyan)]/10 blur-3xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity duration-700 -z-10" />
+        <main className="flex-1 px-4 lg:px-8 py-4 lg:py-6 flex flex-col lg:flex-row gap-6 items-center justify-center overflow-hidden relative">
+          {/* Left Side: Game Board (always takes available space) */}
+          <motion.div
+            layout
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="flex-1 w-full h-full flex flex-col items-center justify-center lg:min-h-[85vh] relative"
+          >
+            <GameBoard
+              gameState={gameState}
+              hoveredCoord={hoveredCoord}
+              animationFrame={animationFrame}
+              onStageClick={handleStageClick}
+              onStageMouseMove={handleStageMouseMove}
+              onStageMouseLeave={handleStageMouseLeave}
+              isInfoPanelOpen={isInfoPanelOpen}
+            />
+          </motion.div>
 
-                <GameBoard
-                  gameState={gameState}
-                  hoveredCoord={hoveredCoord}
-                  animationFrame={animationFrame}
-                  onStageClick={handleStageClick}
-                  onStageMouseMove={handleStageMouseMove}
-                  onStageMouseLeave={handleStageMouseLeave}
-                />
-              </div>
-            </motion.div>
+          {/* Right Side: Info Panel (Desktop) / Drawer (Mobile) */}
+          <AnimatePresence mode="popLayout">
+            {isInfoPanelOpen && (
+              <motion.aside
+                initial={!isDesktop ? { x: "100%" } : { opacity: 0, x: 50, width: 0 }}
+                animate={!isDesktop ? { x: 0 } : { opacity: 1, x: 0, width: 400 }}
+                exit={!isDesktop ? { x: "100%" } : { opacity: 0, x: 50, width: 0 }}
+                transition={{ type: "spring", damping: 30, stiffness: 200 }}
+                className={`
+                  info-panel-drawer
+                  fixed lg:relative inset-y-0 right-0 z-50
+                  w-[85vw] sm:w-96 lg:w-[400px]
+                  bg-[var(--bg-secondary)]/90 lg:bg-[var(--bg-card)]/40 backdrop-blur-2xl lg:backdrop-blur-xl
+                  border-l lg:border border-[var(--border-primary)] lg:rounded-3xl
+                  p-6 lg:p-6 flex flex-col lg:my-2
+                `}
+              >
+                {/* Header/Close toggle for Desktop & Mobile */}
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold text-[var(--text-primary)]">
+                    {isDesktop ? "Infos" : "Tableau de Bord"}
+                  </h2>
+                  <button
+                    onClick={() => setIsInfoPanelOpen(false)}
+                    className="p-2 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                    title="Réduire le panneau"
+                  >
+                    <X className="w-5 h-5 text-[var(--text-muted)]" />
+                  </button>
+                </div>
 
-            {/* Right Side: Info Panel (Desktop) / Drawer (Mobile) */}
-            <AnimatePresence>
-              {(showInfoPanel || window.innerWidth >= 1024) && (
-                <motion.aside
-                  initial={
-                    window.innerWidth < 1024
-                      ? { x: "-100%" }
-                      : { opacity: 0, x: 20 }
-                  }
-                  animate={
-                    window.innerWidth < 1024 ? { x: 0 } : { opacity: 1, x: 0 }
-                  }
-                  exit={
-                    window.innerWidth < 1024
-                      ? { x: "-100%" }
-                      : { opacity: 0, x: 20 }
-                  }
-                  transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                  className={`
-                    info-panel-drawer
-                    fixed lg:relative inset-y-0 left-0 z-50
-                    w-[85vw] sm:w-96 lg:w-[400px]
-                    bg-[var(--bg-secondary)]/90 lg:bg-transparent backdrop-blur-2xl lg:backdrop-blur-none
-                    border-r border-[var(--border-primary)] lg:border-0
-                    p-6 lg:p-0 flex flex-col
-                  `}
-                >
-                  {/* Close button (Mobile only) */}
-                  <div className="lg:hidden flex items-center justify-between mb-8">
-                    <h2 className="text-xl font-bold text-[var(--text-primary)]">
-                      Tableau de Bord
-                    </h2>
-                    <button
-                      onClick={() => setShowInfoPanel(false)}
-                      className="p-2 bg-[var(--bg-surface)] rounded-lg hover:bg-[var(--bg-secondary)] transition-colors"
-                    >
-                      <X className="w-5 h-5 text-[var(--text-muted)]" />
-                    </button>
-                  </div>
+                <div className="flex-1 lg:max-h-[80vh] overflow-y-auto custom-scrollbar">
+                  <InfoPanel
+                    connectionStatus={connectionStatus}
+                    gameState={gameState}
+                    hoveredCoord={hoveredCoord}
+                    gameLog={gameLog}
+                    onResetGame={resetGame}
+                    onBackToMenu={handleBackToMenu}
+                    onResign={resignGame}
+                    roomCode={roomCode}
+                  />
+                </div>
+              </motion.aside>
+            )}
+          </AnimatePresence>
 
-                  <div className="flex-1 lg:max-h-[85vh] overflow-y-auto lg:overflow-visible custom-scrollbar">
-                    <InfoPanel
-                      connectionStatus={connectionStatus}
-                      gameState={gameState}
-                      hoveredCoord={hoveredCoord}
-                      gameLog={gameLog}
-                      onResetGame={resetGame}
-                      onBackToMenu={handleBackToMenu}
-                      onResign={resignGame} // ✨ Passer la fonction
-                      roomCode={roomCode}
-                    />
-                  </div>
-                </motion.aside>
-              )}
-            </AnimatePresence>
-
-            {/* Overlay (Mobile Only) */}
-            <AnimatePresence>
-              {showInfoPanel && window.innerWidth < 1024 && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setShowInfoPanel(false)}
-                  className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity"
-                />
-              )}
-            </AnimatePresence>
-          </div>
+          {/* Overlay (Mobile Only) */}
+          <AnimatePresence>
+            {isInfoPanelOpen && !isDesktop && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsInfoPanelOpen(false)}
+                className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity"
+              />
+            )}
+          </AnimatePresence>
         </main>
       </div>
+
+      {isDesktop && !isInfoPanelOpen && (
+        <button
+          type="button"
+          onClick={() => setIsInfoPanelOpen(true)}
+          className="fixed right-4 top-24 z-40 p-2.5 bg-[var(--bg-surface)]/80 backdrop-blur-xl rounded-2xl border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] transition-colors shadow-lg"
+          aria-label="Ouvrir le tableau de bord"
+          title="Ouvrir le tableau de bord"
+        >
+          <LayoutDashboard className="w-5 h-5 text-[var(--accent-fuchsia)]" />
+        </button>
+      )}
 
       <GameOverModal
         isOpen={!!gameState.gameOver}
