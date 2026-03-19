@@ -62,9 +62,7 @@ export default function GamePage() {
   const isConnectedStatus = connectionStatus === "connected";
   const animationFrame = useAnimation();
   const [hoveredCoord, setHoveredCoord] = useState(null);
-  const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(
-    () => window.innerWidth >= 1024,
-  );
+  const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 1024);
   const [roomCode, setRoomCode] = useState(null);
   const gridSize = gameState?.gridSize || DEFAULT_GRID_SIZE;

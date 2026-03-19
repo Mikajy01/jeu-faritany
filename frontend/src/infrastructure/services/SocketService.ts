@@ -45,6 +45,7 @@ class SocketService {
       "gameOver",
       "playerStatusUpdate",
       "playerDisconnected",
+      "playerLeftRoom",
       "publicRoomsUpdate",
       "gameCreated",
       "createError",

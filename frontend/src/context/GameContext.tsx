@@ -61,25 +61,42 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  const addLogEntry = useCallback((message) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setGameLog((prev) => [...prev.slice(-50), `${timestamp}: ${message}`]);
-  }, []);
+  // --- NOTIFICATION DE TOUR ---
+  const lastNotifiedTurnRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!gameState?.gameActive || !gameState?.playerId) {
+      lastNotifiedTurnRef.current = null;
+      return;
+    }
 
-  const maybeNotifyYourTurn = useCallback(
-    (prev, next) => {
-      if (!prev?.gameActive || !next?.gameActive) return;
-      if (!prev?.playerId || !next?.playerId) return;
-      if (prev.currentPlayer === next.currentPlayer) return;
-      if (next.currentPlayer !== next.playerId) return;
+    const { currentPlayer, playerId } = gameState;
+
+    // Ne notifier que si c'est notre tour ET que le tour a changé depuis la dernière notification
+    if (
+      currentPlayer === playerId &&
+      lastNotifiedTurnRef.current !== currentPlayer
+    ) {
       emitToast({
         title: "À vous de jouer",
         message: "C’est votre tour.",
         durationMs: 2500,
       });
-    },
-    [emitToast],
-  );
+      lastNotifiedTurnRef.current = currentPlayer;
+    } else if (currentPlayer !== playerId) {
+      // Reset quand ce n'est plus notre tour pour permettre la prochaine notification
+      lastNotifiedTurnRef.current = null;
+    }
+  }, [
+    gameState.currentPlayer,
+    gameState.playerId,
+    gameState.gameActive,
+    emitToast,
+  ]);
+
+  const addLogEntry = useCallback((message) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setGameLog((prev) => [...prev.slice(-50), `${timestamp}: ${message}`]);
+  }, []);
 
   // --- INFRASTRUCTURE: API CALLS ---
   const fetchPublicRooms = useCallback(async () => {
@@ -153,7 +170,6 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
           if (data.gameState?.player2Online === undefined) {
             newState.player2Online = prev.player2Online;
           }
-          maybeNotifyYourTurn(prev, newState);
           return newState;
         });
       }),
@@ -193,7 +209,6 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
             newState.move = prev.move;
           }
           // Au démarrage, tout le monde est censé être là
-          maybeNotifyYourTurn(prev, newState);
           return newState;
         });
         if (data.isReconnection) addLogEntry(`🎮 La partie reprend !`);
@@ -215,7 +230,6 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
           if (data.gameState?.player2Online === undefined) {
             newState.player2Online = prev.player2Online;
           }
-          maybeNotifyYourTurn(prev, newState);
           return newState;
         });
       }),
@@ -247,7 +261,6 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
           if (data.gameState?.player2Online === undefined) {
             newState.player2Online = prev.player2Online;
           }
-          maybeNotifyYourTurn(prev, newState);
           return newState;
         });
       }),
@@ -300,6 +313,19 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
         }));
       }),
 
+      socketService.on("playerLeftRoom", (data) => {
+        console.log("👤 Joueur a quitté la salle:", data);
+        addLogEntry(`🚪 ${data.message || "Un joueur a quitté la salle."}`);
+        setGameState((prev) => ({
+          ...prev,
+          player1Left: data.playerNumber === 1 ? true : prev.player1Left,
+          player2Left: data.playerNumber === 2 ? true : prev.player2Left,
+          // S'il quitte, il est aussi considéré hors ligne
+          player1Online: data.playerNumber === 1 ? false : prev.player1Online,
+          player2Online: data.playerNumber === 2 ? false : prev.player2Online,
+        }));
+      }),
+
       socketService.on("playerJoined", (data) => {
         console.log("👤 Joueur rejoint:", data);
         addLogEntry(
@@ -310,6 +336,9 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
           // Si on est 2 en ligne, on s'assure que tout est à true
           player1Online: data.onlineCount === 2 ? true : prev.player1Online,
           player2Online: data.onlineCount === 2 ? true : prev.player2Online,
+          // Reset le statut "a quitté" s'il revient
+          player1Left: data.onlineCount === 2 ? false : prev.player1Left,
+          player2Left: data.onlineCount === 2 ? false : prev.player2Left,
         }));
       }),
 

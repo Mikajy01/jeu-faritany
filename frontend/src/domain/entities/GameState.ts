@@ -16,6 +16,8 @@ export class GameState {
   player2Score: number;
   player1Online: boolean;
   player2Online: boolean;
+  player1Left: boolean;
+  player2Left: boolean;
   timeControl: any;
   clock: any;
 
@@ -36,6 +38,8 @@ export class GameState {
     this.player2Score = data.player2Score || 0;
     this.player1Online = data.player1Online ?? true;
     this.player2Online = data.player2Online ?? true;
+    this.player1Left = data.player1Left ?? false;
+    this.player2Left = data.player2Left ?? false;
     this.timeControl = data.timeControl || {
       moveTimeLimit: 0,
       gameDurationLimit: 0,

@@ -20,11 +20,12 @@ export const GameBoard = ({
   onStageMouseLeave,
   isInfoPanelOpen,
 }) => {
-  const { gameType, moveTimeLimit } = useGameContext();
+  const { gameType } = useGameContext();
   const { theme: currentTheme } = useTheme();
   const stageRef = useRef(null);
   const containerRef = useRef(null);
   const gridSize = gameState?.gridSize || DEFAULT_GRID_SIZE;
+  const moveTimeLimit = gameState?.timeControl?.moveTimeLimit || 30;
   const { width: stageWidth, height: stageHeight } = getStageSize(gridSize);
   const [scales, setScales] = useState({ x: 1, y: 1 });
   const [dimensions, setDimensions] = useState({
@@ -298,6 +299,7 @@ export const GameBoard = ({
               minimalist={true}
               showTimer={gameType !== "AI"}
               isOnline={gameState.player1Online}
+              hasLeft={gameState.player1Left}
             />
           </div>
           <div className="flex-1 min-w-0">
@@ -315,6 +317,7 @@ export const GameBoard = ({
               minimalist={true}
               showTimer={gameType !== "AI"}
               isOnline={gameState.player2Online}
+              hasLeft={gameState.player2Left}
             />
           </div>
         </div>
@@ -352,6 +355,7 @@ export const GameBoard = ({
           compact={false}
           showTimer={gameType !== "AI"}
           isOnline={gameState.player1Online}
+          hasLeft={gameState.player1Left}
         />
         <div className="flex items-center justify-center gap-4 py-2">
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[var(--border-primary)] to-transparent" />
@@ -374,6 +378,7 @@ export const GameBoard = ({
           compact={false}
           showTimer={gameType !== "AI"}
           isOnline={gameState.player2Online}
+          hasLeft={gameState.player2Left}
         />
 
         {/* Legend & Game Info sidebar */}
@@ -411,85 +416,85 @@ export const GameBoard = ({
       <div className="flex-1 h-screen overflow-y-auto overflow-x-hidden custom-scrollbar bg-black/5 relative">
         <div className="flex flex-col items-center justify-center min-h-full p-8 lg:p-16">
           <div className="relative rounded-3xl p-2 bg-[var(--bg-card)] backdrop-blur-sm border border-[var(--border-primary)] shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden group flex items-center justify-center">
-          {/* Animated board border */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent-fuchsia)]/10 via-transparent to-[var(--accent-cyan)]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
+            {/* Animated board border */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent-fuchsia)]/10 via-transparent to-[var(--accent-cyan)]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
 
-          <Stage
-            width={dimensions.width}
-            height={dimensions.height}
-            scaleX={scales.x * stageScale}
-            scaleY={scales.y * stageScale}
-            x={stagePosition.x}
-            y={stagePosition.y}
-            onClick={handleStageClickWithScales}
-            onTouchEnd={handleDoubleTap}
-            onTouchMove={handleTouchMove}
-            onMouseMove={handleStageMouseMoveWithScales}
-            onMouseLeave={onStageMouseLeave}
-            ref={stageRef}
-            style={{
-              cursor: window.innerWidth >= 1024 ? "crosshair" : "grab",
-              touchAction: "none",
-              maxWidth: "100%",
-              display: "block",
-            }}
-            draggable={window.innerWidth < 1024 && stageScale > 1}
-            onDragEnd={(e) => {
-              if (window.innerWidth < 1024) {
-                setStagePosition({ x: e.target.x(), y: e.target.y() });
-              }
-            }}
-          >
-            <Layer>
-              <Rect
-                width={stageWidth}
-                height={stageHeight}
-                fill={boardBg}
-                shadowBlur={20}
-                shadowColor={isDarkMode ? "black" : "#cbd5e1"}
-                shadowOpacity={0.5}
-              />
-              <GridLines color={gridColor} gridSize={gridSize} />
-            </Layer>
+            <Stage
+              width={dimensions.width}
+              height={dimensions.height}
+              scaleX={scales.x * stageScale}
+              scaleY={scales.y * stageScale}
+              x={stagePosition.x}
+              y={stagePosition.y}
+              onClick={handleStageClickWithScales}
+              onTouchEnd={handleDoubleTap}
+              onTouchMove={handleTouchMove}
+              onMouseMove={handleStageMouseMoveWithScales}
+              onMouseLeave={onStageMouseLeave}
+              ref={stageRef}
+              style={{
+                cursor: window.innerWidth >= 1024 ? "crosshair" : "grab",
+                touchAction: "none",
+                maxWidth: "100%",
+                display: "block",
+              }}
+              draggable={window.innerWidth < 1024 && stageScale > 1}
+              onDragEnd={(e) => {
+                if (window.innerWidth < 1024) {
+                  setStagePosition({ x: e.target.x(), y: e.target.y() });
+                }
+              }}
+            >
+              <Layer>
+                <Rect
+                  width={stageWidth}
+                  height={stageHeight}
+                  fill={boardBg}
+                  shadowBlur={20}
+                  shadowColor={isDarkMode ? "black" : "#cbd5e1"}
+                  shadowOpacity={0.5}
+                />
+                <GridLines color={gridColor} gridSize={gridSize} />
+              </Layer>
 
-            <Layer>
-              <CapturedAreas
-                capturedAreas={gameState.capturedAreas}
-                grid={gameState.grid}
-                isDarkMode={isDarkMode}
-                gridSize={gridSize}
-              />
-              <GameStones
-                grid={gameState.grid}
-                lastMove={gameState.move}
-                // animationFrame={animationFrame}
-                isDarkMode={isDarkMode}
-              />
-            </Layer>
+              <Layer>
+                <CapturedAreas
+                  capturedAreas={gameState.capturedAreas}
+                  grid={gameState.grid}
+                  isDarkMode={isDarkMode}
+                  gridSize={gridSize}
+                />
+                <GameStones
+                  grid={gameState.grid}
+                  lastMove={gameState.move}
+                  // animationFrame={animationFrame}
+                  isDarkMode={isDarkMode}
+                />
+              </Layer>
 
-            <Layer>
-              <HoverEffect
-                hoveredCoord={hoveredCoord}
-                currentPlayer={gameState.currentPlayer}
-                gameActive={gameState.gameActive}
-                playerId={gameState.playerId}
-                animationFrame={animationFrame}
-                grid={gameState.grid}
-                isDarkMode={isDarkMode}
-              />
-            </Layer>
-          </Stage>
+              <Layer>
+                <HoverEffect
+                  hoveredCoord={hoveredCoord}
+                  currentPlayer={gameState.currentPlayer}
+                  gameActive={gameState.gameActive}
+                  playerId={gameState.playerId}
+                  animationFrame={animationFrame}
+                  grid={gameState.grid}
+                  isDarkMode={isDarkMode}
+                />
+              </Layer>
+            </Stage>
+          </div>
+
+          {/* Legend for Mobile only (since it's now in the sidebar for desktop) */}
+          <div className="lg:hidden mt-6 w-full px-4">
+            <Legend
+              stageScale={stageScale}
+              onZoomChange={setStageScale}
+              onResetZoom={resetZoom}
+            />
+          </div>
         </div>
-
-        {/* Legend for Mobile only (since it's now in the sidebar for desktop) */}
-        <div className="lg:hidden mt-6 w-full px-4">
-          <Legend
-            stageScale={stageScale}
-            onZoomChange={setStageScale}
-            onResetZoom={resetZoom}
-          />
-        </div>
-      </div>
       </div>
     </div>
   );
