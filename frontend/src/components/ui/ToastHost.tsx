@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export function ToastHost() {
   const [toasts, setToasts] = useState([]);
@@ -36,31 +37,35 @@ export function ToastHost() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed z-[9998] pointer-events-none bottom-4 left-4 lg:bottom-6 lg:left-6 flex flex-col gap-2 w-[min(360px,calc(100vw-2rem))]">
-      {toasts.map((t) => (
-        <div
-          key={t.id}
-          role="status"
-          aria-live="polite"
-          className={`pointer-events-auto rounded-2xl border bg-[var(--bg-surface)]/85 backdrop-blur-xl shadow-lg shadow-black/10 p-4 text-[var(--text-primary)] ${
-            t.variant === "danger"
-              ? "border-rose-500/30"
-              : "border-[var(--border-primary)]"
-          }`}
-        >
-          {t.title ? (
-            <div className="text-xs font-black uppercase tracking-widest opacity-80">
-              {t.title}
-            </div>
-          ) : null}
-          {t.message ? (
-            <div className="mt-1 text-sm font-medium text-[var(--text-secondary)]">
-              {t.message}
-            </div>
-          ) : null}
-        </div>
-      ))}
+    <div className="fixed z-[9999] pointer-events-none top-4 right-4 lg:top-6 lg:right-6 flex flex-col gap-2 w-[min(360px,calc(100vw-2rem))] items-end">
+      <AnimatePresence>
+        {toasts.map((t) => (
+          <motion.div
+            key={t.id}
+            initial={{ opacity: 0, x: 20, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 20, scale: 0.9 }}
+            role="status"
+            aria-live="polite"
+            className={`pointer-events-auto rounded-2xl border bg-[var(--bg-surface)]/85 backdrop-blur-xl shadow-lg shadow-black/10 p-4 text-[var(--text-primary)] ${
+              t.variant === "danger"
+                ? "border-rose-500/30"
+                : "border-[var(--border-primary)]"
+            }`}
+          >
+            {t.title ? (
+              <div className="text-xs font-black uppercase tracking-widest opacity-80">
+                {t.title}
+              </div>
+            ) : null}
+            {t.message ? (
+              <div className="mt-1 text-sm font-medium text-[var(--text-secondary)]">
+                {t.message}
+              </div>
+            ) : null}
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }
-

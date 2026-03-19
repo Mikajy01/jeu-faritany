@@ -12,7 +12,8 @@ import {
 import { InfoPanel } from "../components/InfoPanel";
 import { GameBoard } from "../components/GameBoard";
 import { GameOverModal } from "../components/ui/GameOverModal";
-import { Menu, X, LayoutDashboard, Flag, Clock, Zap } from "lucide-react";
+import { ConfirmModal } from "../components/ui/ConfirmModal";
+import { X, LayoutDashboard, Flag, Clock, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Helper to format time
@@ -65,6 +66,8 @@ export default function GamePage() {
   const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 1024);
   const [roomCode, setRoomCode] = useState(null);
+  const [showResignConfirm, setShowResignConfirm] = useState(false);
+  const [showBackConfirm, setShowBackConfirm] = useState(false);
   const gridSize = gameState?.gridSize || DEFAULT_GRID_SIZE;
 
   // --- LOCAL TIMER FOR HEADER ---
@@ -292,7 +295,7 @@ export default function GamePage() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => resignGame()}
+                onClick={() => setShowResignConfirm(true)}
                 className="p-2 bg-[var(--accent-rose)]/10 hover:bg-[var(--accent-rose)]/20 text-[var(--accent-rose)] rounded-xl border border-[var(--accent-rose)]/30 transition-colors"
                 title="Abandonner"
               >
@@ -345,6 +348,8 @@ export default function GamePage() {
                     onBackToMenu={handleBackToMenu}
                     onResign={resignGame}
                     roomCode={roomCode}
+                    setShowResignConfirm={setShowResignConfirm}
+                    setShowBackConfirm={setShowBackConfirm}
                   />
                 </div>
               </motion.aside>
@@ -406,6 +411,34 @@ export default function GamePage() {
         onReset={resetGame}
         onBackToMenu={handleBackToMenu}
         rematchRequestedBy={rematchRequestedBy}
+      />
+
+      {/* Modals rendered outside of sidebar/drawer for correct centering */}
+      <ConfirmModal
+        isOpen={showResignConfirm}
+        title="Abandonner ?"
+        message="Voulez-vous vraiment abandonner cette partie ? Votre adversaire sera déclaré vainqueur immédiatement."
+        confirmLabel="Oui, Abandonner"
+        cancelLabel="Non, Continuer"
+        onConfirm={() => {
+          resignGame();
+          setShowResignConfirm(false);
+        }}
+        onCancel={() => setShowResignConfirm(false)}
+        variant="danger"
+      />
+      <ConfirmModal
+        isOpen={showBackConfirm}
+        title="Quitter la partie ?"
+        message="Voulez-vous vraiment quitter la partie ? Elle sera perdue si vous ne revenez pas à temps."
+        confirmLabel="Oui, Quitter"
+        cancelLabel="Non, Rester"
+        onConfirm={() => {
+          handleBackToMenu();
+          setShowBackConfirm(false);
+        }}
+        onCancel={() => setShowBackConfirm(false)}
+        variant="warning"
       />
     </div>
   );

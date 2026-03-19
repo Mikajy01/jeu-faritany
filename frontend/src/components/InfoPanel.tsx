@@ -1,7 +1,6 @@
 import React from "react";
 import { ConnectionStatus } from "./ui/ConnectionStatus";
 import { GameLog } from "./ui/GameLog";
-import { ConfirmModal } from "./ui/ConfirmModal";
 import {
   ArrowLeft,
   Copy,
@@ -23,11 +22,10 @@ export const InfoPanel = ({
   onBackToMenu,
   onResign,
   roomCode,
+  setShowResignConfirm,
+  setShowBackConfirm,
 }) => {
-  const { gameType } = useGameContext();
   const [copied, setCopied] = React.useState(false);
-  const [showResignConfirm, setShowResignConfirm] = React.useState(false);
-  const [showBackConfirm, setShowBackConfirm] = React.useState(false);
 
   const handleCopyRoomCode = () => {
     if (roomCode) {
@@ -215,28 +213,6 @@ export const InfoPanel = ({
           © MR-BUG 2026
         </p>
       </div>
-
-      {/* Modals */}
-      <ConfirmModal
-        isOpen={showResignConfirm}
-        title="Abandonner ?"
-        message="Voulez-vous vraiment abandonner cette partie ? Votre adversaire sera déclaré vainqueur immédiatement."
-        confirmLabel="Oui, Abandonner"
-        cancelLabel="Non, Continuer"
-        onConfirm={() => { onResign(); setShowResignConfirm(false); }}
-        onCancel={() => setShowResignConfirm(false)}
-        variant="danger"
-      />
-      <ConfirmModal
-        isOpen={showBackConfirm}
-        title="Quitter la partie ?"
-        message="Voulez-vous vraiment quitter la partie ? Elle sera perdue si vous ne revenez pas à temps."
-        confirmLabel="Oui, Quitter"
-        cancelLabel="Non, Rester"
-        onConfirm={() => { onBackToMenu(); setShowBackConfirm(false); }}
-        onCancel={() => setShowBackConfirm(false)}
-        variant="warning"
-      />
     </div>
   );
 };
